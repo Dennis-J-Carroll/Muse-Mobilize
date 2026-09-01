@@ -17,6 +17,7 @@ type Card = {
   tone: string;
   icon: React.ReactNode;
   wide?: boolean;
+  launch?: () => void;
   items: (s: ReturnType<typeof useStore.getState>) => Item[];
 };
 
@@ -30,6 +31,7 @@ const agentItem = (label: string, agentId: string): Item => ({
 });
 const soon = (label: string): Item => ({ label, soon: true });
 const canonItem = (): Item => ({ label: 'Canon & continuity', run: () => useStore.getState().openPane('canon', { title: 'Canon' }) });
+const openCharacters = () => useStore.getState().openPane('characters', { title: 'Cast', region: 'main', focus: true });
 
 const newDoc = (title: string, kind: 'manuscript' | 'notes' | 'canon' | 'outline'): Item => ({
   label: title,
@@ -55,8 +57,9 @@ const CARDS: Card[] = [
     ],
   },
   {
-    key: 'characters', title: 'Characters', blurb: 'Build rich, memorable characters.', tone: 'blue',
+    key: 'characters', title: 'Characters', blurb: 'Bring your cast into focus.', tone: 'blue',
     icon: <Icon.Users />,
+    launch: openCharacters,
     items: (s) => [
       canonItem(),
       ...s.agents.filter((a) => a.role === 'character').map((a) => agentItem(`${a.name} (character agent)`, a.id)),
@@ -238,13 +241,20 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           <div key={c.key} className={`card-slot ${c.wide ? 'wide' : ''}`}>
             <button
               className={`card tone-${c.tone} ${open === c.key ? 'is-open' : ''}`}
-              onClick={() => setOpen(open === c.key ? null : c.key)}
+              onClick={() => {
+                if (c.launch) {
+                  c.launch();
+                  setOpen(null);
+                } else {
+                  setOpen(open === c.key ? null : c.key);
+                }
+              }}
             >
               <span className="card-icon">{c.icon}</span>
               <span className="card-title">{c.title}</span>
               <span className="card-blurb">{c.blurb}</span>
             </button>
-            {open === c.key && <Launcher card={c} onClose={() => setOpen(null)} />}
+            {!c.launch && open === c.key && <Launcher card={c} onClose={() => setOpen(null)} />}
           </div>
         ))}
       </div>

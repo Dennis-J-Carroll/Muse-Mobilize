@@ -5,6 +5,7 @@ import { AgentPane } from '../panes/AgentPane';
 import { EventsPane } from '../panes/EventsPane';
 import { ReviewPane } from '../panes/ReviewPane';
 import { CanonPane } from '../panes/CanonPane';
+import { CharactersPane } from '../panes/CharactersPane';
 import type { Pane } from '../types';
 import * as Icon from './icons';
 
@@ -28,6 +29,8 @@ function PaneBody({ pane }: { pane: Pane }) {
       return <ReviewPane />;
     case 'canon':
       return <CanonPane />;
+    case 'characters':
+      return <CharactersPane pane={pane} />;
     default:
       return <div className="pane-body">Unknown pane type.</div>;
   }

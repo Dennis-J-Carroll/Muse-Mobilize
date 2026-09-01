@@ -9,6 +9,7 @@ import {
   createCanonFact,
   readCanon,
   renderCanonContext,
+  updateCanonEntity,
   updateCanonFact,
 } from '../src/canon.js';
 
@@ -58,6 +59,34 @@ test('unknown entity type is rejected before corrupting portable canon', async (
     createCanonEntity(projectDir, { type: 'person' as CanonEntityType, name: 'Kiala' }),
     /entity type must be one of/,
   );
+});
+
+test('character profile and sensory subtags persist through updates', async (t) => {
+  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-canon-'));
+  t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
+
+  const kiala = await createCanonEntity(projectDir, {
+    type: 'character',
+    name: 'Kiala',
+    character: {
+      categories: ['protagonist', 'active cast'],
+      attributes: { role: 'envoy', pronouns: 'she/her', age: '', goals: ['Find her brother'], fears: [] },
+      physical: { description: 'Council-worn travel clothes.', distinguishingFeatures: [], clothing: ['grey cloak'] },
+      senses: {
+        vision: { summary: 'Reads rooms quickly.', subtags: [{ id: 'low-light', label: 'Low light', value: 'poor', indicator: 'limitation', status: 'canonical', evidence: ['chapter-01'] }] },
+        audio: { summary: '', subtags: [] },
+        proximity: { summary: '', subtags: [] },
+      },
+      references: { images: [] },
+    },
+  });
+
+  await updateCanonEntity(projectDir, kiala.id, {
+    character: { ...kiala.character!, categories: [...kiala.character!.categories, 'council'] },
+  });
+  const reopened = await readCanon(projectDir);
+  assert.deepEqual(reopened.entities[0].character?.categories, ['protagonist', 'active cast', 'council']);
+  assert.equal(reopened.entities[0].character?.senses.vision.subtags[0].indicator, 'limitation');
 });
 
 test('writer explicitly promotes fact status', async (t) => {

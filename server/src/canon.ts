@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { ensureDir, exists } from './paths.js';
+import { ensureDir, exists, slugify } from './paths.js';
 import type {
   CanonEntity,
   CanonEntityType,
@@ -9,6 +9,10 @@ import type {
   CanonFact,
   CanonStatus,
   CanonStore,
+  CharacterProfile,
+  CharacterSense,
+  CharacterSenseSubtag,
+  SenseIndicator,
 } from './types.js';
 
 export const CANON_STATUSES: CanonStatus[] = [
@@ -31,6 +35,63 @@ export const CANON_ENTITY_TYPES: CanonEntityType[] = [
 
 const emptyCanon = (): CanonStore => ({ version: 1, entities: [], facts: [] });
 const canonPath = (projectDir: string) => path.join(projectDir, 'canon', 'canon.json');
+const SENSE_INDICATORS: SenseIndicator[] = ['strength', 'limitation', 'sensitivity', 'preference', 'neutral'];
+
+const strings = (value: unknown): string[] =>
+  (Array.isArray(value) ? value : []).map((item) => String(item).trim()).filter(Boolean);
+
+function cleanSense(value: any): CharacterSense {
+  const subtags: CharacterSenseSubtag[] = (Array.isArray(value?.subtags) ? value.subtags : [])
+    .map((item: any) => {
+      const label = String(item?.label ?? '').trim();
+      if (!label) return null;
+      const status = CANON_STATUSES.includes(item.status) ? item.status : 'proposed';
+      const indicator = SENSE_INDICATORS.includes(item.indicator) ? item.indicator : 'neutral';
+      return {
+        id: String(item.id ?? '').trim() || slugify(label),
+        label,
+        value: String(item.value ?? '').trim(),
+        indicator,
+        status,
+        evidence: strings(item.evidence),
+      } as CharacterSenseSubtag;
+    })
+    .filter((item: CharacterSenseSubtag | null): item is CharacterSenseSubtag => Boolean(item));
+  return { summary: String(value?.summary ?? '').trim(), subtags };
+}
+
+function cleanCharacterProfile(value: any): CharacterProfile {
+  return {
+    categories: strings(value?.categories),
+    attributes: {
+      role: String(value?.attributes?.role ?? '').trim(),
+      pronouns: String(value?.attributes?.pronouns ?? '').trim(),
+      age: String(value?.attributes?.age ?? '').trim(),
+      goals: strings(value?.attributes?.goals),
+      fears: strings(value?.attributes?.fears),
+    },
+    physical: {
+      description: String(value?.physical?.description ?? '').trim(),
+      distinguishingFeatures: strings(value?.physical?.distinguishingFeatures),
+      clothing: strings(value?.physical?.clothing),
+    },
+    senses: {
+      vision: cleanSense(value?.senses?.vision),
+      audio: cleanSense(value?.senses?.audio),
+      proximity: cleanSense(value?.senses?.proximity),
+    },
+    references: {
+      images: (Array.isArray(value?.references?.images) ? value.references.images : [])
+        .map((image: any) => ({
+          id: String(image?.id ?? '').trim() || randomUUID(),
+          src: String(image?.src ?? '').trim(),
+          caption: String(image?.caption ?? '').trim(),
+          tags: strings(image?.tags),
+        }))
+        .filter((image: { src: string }) => Boolean(image.src)),
+    },
+  };
+}
 
 export async function readCanon(projectDir: string): Promise<CanonStore> {
   const file = canonPath(projectDir);
@@ -98,7 +159,7 @@ export async function createCanonFact(
 
 export async function createCanonEntity(
   projectDir: string,
-  input: { type: CanonEntityType; name: string; aliases?: string[]; summary?: string },
+  input: { type: CanonEntityType; name: string; aliases?: string[]; summary?: string; character?: CharacterProfile },
 ): Promise<CanonEntity> {
   const name = String(input.name ?? '').trim();
   if (!name) throw new Error('entity name is required');
@@ -112,6 +173,7 @@ export async function createCanonEntity(
     name,
     aliases: (input.aliases ?? []).map((alias) => alias.trim()).filter(Boolean),
     ...(input.summary?.trim() ? { summary: input.summary.trim() } : {}),
+    ...(input.type === 'character' && input.character ? { character: cleanCharacterProfile(input.character) } : {}),
     createdAt: now,
     updatedAt: now,
   };
@@ -119,6 +181,31 @@ export async function createCanonEntity(
   canon.entities.push(entity);
   await writeCanon(projectDir, canon);
   return entity;
+}
+
+export async function updateCanonEntity(
+  projectDir: string,
+  entityId: string,
+  patch: Partial<Pick<CanonEntity, 'name' | 'aliases' | 'summary' | 'character'>>,
+): Promise<CanonEntity> {
+  const canon = await readCanon(projectDir);
+  const index = canon.entities.findIndex((entity) => entity.id === entityId);
+  if (index === -1) throw new Error(`No such canon entity: ${entityId}`);
+  const current = canon.entities[index];
+  const updated: CanonEntity = {
+    ...current,
+    ...(patch.name !== undefined ? { name: String(patch.name).trim() } : {}),
+    ...(patch.aliases !== undefined ? { aliases: strings(patch.aliases) } : {}),
+    ...(patch.summary !== undefined ? { summary: String(patch.summary).trim() || undefined } : {}),
+    ...(patch.character !== undefined && current.type === 'character'
+      ? { character: cleanCharacterProfile(patch.character) }
+      : {}),
+    updatedAt: new Date().toISOString(),
+  };
+  if (!updated.name) throw new Error('entity name is required');
+  canon.entities[index] = updated;
+  await writeCanon(projectDir, canon);
+  return updated;
 }
 
 export async function updateCanonFact(
@@ -162,7 +249,19 @@ export function renderCanonContext(canon: CanonStore): string {
   const entities = canon.entities.map((entity) => {
     const aliases = entity.aliases.length ? `; aliases: ${entity.aliases.join(', ')}` : '';
     const summary = entity.summary ? ` — ${entity.summary}` : '';
-    return `[ENTITY:${entity.type.toUpperCase()}] ${entity.name}${aliases}${summary}`;
+    const character = entity.character;
+    if (!character) return `[ENTITY:${entity.type.toUpperCase()}] ${entity.name}${aliases}${summary}`;
+    const categories = character.categories.length ? `\n  categories: ${character.categories.join(', ')}` : '';
+    const role = character.attributes.role ? `\n  role: ${character.attributes.role}` : '';
+    const senses = (['vision', 'audio', 'proximity'] as const)
+      .map((key) => {
+        const sense = character.senses[key];
+        const subtags = sense.subtags.map((tag) => `${tag.label}=${tag.value || tag.indicator} [${tag.status}]`).join(', ');
+        if (!sense.summary && !subtags) return '';
+        return `\n  ${key}: ${[sense.summary, subtags].filter(Boolean).join('; ')}`;
+      })
+      .join('');
+    return `[ENTITY:CHARACTER] ${entity.name}${aliases}${summary}${categories}${role}${senses}`;
   });
   const facts = [...canon.facts]
     .sort((a, b) => CONTEXT_STATUS_ORDER[a.status] - CONTEXT_STATUS_ORDER[b.status])

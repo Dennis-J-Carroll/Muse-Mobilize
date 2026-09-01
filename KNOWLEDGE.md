@@ -4,7 +4,7 @@ Last updated: 2026-09-01 by Codex, continuing Opus 5 work.
 
 ## Current goal
 
-Phase 5 continuity and canon vertical slice is complete. Next goal: choose Phase 6 watcher/event-subscription scope or harden Phase 5 before expanding automation.
+Characters domain-workspace first implementation is complete. Next goal: managed local image uploads, relationships, or next distinct Mobilize surface.
 
 ## Repository state
 
@@ -72,13 +72,14 @@ This prevents rapid repeated clicks from issuing duplicate patch requests and in
 - No frontend interaction test harness currently protects patch-card single-flight behavior.
 - Server patch-apply endpoint is safe against changed source text but not idempotent by patch ID; client guard handles normal UI double-submit, while retry-safe API behavior remains future hardening.
 - Canon writes use whole-file JSON replacement; concurrent writers could overwrite each other. Single-user MVP is safe, multi-user work is not.
-- Entity editing/deletion and fact deletion are not exposed yet.
+- Entity deletion and fact deletion are not exposed yet.
 - Character knowledge cutoffs remain Phase 8; current character entities represent stable identity, not revision-specific knowledge.
 - Existing agent YAML is never silently rewritten. Pre-Phase-5 Continuity agents receive canon through role fallback but retain their original prompt text.
+- Character reference images currently use URL/project-path references; managed local file upload is not built yet.
 
 ## Suggested next step
 
-Before Phase 6, add frontend interaction tests and decide watcher authority: notify-only, suggest, or patch. Recommended first watcher: debounced Continuity notification on manuscript save, never automatic manuscript writes.
+Harden Characters with managed local image upload and relationship edges, then use same domain-surface contract for World Building. Sidebar collapse remains important for narrow windows.
 
 ## Phase 5 continuation — 2026-09-01
 
@@ -108,6 +109,37 @@ Before Phase 6, add frontend interaction tests and decide watcher authority: not
 - `npx tsc -p server/tsconfig.json --noEmit`: pass.
 - `git diff --check`: pass.
 
+## Characters workspace continuation — 2026-09-01
+
+### Implemented
+
+- Characters sidebar action launches focused cast workspace directly instead of another menu.
+- Connected portrait cast line with category filters and Add Character entry point.
+- Character dossier: identity, aliases, story function, body, goals, fears, clothing, linked canon facts.
+- Sensory triad: Vision, Audio, Proximity summaries plus strength/limitation/sensitivity/preference subtags.
+- Add/Edit edge drawer with keyboard focus and Escape dismissal.
+- Character profile persistence and entity update API.
+- Formal Draft 2020-12 schema at `schemas/character-profile.schema.json`.
+- Reference image URL/path support with portrait preview.
+- Character-agent and canon-trail handoffs.
+- Container-aware responsive layout based on actual pane width.
+
+### Runtime-confirmed
+
+- `Kiala Test` character enriched with categories, motive, physical traits, three senses, and indicator subtags.
+- Wide browser view rendered cast line, dossier, sensory signals, and canon trail.
+- Add drawer mounted with 20 fields and focused Character name automatically.
+- Narrow `432px` surface switched to stacked dossier with no page-level horizontal overflow.
+- Edit/save roundtrip retained sensory canon status and source evidence.
+
+### Verification
+
+- `npm test`: pass — canon persistence/update coverage included.
+- `npm run build`: pass — frontend TypeScript and Vite production bundle.
+- `npx tsc -p server/tsconfig.json --noEmit`: pass.
+- `jq empty schemas/character-profile.schema.json`: pass.
+- `git diff --check`: pass.
+
 ## Session log
 
 - 2026-09-01 — Opus checkpoint reconstructed from handoff, source, timestamps, and project event log.
@@ -116,3 +148,4 @@ Before Phase 6, add frontend interaction tests and decide watcher authority: not
 - 2026-09-01 — Continuation recorded here for next agent/session.
 - 2026-09-01 — Isolated Git repository initialized; baseline committed at `ccbb660`.
 - 2026-09-01 — Phase 5 canon store, API, Continuity context, and Canon pane implemented through red-green tests.
+- 2026-09-01 — Characters converted from generic launcher menu into focused cast workspace.

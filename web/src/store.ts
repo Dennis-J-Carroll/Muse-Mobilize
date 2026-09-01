@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { api } from './api';
 import type {
-  AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore,
+  AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   MuseEvent, Pane, PaneType, Patch, ProjectManifest,
   ProviderStatus, Region, Selection, SettingsView, WorkspaceDef,
 } from './types';
@@ -46,7 +46,7 @@ interface State {
   editDoc: (docId: string, content: string) => void;
   flushDoc: (docId: string) => Promise<void>;
 
-  openPane: (type: PaneType, opts?: { bindingId?: string; title?: string; region?: Region }) => void;
+  openPane: (type: PaneType, opts?: { bindingId?: string; title?: string; region?: Region; focus?: boolean }) => void;
   closePane: (paneId: string) => void;
   setPaneSize: (paneId: string, mode: Pane['sizeMode']) => void;
   setRightWidth: (w: number) => void;
@@ -61,7 +61,8 @@ interface State {
   cycleAgentState: (agentId: string) => Promise<void>;
 
   loadCanon: () => Promise<void>;
-  createCanonEntity: (input: { type: CanonEntityType; name: string; aliases?: string[]; summary?: string }) => Promise<CanonEntity | null>;
+  createCanonEntity: (input: { type: CanonEntityType; name: string; aliases?: string[]; summary?: string; character?: CharacterProfile }) => Promise<CanonEntity | null>;
+  updateCanonEntity: (entityId: string, patch: Partial<Pick<CanonEntity, 'name' | 'aliases' | 'summary' | 'character'>>) => Promise<CanonEntity | null>;
   createCanonFact: (input: Omit<CanonFact, 'id' | 'createdAt' | 'updatedAt'> & { status?: CanonStatus }) => Promise<CanonFact | null>;
   updateCanonFact: (factId: string, patch: Partial<CanonFact>) => Promise<void>;
 
@@ -79,6 +80,7 @@ const titleFor = (type: PaneType, s: State, bindingId?: string): string => {
   if (type === 'events') return 'Activity';
   if (type === 'review') return 'Review';
   if (type === 'canon') return 'Canon';
+  if (type === 'characters') return 'Cast';
   return s.docs[bindingId ?? '']?.title ?? s.project?.documents.find((d) => d.id === bindingId)?.title ?? 'Document';
 };
 
@@ -179,17 +181,17 @@ export const useStore = create<State>((set, get) => ({
     const bindingId = opts.bindingId;
     const existing = s.panes.find((p) => p.type === type && p.binding?.id === bindingId);
     if (existing) {
-      set({ panes: s.panes.map((p) => (p.id === existing.id ? { ...p, sizeMode: 'normal' } : p)) });
+      set({ panes: s.panes.map((p) => (p.id === existing.id ? { ...p, sizeMode: opts.focus ? 'maximized' : 'normal' } : opts.focus && p.sizeMode === 'maximized' ? { ...p, sizeMode: 'normal' } : p)) });
       return;
     }
-    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' ? 'main' : 'bottom');
+    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' ? 'main' : 'bottom');
     const pane: Pane = {
       id: `pane-${++paneSeq}-${type}-${bindingId ?? ''}`,
       type,
       title: opts.title ?? titleFor(type, s, bindingId),
       region,
       binding: bindingId ? { type: type === 'agent' ? 'agent' : 'document', id: bindingId } : undefined,
-      sizeMode: 'normal',
+      sizeMode: opts.focus ? 'maximized' : 'normal',
     };
     set({ panes: [...s.panes, pane] });
     if (pane.binding?.type === 'document') void get().loadDoc(pane.binding.id);
@@ -338,6 +340,21 @@ export const useStore = create<State>((set, get) => ({
       const { entity } = await api.createCanonEntity(s.project.id, input);
       const canon = get().canon ?? { version: 1, entities: [], facts: [] };
       set({ canon: { ...canon, entities: [...canon.entities, entity] }, notice: `${entity.name} added to canon.` });
+      await get().refreshEvents();
+      return entity;
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
+    }
+  },
+
+  async updateCanonEntity(entityId, patch) {
+    const s = get();
+    if (!s.project) return null;
+    try {
+      const { entity } = await api.updateCanonEntity(s.project.id, entityId, patch);
+      const canon = get().canon;
+      if (canon) set({ canon: { ...canon, entities: canon.entities.map((item) => (item.id === entityId ? entity : item)) }, notice: `${entity.name} updated.` });
       await get().refreshEvents();
       return entity;
     } catch (err: any) {

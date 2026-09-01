@@ -8,7 +8,7 @@ import { runAgent } from './agents.js';
 import { applyPatch } from './protocol.js';
 import { readSettings, writeSettings, redact } from './settings.js';
 import { providerStatus } from './providers/index.js';
-import { createCanonEntity, createCanonFact, readCanon, updateCanonFact } from './canon.js';
+import { createCanonEntity, createCanonFact, readCanon, updateCanonEntity, updateCanonFact } from './canon.js';
 
 const app = express();
 app.use(express.json({ limit: '8mb' }));
@@ -94,6 +94,13 @@ app.post('/api/projects/:id/canon/entities', wrap(async (req, res) => {
   const dir = await projectDir(req.params.id);
   const entity = await createCanonEntity(dir, req.body ?? {});
   await emit(dir, 'canon.entity.created', { entityId: entity.id, type: entity.type, name: entity.name });
+  res.json({ entity });
+}));
+
+app.put('/api/projects/:id/canon/entities/:entityId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const entity = await updateCanonEntity(dir, req.params.entityId, req.body ?? {});
+  await emit(dir, 'canon.entity.updated', { entityId: entity.id, type: entity.type, name: entity.name });
   res.json({ entity });
 }));
 

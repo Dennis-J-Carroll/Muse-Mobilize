@@ -1,5 +1,5 @@
 import type {
-  AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore,
+  AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   DocumentMeta, MuseEvent, Patch, ProjectManifest,
   ProviderStatus, Selection, SettingsView, WorkspaceDef,
 } from './types';
@@ -41,10 +41,15 @@ export const api = {
     }),
 
   canon: (id: string) => req<{ canon: CanonStore }>(`/api/projects/${id}/canon`),
-  createCanonEntity: (id: string, body: { type: CanonEntityType; name: string; aliases?: string[]; summary?: string }) =>
+  createCanonEntity: (id: string, body: { type: CanonEntityType; name: string; aliases?: string[]; summary?: string; character?: CharacterProfile }) =>
     req<{ entity: CanonEntity }>(`/api/projects/${id}/canon/entities`, {
       method: 'POST',
       body: JSON.stringify(body),
+    }),
+  updateCanonEntity: (id: string, entityId: string, patch: Partial<Pick<CanonEntity, 'name' | 'aliases' | 'summary' | 'character'>>) =>
+    req<{ entity: CanonEntity }>(`/api/projects/${id}/canon/entities/${entityId}`, {
+      method: 'PUT',
+      body: JSON.stringify(patch),
     }),
   createCanonFact: (id: string, body: Omit<CanonFact, 'id' | 'createdAt' | 'updatedAt'> & { status?: CanonStatus }) =>
     req<{ fact: CanonFact }>(`/api/projects/${id}/canon/facts`, {

@@ -33,12 +33,58 @@ export interface CanonEvidence {
   end?: number;
 }
 
+export type SenseIndicator = 'strength' | 'limitation' | 'sensitivity' | 'preference' | 'neutral';
+
+export interface CharacterSenseSubtag {
+  id: string;
+  label: string;
+  value: string;
+  indicator: SenseIndicator;
+  status: CanonStatus;
+  evidence: string[];
+}
+
+export interface CharacterSense {
+  summary: string;
+  subtags: CharacterSenseSubtag[];
+}
+
+export interface CharacterReferenceImage {
+  id: string;
+  src: string;
+  caption: string;
+  tags: string[];
+}
+
+export interface CharacterProfile {
+  categories: string[];
+  attributes: {
+    role: string;
+    pronouns: string;
+    age: string;
+    goals: string[];
+    fears: string[];
+  };
+  physical: {
+    description: string;
+    distinguishingFeatures: string[];
+    clothing: string[];
+  };
+  senses: {
+    vision: CharacterSense;
+    audio: CharacterSense;
+    proximity: CharacterSense;
+  };
+  references: { images: CharacterReferenceImage[] };
+}
+
 export interface CanonEntity {
   id: string;
   type: CanonEntityType;
   name: string;
   aliases: string[];
   summary?: string;
+  character?: CharacterProfile;
   createdAt: string;
   updatedAt: string;
 }

@@ -85,9 +85,23 @@ budget:
 Permission is checked in both directions before any agent-to-agent contact, and
 a refused contact is written to the event log.
 
+## Characters workspace
+
+Click **Characters** to bring cast workspace into focus. It is a domain surface,
+not another launcher menu:
+
+- Connected cast line for selecting active story characters.
+- Focused dossier with story function, physical presence, goals, fears, and canon trail.
+- Vision, Audio, and Proximity sensory bands with hierarchical indicators.
+- Category filters such as `active cast`, `council`, or `protagonist`.
+- Edge drawer for creating or revising character profiles and reference-image URLs.
+- Direct handoff to matching character agent or Continuity canon.
+
+Character profile contract lives at `schemas/character-profile.schema.json`.
+
 ## Canon and continuity
 
-Open **Characters → Canon & continuity** or **World Building → Canon & continuity**.
+Open **World Building → Canon & continuity**, or use **open canon trail** inside Characters workspace.
 
 - Create stable character, location, organization, object, event, rule, or lore entities.
 - Capture facts as `idea`, `proposed`, `established`, `canonical`, `retconned`, or `deprecated`.
@@ -104,8 +118,9 @@ missing `canon.json` behaves as empty canon until first entity or fact is captur
 npm test
 ```
 
-Covers canon persistence, character identity, fact promotion, evidence-aware
-context, validation, agent output parsing, patch anchoring, and stale-patch refusal.
+Covers canon persistence, character profiles and sensory metadata, character
+identity, fact promotion, evidence-aware context, validation, agent output
+parsing, patch anchoring, and stale-patch refusal.
 
 ## What is not built yet
 
