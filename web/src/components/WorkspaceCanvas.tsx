@@ -7,6 +7,7 @@ import { ReviewPane } from '../panes/ReviewPane';
 import { CanonPane } from '../panes/CanonPane';
 import { CharactersPane } from '../panes/CharactersPane';
 import { WorldPane } from '../panes/WorldPane';
+import { PlotPane } from '../panes/PlotPane';
 import type { Pane } from '../types';
 import * as Icon from './icons';
 
@@ -34,6 +35,8 @@ function PaneBody({ pane }: { pane: Pane }) {
       return <CharactersPane pane={pane} />;
     case 'world':
       return <WorldPane pane={pane} />;
+    case 'plot':
+      return <PlotPane pane={pane} />;
     default:
       return <div className="pane-body">Unknown pane type.</div>;
   }

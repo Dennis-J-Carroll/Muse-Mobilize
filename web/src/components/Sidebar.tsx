@@ -32,6 +32,7 @@ const soon = (label: string): Item => ({ label, soon: true });
 const canonItem = (): Item => ({ label: 'Canon & continuity', run: () => useStore.getState().openPane('canon', { title: 'Canon' }) });
 const openCharacters = () => useStore.getState().openPane('characters', { title: 'Cast', region: 'main', focus: true });
 const openWorld = () => useStore.getState().openPane('world', { title: 'World Atlas', region: 'main', focus: true });
+const openPlot = () => useStore.getState().openPane('plot', { title: 'Plot Through-line', region: 'main', focus: true });
 
 const newDoc = (title: string, kind: 'manuscript' | 'notes' | 'canon' | 'outline'): Item => ({
   label: title,
@@ -75,8 +76,9 @@ const CARDS: Card[] = [
     items: () => [canonItem(), newDoc('New lore page', 'canon'), soon('Location Builder'), soon('Faction Builder'), soon('World Rules')],
   },
   {
-    key: 'plot', title: 'Plot Outline', blurb: 'Plan your story structure.', tone: 'stone',
+    key: 'plot', title: 'Plot Outline', blurb: 'Braid beats, branches, and reveals.', tone: 'stone',
     icon: <Icon.Chart />,
+    launch: openPlot,
     items: (s) => [
       ...(s.project?.documents.filter((d) => d.kind === 'outline').map((d) => docItem(d.title, d.id)) ?? []),
       ...(s.agents.some((a) => a.id === 'architect') ? [agentItem('Architect', 'architect')] : []),

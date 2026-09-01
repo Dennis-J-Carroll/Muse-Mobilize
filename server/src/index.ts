@@ -9,6 +9,7 @@ import { applyPatch } from './protocol.js';
 import { readSettings, writeSettings, redact } from './settings.js';
 import { providerStatus } from './providers/index.js';
 import { createCanonEntity, createCanonFact, readCanon, updateCanonEntity, updateCanonFact } from './canon.js';
+import { createPlotEdge, createPlotNode, readPlot, updatePlotNode } from './plot.js';
 
 const app = express();
 app.use(express.json({ limit: '8mb' }));
@@ -116,6 +117,33 @@ app.put('/api/projects/:id/canon/facts/:factId', wrap(async (req, res) => {
   const fact = await updateCanonFact(dir, req.params.factId, req.body ?? {});
   await emit(dir, 'canon.fact.updated', { factId: fact.id, status: fact.status });
   res.json({ fact });
+}));
+
+/* -------------------------------------------------------------------- plot */
+
+app.get('/api/projects/:id/plot', wrap(async (req, res) => {
+  res.json({ plot: await readPlot(await projectDir(req.params.id)) });
+}));
+
+app.post('/api/projects/:id/plot/nodes', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const node = await createPlotNode(dir, req.body ?? {});
+  await emit(dir, 'plot.node.created', { nodeId: node.id, title: node.title, kind: node.kind });
+  res.json({ node });
+}));
+
+app.put('/api/projects/:id/plot/nodes/:nodeId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const node = await updatePlotNode(dir, req.params.nodeId, req.body ?? {});
+  await emit(dir, 'plot.node.updated', { nodeId: node.id, title: node.title, kind: node.kind });
+  res.json({ node });
+}));
+
+app.post('/api/projects/:id/plot/edges', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const edge = await createPlotEdge(dir, req.body ?? {});
+  await emit(dir, 'plot.edge.created', { edgeId: edge.id, from: edge.from, to: edge.to, relation: edge.relation });
+  res.json({ edge });
 }));
 
 /* ------------------------------------------------------------------ agents */

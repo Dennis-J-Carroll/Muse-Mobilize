@@ -4,7 +4,7 @@ Last updated: 2026-09-01 by Codex, continuing Opus 5 work.
 
 ## Current goal
 
-Characters and World Building first implementations are complete. Next goal: Plot Outline or Scenes as next distinct Mobilize surface; managed local image upload remains open.
+Characters, World Building, and Plot Outline first implementations are complete. Next distinct Mobilize surface: Scenes. Sidebar collapse, focus modes, and managed local image upload remain open.
 
 ## Repository state
 
@@ -77,10 +77,13 @@ This prevents rapid repeated clicks from issuing duplicate patch requests and in
 - Existing agent YAML is never silently rewritten. Pre-Phase-5 Continuity agents receive canon through role fallback but retain their original prompt text.
 - Character reference images currently use URL/project-path references; managed local file upload is not built yet.
 - World relationship rendering resolves fact values against exact entity names or aliases; richer typed/many-target relationships remain future work.
+- Plot graph writes use whole-file JSON replacement like canon. Single-user MVP is safe; concurrent writers are not.
+- Plot edge deletion, node deletion, automatic layout, and undo are not exposed yet.
+- Plot World anchors deliberately cap at three and reference canon entity IDs; they do not snapshot World data.
 
 ## Suggested next step
 
-Build Plot Outline as expandable branch-and-merge timeline, or harden Characters with managed image upload. Sidebar collapse remains important for narrow windows.
+Build Scenes as granular plot extension with character/theme/beat-sheet links, or implement collapsible sidebar and focus modes. Managed character image upload remains separate hardening work.
 
 ## Continuation handoff — 2026-09-01
 
@@ -89,6 +92,43 @@ Build Plot Outline as expandable branch-and-merge timeline, or harden Characters
 - Prompt anchors next agent to exact project path, implementation checkpoint `44a349b`, committed phase history, acceptance gates, and suggested skills.
 - Repository still has no configured remote. Next agent must use exact local path; commit hash alone cannot transfer changes across machines or containers.
 - Handoff references this knowledge log and commits instead of duplicating implementation detail.
+
+## Plot Outline workspace continuation — 2026-09-01
+
+### Implemented
+
+- Plot Outline sidebar action launches focused Plot Through-line directly instead of another launcher menu.
+- Versioned `plot/plot.json` persistence with beat, turn, reveal, climax, and resolution nodes.
+- Typed story edges: sequence, branch, merge, and cause; missing endpoints reject before persistence.
+- Editorial story-current surface with circular knots, manuscript strips, curved typed threads, section markers, and telling-order columns.
+- Expandable nodes plus floating folio for change summary, goal, conflict, stakes, outcome, private notes, and document binding.
+- Drag and keyboard movement persisted to graph coordinates.
+- Atomic Add/Edit drawer saves full folio, optional document page, and optional World anchors together.
+- World interaction stays sparse: maximum three entity-ID references, pins hidden by default, explicit Atlas locate action, and derived plot backlinks inside World inspector.
+- One-shot cross-workspace focus messages prevent closed folios/inspectors from reopening.
+- Formal Draft 2020-12 schema at `schemas/plot-graph.schema.json`.
+- Container-aware folio bottom sheet and drawer behavior for narrow panes.
+
+### Runtime-confirmed
+
+- `Kiala Test` now contains four representative beats: Council summons Kiala, Confront the Warden, Search the sealed archive, and Brother's message decoded.
+- Two branch threads split public and quiet inquiry paths; two merge threads converge on decoded message reveal.
+- Veyr and Tide Council anchors remain optional. Plot surface showed zero pins by default and two pins after explicit toggle.
+- `Locate in Atlas` centered Veyr; Atlas derived two plot backlinks; Council backlink returned to exact expanded Plot folio.
+- Folio close stayed closed after one-shot focus consumption.
+- Keyboard movement placed branch lanes at separate vertical positions and persisted coordinates.
+- Browser caught and verified fixes for toolbar/folio overlap and unstable loading-array render loop.
+- Narrow `492px` plot pane used bottom-sheet folio with no page-level horizontal overflow.
+- Characters reopened with Kiala dossier; World reopened with Veyr inspector; neither regressed at narrow width.
+
+### Verification
+
+- Plot persistence tests cover branch/merge save, endpoint validation, atomic full-folio creation, folio update, document binding, sparse World anchors, and three-anchor limit.
+- `npm test`: pass — canon, plot, and protocol test files, 0 failures.
+- `npm run build`: pass — frontend TypeScript and Vite production bundle.
+- `npx tsc -p server/tsconfig.json --noEmit`: pass.
+- Browser console: 0 errors in fresh Plot workspace load.
+- `git diff --check`: pass before commit.
 
 ## Phase 5 continuation — 2026-09-01
 
@@ -201,3 +241,4 @@ Build Plot Outline as expandable branch-and-merge timeline, or harden Characters
 - 2026-09-01 — Characters converted from generic launcher menu into focused cast workspace.
 - 2026-09-01 — World Building converted into Living Atlas canvas with canon-backed relationship threads and Pages fallback.
 - 2026-09-01 — Plot Outline continuation prompt prepared and handoff location recorded.
+- 2026-09-01 — Plot Outline converted into braided branch/merge story current with optional World Atlas anchors and backlinks.

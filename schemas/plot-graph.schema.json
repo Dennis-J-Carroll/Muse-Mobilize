@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://muse-mobilize.local/schemas/plot-graph.schema.json",
+  "title": "Muse Mobilize Plot Graph",
+  "description": "Branching story through-line with optional, sparse references into World Atlas.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "nodes", "edges"],
+  "properties": {
+    "version": { "const": 1 },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    }
+  },
+  "$defs": {
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number", "minimum": -100000, "maximum": 100000 },
+        "y": { "type": "number", "minimum": -100000, "maximum": 100000 }
+      }
+    },
+    "details": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["goal", "conflict", "stakes", "outcome", "notes"],
+      "properties": {
+        "goal": { "type": "string" },
+        "conflict": { "type": "string" },
+        "stakes": { "type": "string" },
+        "outcome": { "type": "string" },
+        "notes": { "type": "string" }
+      }
+    },
+    "worldRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entityId", "role"],
+      "properties": {
+        "entityId": { "type": "string", "minLength": 1 },
+        "role": { "enum": ["setting", "constraint", "catalyst", "affected"] }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "summary", "kind", "section", "position", "details", "worldRefs", "createdAt", "updatedAt"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string" },
+        "kind": { "enum": ["beat", "turn", "reveal", "climax", "resolution"] },
+        "section": { "type": "string" },
+        "position": { "$ref": "#/$defs/point" },
+        "details": { "$ref": "#/$defs/details" },
+        "documentId": { "type": "string", "minLength": 1 },
+        "worldRefs": {
+          "type": "array",
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/worldRef" }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from", "to", "relation", "label", "createdAt", "updatedAt"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "from": { "type": "string", "minLength": 1 },
+        "to": { "type": "string", "minLength": 1 },
+        "relation": { "enum": ["sequence", "branch", "merge", "cause"] },
+        "label": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

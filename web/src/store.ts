@@ -3,6 +3,7 @@ import { api } from './api';
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   MuseEvent, Pane, PaneType, Patch, ProjectManifest,
+  PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
   ProviderStatus, Region, Selection, SettingsView, WorkspaceDef, WorldProfile,
 } from './types';
 
@@ -34,6 +35,9 @@ interface State {
   busy: Record<string, boolean>;
   events: MuseEvent[];
   canon: CanonStore | null;
+  plot: PlotGraph | null;
+  worldFocusEntityId: string | null;
+  plotFocusNodeId: string | null;
 
   settings: SettingsView | null;
   providers: ProviderStatus[];
@@ -66,6 +70,14 @@ interface State {
   createCanonFact: (input: Omit<CanonFact, 'id' | 'createdAt' | 'updatedAt'> & { status?: CanonStatus }) => Promise<CanonFact | null>;
   updateCanonFact: (factId: string, patch: Partial<CanonFact>) => Promise<void>;
 
+  loadPlot: () => Promise<void>;
+  createPlotNode: (input: {
+    title: string; summary?: string; kind?: PlotNodeKind; section?: string; position?: { x: number; y: number };
+    details?: Partial<PlotNode['details']>; documentId?: string; worldRefs?: PlotWorldRef[];
+  }) => Promise<PlotNode | null>;
+  updatePlotNode: (nodeId: string, patch: Partial<Pick<PlotNode, 'title' | 'summary' | 'kind' | 'section' | 'position' | 'details' | 'documentId' | 'worldRefs'>>) => Promise<PlotNode | null>;
+  createPlotEdge: (input: { from: string; to: string; relation?: PlotEdgeRelation; label?: string }) => Promise<PlotEdge | null>;
+
   refreshEvents: () => Promise<void>;
   loadSettings: () => Promise<void>;
   saveSettings: (patch: Record<string, string>) => Promise<void>;
@@ -82,6 +94,7 @@ const titleFor = (type: PaneType, s: State, bindingId?: string): string => {
   if (type === 'canon') return 'Canon';
   if (type === 'characters') return 'Cast';
   if (type === 'world') return 'World Atlas';
+  if (type === 'plot') return 'Plot Through-line';
   return s.docs[bindingId ?? '']?.title ?? s.project?.documents.find((d) => d.id === bindingId)?.title ?? 'Document';
 };
 
@@ -103,6 +116,9 @@ export const useStore = create<State>((set, get) => ({
   busy: {},
   events: [],
   canon: null,
+  plot: null,
+  worldFocusEntityId: null,
+  plotFocusNodeId: null,
   settings: null,
   providers: [],
 
@@ -131,7 +147,7 @@ export const useStore = create<State>((set, get) => ({
     try {
       const { project, agents, workspaces } = await api.openProject(id);
       localStorage.setItem('muse:lastProject', id);
-      set({ project, agents, workspaces, docs: {}, panes: [], runs: {}, events: [], canon: null, selection: null, error: null });
+      set({ project, agents, workspaces, docs: {}, panes: [], runs: {}, events: [], canon: null, plot: null, worldFocusEntityId: null, plotFocusNodeId: null, selection: null, error: null });
       const drafting = workspaces.find((w) => w.id === 'drafting') ?? workspaces[0];
       if (drafting) await get().applyWorkspace(drafting.id);
       else {
@@ -185,7 +201,7 @@ export const useStore = create<State>((set, get) => ({
       set({ panes: s.panes.map((p) => (p.id === existing.id ? { ...p, sizeMode: opts.focus ? 'maximized' : 'normal' } : opts.focus && p.sizeMode === 'maximized' ? { ...p, sizeMode: 'normal' } : p)) });
       return;
     }
-    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' || type === 'world' ? 'main' : 'bottom');
+    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' || type === 'world' || type === 'plot' ? 'main' : 'bottom');
     const pane: Pane = {
       id: `pane-${++paneSeq}-${type}-${bindingId ?? ''}`,
       type,
@@ -394,6 +410,62 @@ export const useStore = create<State>((set, get) => ({
       await get().refreshEvents();
     } catch (err: any) {
       set({ error: err.message });
+    }
+  },
+
+  async loadPlot() {
+    const s = get();
+    if (!s.project) return;
+    try {
+      const { plot } = await api.plot(s.project.id);
+      set({ plot });
+    } catch (err: any) {
+      set({ error: `Could not load plot: ${err.message}` });
+    }
+  },
+
+  async createPlotNode(input) {
+    const s = get();
+    if (!s.project) return null;
+    try {
+      const { node } = await api.createPlotNode(s.project.id, input);
+      const plot = get().plot ?? { version: 1, nodes: [], edges: [] };
+      set({ plot: { ...plot, nodes: [...plot.nodes, node] }, plotFocusNodeId: node.id, notice: `${node.title} added to through-line.` });
+      await get().refreshEvents();
+      return node;
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
+    }
+  },
+
+  async updatePlotNode(nodeId, patch) {
+    const s = get();
+    if (!s.project) return null;
+    try {
+      const { node } = await api.updatePlotNode(s.project.id, nodeId, patch);
+      const plot = get().plot;
+      if (plot) set({ plot: { ...plot, nodes: plot.nodes.map((item) => (item.id === nodeId ? node : item)) }, notice: `${node.title} updated.` });
+      await get().refreshEvents();
+      return node;
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
+    }
+  },
+
+  async createPlotEdge(input) {
+    const s = get();
+    if (!s.project) return null;
+    try {
+      const { edge } = await api.createPlotEdge(s.project.id, input);
+      const plot = get().plot ?? { version: 1, nodes: [], edges: [] };
+      set({ plot: { ...plot, edges: [...plot.edges, edge] }, notice: `${edge.relation} connection added.` });
+      await get().refreshEvents();
+      return edge;
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
     }
   },
 

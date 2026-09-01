@@ -122,6 +122,51 @@ export interface CanonStore {
   facts: CanonFact[];
 }
 
+export type PlotNodeKind = 'beat' | 'turn' | 'reveal' | 'climax' | 'resolution';
+export type PlotEdgeRelation = 'sequence' | 'branch' | 'merge' | 'cause';
+export type PlotWorldRole = 'setting' | 'constraint' | 'catalyst' | 'affected';
+
+export interface PlotWorldRef {
+  entityId: string;
+  role: PlotWorldRole;
+}
+
+export interface PlotNode {
+  id: string;
+  title: string;
+  summary: string;
+  kind: PlotNodeKind;
+  section: string;
+  position: { x: number; y: number };
+  details: {
+    goal: string;
+    conflict: string;
+    stakes: string;
+    outcome: string;
+    notes: string;
+  };
+  documentId?: string;
+  worldRefs: PlotWorldRef[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlotEdge {
+  id: string;
+  from: string;
+  to: string;
+  relation: PlotEdgeRelation;
+  label: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlotGraph {
+  version: 1;
+  nodes: PlotNode[];
+  edges: PlotEdge[];
+}
+
 // Context scope tokens the ContextEngine understands (§11).
 export type ScopeToken =
   | 'selection'

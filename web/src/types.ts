@@ -115,6 +115,45 @@ export interface CanonStore {
   facts: CanonFact[];
 }
 
+export type PlotNodeKind = 'beat' | 'turn' | 'reveal' | 'climax' | 'resolution';
+export type PlotEdgeRelation = 'sequence' | 'branch' | 'merge' | 'cause';
+export type PlotWorldRole = 'setting' | 'constraint' | 'catalyst' | 'affected';
+
+export interface PlotWorldRef {
+  entityId: string;
+  role: PlotWorldRole;
+}
+
+export interface PlotNode {
+  id: string;
+  title: string;
+  summary: string;
+  kind: PlotNodeKind;
+  section: string;
+  position: { x: number; y: number };
+  details: { goal: string; conflict: string; stakes: string; outcome: string; notes: string };
+  documentId?: string;
+  worldRefs: PlotWorldRef[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlotEdge {
+  id: string;
+  from: string;
+  to: string;
+  relation: PlotEdgeRelation;
+  label: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlotGraph {
+  version: 1;
+  nodes: PlotNode[];
+  edges: PlotEdge[];
+}
+
 export interface AgentDef {
   id: string;
   name: string;
@@ -183,7 +222,7 @@ export interface Selection {
   text: string;
 }
 
-export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline' | 'canon' | 'characters' | 'world';
+export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline' | 'canon' | 'characters' | 'world' | 'plot';
 export type Region = 'main' | 'right' | 'bottom';
 
 export interface Pane {

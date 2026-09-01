@@ -154,6 +154,8 @@ function WorldDrawer({
 
 export function WorldPane({ pane }: { pane: Pane }) {
   const canon = useStore((s) => s.canon);
+  const plot = useStore((s) => s.plot);
+  const focusEntityId = useStore((s) => s.worldFocusEntityId);
   const documents = useStore((s) => s.project?.documents ?? []);
   const [mode, setMode] = useState<WorldMode>('canvas');
   const [filter, setFilter] = useState<string>('all');
@@ -167,8 +169,9 @@ export function WorldPane({ pane }: { pane: Pane }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const panRef = useRef<{ pointerId: number; clientX: number; clientY: number; origin: View } | null>(null);
   const dragRef = useRef<{ id: string; clientX: number; clientY: number; origin: Point; scale: number } | null>(null);
+  const initializedSelection = useRef(false);
 
-  useEffect(() => { void useStore.getState().loadCanon(); }, []);
+  useEffect(() => { void Promise.all([useStore.getState().loadCanon(), useStore.getState().loadPlot()]); }, []);
 
   const worldEntities = useMemo(
     () => (canon?.entities ?? []).filter((entity) => entity.type !== 'character'),
@@ -188,9 +191,27 @@ export function WorldPane({ pane }: { pane: Pane }) {
   }, [worldEntities]);
 
   useEffect(() => {
-    if (!selectedId && worldEntities[0]) setSelectedId(worldEntities[0].id);
+    if (focusEntityId && worldEntities.some((entity) => entity.id === focusEntityId)) {
+      const point = positions[focusEntityId];
+      const rect = viewportRef.current?.getBoundingClientRect();
+      if (!point || !rect) return;
+      setMode('canvas');
+      setSelectedId(focusEntityId);
+      setView((current) => ({
+        ...current,
+        x: rect.width / 2 - point.x * current.scale - 90,
+        y: rect.height / 2 - point.y * current.scale,
+      }));
+      initializedSelection.current = true;
+      useStore.setState({ worldFocusEntityId: null });
+      return;
+    }
+    if (!initializedSelection.current && worldEntities[0]) {
+      initializedSelection.current = true;
+      setSelectedId(worldEntities[0].id);
+    }
     if (selectedId && !worldEntities.some((entity) => entity.id === selectedId)) setSelectedId(worldEntities[0]?.id ?? '');
-  }, [selectedId, worldEntities]);
+  }, [focusEntityId, positions, selectedId, worldEntities]);
 
   useEffect(() => {
     const move = (event: PointerEvent) => {
@@ -245,6 +266,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
     if (!selected) return false;
     return fact.subjectId === selected.id || fact.subject === selected.name || String(fact.value).toLocaleLowerCase() === selected.name.toLocaleLowerCase();
   });
+  const plotBacklinks = (plot?.nodes ?? []).filter((node) => node.worldRefs.some((reference) => reference.entityId === selectedId));
 
   const openDocument = (documentId: string) => {
     useStore.getState().setPaneSize(pane.id, 'normal');
@@ -254,6 +276,11 @@ export function WorldPane({ pane }: { pane: Pane }) {
   const openCanon = () => {
     useStore.getState().setPaneSize(pane.id, 'normal');
     useStore.getState().openPane('canon', { title: 'Canon', region: 'right' });
+  };
+
+  const openPlotAt = (nodeId: string) => {
+    useStore.setState({ plotFocusNodeId: nodeId });
+    useStore.getState().openPane('plot', { title: 'Plot Through-line', region: 'main', focus: true });
   };
 
   const placePoint = (clientX?: number, clientY?: number): Point => {
@@ -436,6 +463,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
                   <div><dt>Story weight</dt><dd>{selected.world?.attributes.significance || '—'}</dd></div>
                 </dl>
                 <section className="world-threads"><h3>World threads <span>{selectedFacts.length}</span></h3>{selectedFacts.length ? selectedFacts.map((fact) => <div key={fact.id}><i className={`fact-dot fact-${fact.status}`} /><p><b>{fact.subject}</b> {fact.predicate} <strong>{String(fact.value)}</strong></p><em>{fact.status}</em></div>) : <p>No relationships yet.</p>}</section>
+                {plotBacklinks.length > 0 && <section className="world-plot-echoes"><h3>Appears in plot <span>{plotBacklinks.length}</span></h3>{plotBacklinks.map((node) => <button key={node.id} onClick={() => openPlotAt(node.id)}><i>{node.kind}</i><strong>{node.title}</strong><span>{node.section || 'Unsectioned'} →</span></button>)}</section>}
                 {worldEntities.length > 1 && <form className="world-connect" onSubmit={connect}><h3>Draw connection</h3><input value={relationship} onChange={(event) => setRelationship(event.target.value)} placeholder="borders, governs, hides…" /><select value={targetId} onChange={(event) => setTargetId(event.target.value)}><option value="">Choose target</option>{worldEntities.filter((entity) => entity.id !== selected.id).map((entity) => <option key={entity.id} value={entity.id}>{entity.name}</option>)}</select><button className="btn" disabled={!relationship.trim() || !targetId}>Connect as proposed</button></form>}
               </div>
               <footer>

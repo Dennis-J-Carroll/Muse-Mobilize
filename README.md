@@ -61,6 +61,7 @@ identities never change when the engine does.
 ├── canon/
 │   ├── canon.json                ← portable entities, facts, statuses, evidence
 │   └── characters/
+├── plot/plot.json                ← branching through-line, folios, and typed edges
 ├── agents/*.yml                  ← edit these to change an agent
 ├── workspaces/*.json
 └── .muse/
@@ -113,9 +114,26 @@ default domain surface instead of another launcher menu:
 
 World profile contract lives at `schemas/world-profile.schema.json`.
 
+## Plot Outline workspace
+
+Click **Plot Outline** to open a braided story current directly. It is a
+narrative-order surface rather than a card board or spatial world map:
+
+- Arrange beat, turn, reveal, climax, and resolution knots along telling order.
+- Expand manuscript strips in place or open a focused folio with goal, conflict,
+  stakes, outcome, and planning notes.
+- Draw typed `sequence`, `branch`, `merge`, and `cause` threads between beats.
+- Bind a beat to a manuscript or planning document for direct page handoff.
+- Drag knots or move them with arrow keys; hold Shift for larger steps.
+- Add up to three optional World Atlas anchors per beat. World pins stay hidden
+  until requested; Atlas backlinks appear only on referenced landmarks.
+
+Plot graph contract lives at `schemas/plot-graph.schema.json`.
+
 ## Canon and continuity
 
-Use **canon trail** inside Characters or World Building workspace.
+Use **canon trail** inside Characters or World Building workspace. Plot Outline
+may reference canon-backed World landmarks without copying their data.
 
 - Create stable character, location, organization, object, event, rule, or lore entities.
 - Capture facts as `idea`, `proposed`, `established`, `canonical`, `retconned`, or `deprecated`.
@@ -133,12 +151,12 @@ npm test
 ```
 
 Covers canon persistence, character profiles and sensory metadata, world
-profiles and canvas coordinates, stable relationship edges, fact promotion,
-evidence-aware context, validation, agent output parsing, patch anchoring, and
-stale-patch refusal.
+profiles and canvas coordinates, branching plot persistence, sparse World
+anchors, stable relationship edges, fact promotion, evidence-aware context,
+validation, agent output parsing, patch anchoring, and stale-patch refusal.
 
 ## What is not built yet
 
 Semantic retrieval, watchers, Writers' Room orchestration, frozen readers,
-branches, plugins, and desktop packaging. The seams are in place for all of
-them; see `muse-mobilize-handoff/MUSE_MOBILIZE_HANDOFF.md` §32.
+version-control branches, plugins, and desktop packaging. The seams are in
+place for all of them; see `muse-mobilize-handoff/MUSE_MOBILIZE_HANDOFF.md` §32.

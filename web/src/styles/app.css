@@ -631,14 +631,23 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .world-ledger div { padding: 9px 0; border-bottom: 1px solid var(--line); }
 .world-ledger dt { margin-bottom: 3px; color: var(--ink-soft); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
 .world-ledger dd { margin: 0; color: var(--ink-mid); font: 12px/1.45 var(--font-prose); }
-.world-threads, .world-connect { padding-top: 18px; }
-.world-threads h3, .world-connect h3 { display: flex; justify-content: space-between; margin: 0 0 8px; font-size: 10px; text-transform: uppercase; letter-spacing: .09em; }
-.world-threads h3 span { color: var(--ink-soft); }
+.world-threads, .world-plot-echoes, .world-connect { padding-top: 18px; }
+.world-threads h3, .world-plot-echoes h3, .world-connect h3 { display: flex; justify-content: space-between; margin: 0 0 8px; font-size: 10px; text-transform: uppercase; letter-spacing: .09em; }
+.world-threads h3 span, .world-plot-echoes h3 span { color: var(--ink-soft); }
 .world-threads > p { color: var(--ink-soft); font-size: 10px; }
 .world-threads > div { display: grid; grid-template-columns: 7px 1fr auto; gap: 7px; align-items: baseline; padding: 7px 0; border-bottom: 1px dotted var(--line-strong); }
 .world-threads > div p { margin: 0; font-size: 10.5px; line-height: 1.4; }
 .world-threads > div strong { font-family: var(--font-prose); font-size: 12px; }
 .world-threads > div em { color: var(--ink-soft); font-size: 8px; font-style: normal; }
+.world-plot-echoes { border-top: 1px solid var(--line); margin-top: 18px; }
+.world-plot-echoes button {
+  width: 100%; display: grid; grid-template-columns: 44px minmax(0,1fr) auto; gap: 7px; align-items: baseline;
+  padding: 8px 0; border: 0; border-bottom: 1px dotted var(--line-strong); background: transparent; text-align: left;
+}
+.world-plot-echoes button:hover strong { color: var(--accent); }
+.world-plot-echoes button i { color: var(--world-violet); font: normal 8px var(--font-mono); text-transform: uppercase; }
+.world-plot-echoes button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12px var(--font-prose); transition: color .12s ease; }
+.world-plot-echoes button span { color: var(--ink-soft); font-size: 8px; }
 .world-connect { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 .world-connect h3, .world-connect button { grid-column: span 2; }
 .world-connect input { min-width: 0; border: 1px solid var(--line-strong); border-radius: 6px; padding: 6px 7px; background: rgba(255,255,255,.7); font: inherit; font-size: 10px; }
@@ -712,6 +721,207 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 @media (prefers-reduced-motion: reduce) {
   .world-marker, .world-inspector, .world-drawer { transition: none; animation: none; }
+}
+
+/* -------------------------------------------------------------- plot outline */
+
+.plot-workspace {
+  --plot-slate: #3f5f7d;
+  --plot-thread: #b18a55;
+  --plot-branch: #7d789a;
+  --plot-world: #708c7b;
+  position: relative; height: 100%; min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column; container: plot / inline-size;
+  background: #f8f7f2;
+}
+.plot-toolbar {
+  position: relative; z-index: 15; flex: 0 0 auto; min-height: 65px;
+  display: flex; align-items: center; gap: 16px; padding: 10px 14px 10px 20px;
+  border-bottom: 1px solid var(--line); background: rgba(250,249,245,.91); backdrop-filter: blur(12px);
+}
+.plot-heading { min-width: 150px; margin-right: auto; }
+.plot-heading > span { color: var(--ink-soft); font-size: 9.5px; text-transform: uppercase; letter-spacing: .13em; }
+.plot-heading h2 { margin: 2px 0 0; font: 500 19px/1.1 var(--font-prose); }
+.plot-count { display: flex; align-items: baseline; gap: 4px; color: var(--ink-soft); font-size: 9px; text-transform: uppercase; letter-spacing: .06em; }
+.plot-count b { color: var(--ink); font: 11px var(--font-mono); }
+.plot-count i { width: 1px; height: 17px; margin: 0 5px; background: var(--line-strong); }
+.plot-world-toggle {
+  display: flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 999px;
+  padding: 6px 10px; background: transparent; color: var(--ink-soft); font-size: 10px;
+}
+.plot-world-toggle i { color: var(--plot-world); font-style: normal; }
+.plot-world-toggle.is-on { border-color: color-mix(in srgb, var(--plot-world) 55%, transparent); background: rgba(112,140,123,.09); color: var(--ink); }
+
+.plot-scroll {
+  position: relative; flex: 1; min-height: 0; overflow: auto;
+  background:
+    linear-gradient(90deg, transparent 0, transparent 129px, rgba(63,95,125,.035) 130px, transparent 131px),
+    linear-gradient(#f8f7f2, #f4f3ee);
+  background-size: 260px 100%, 100% 100%;
+}
+.plot-stage { position: relative; min-width: 100%; min-height: 100%; isolation: isolate; }
+.plot-current-line {
+  position: absolute; z-index: 0; left: 80px; top: 280px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(63,95,125,.28) 5%, rgba(63,95,125,.28) 95%, transparent);
+}
+.plot-current-line::before { content: 'TELLING ORDER'; position: absolute; left: 0; top: 8px; color: rgba(63,95,125,.42); font: 8px var(--font-mono); letter-spacing: .12em; }
+.plot-column { position: absolute; z-index: 0; top: 0; bottom: 0; width: 1px; border-left: 1px dotted rgba(63,95,125,.10); pointer-events: none; }
+.plot-column span { position: sticky; top: 14px; display: block; transform: translateX(6px); color: rgba(63,95,125,.34); font: 8px var(--font-mono); }
+.plot-section-label {
+  position: absolute; z-index: 2; top: 36px; min-width: 112px; padding: 0 0 6px;
+  border-bottom: 2px solid rgba(177,138,85,.5); color: var(--ink-mid); font: italic 14px var(--font-prose);
+}
+
+.plot-threads { position: absolute; z-index: 1; inset: 0; overflow: visible; pointer-events: none; }
+.plot-thread path { fill: none; stroke: rgba(63,95,125,.38); stroke-width: 1.35; }
+.plot-thread text {
+  fill: var(--ink-soft); stroke: #f7f6f1; stroke-width: 5px; paint-order: stroke;
+  text-anchor: middle; font: 8px var(--font-mono); text-transform: uppercase; letter-spacing: .05em;
+}
+.plot-thread.relation-branch path { stroke: rgba(125,120,154,.65); stroke-dasharray: 5 4; }
+.plot-thread.relation-merge path { stroke: rgba(177,138,85,.72); stroke-width: 1.7; }
+.plot-thread.relation-cause path { stroke: rgba(112,140,123,.65); stroke-dasharray: 2 4; }
+.plot-thread.is-active path { stroke: var(--plot-slate); stroke-width: 2.4; stroke-dasharray: none; }
+.plot-thread.is-active text { fill: var(--ink); font-weight: 600; }
+#plot-arrow path { fill: var(--plot-slate); }
+
+.plot-node {
+  --node-color: var(--plot-slate);
+  position: absolute; z-index: 4; width: 250px; transform: translate(-25px,-50%); touch-action: none;
+  transition: width .16s ease, filter .16s ease;
+}
+.plot-node.kind-turn { --node-color: var(--plot-thread); }
+.plot-node.kind-reveal { --node-color: var(--plot-branch); }
+.plot-node.kind-climax { --node-color: #9a675d; }
+.plot-node.kind-resolution { --node-color: var(--plot-world); }
+.plot-node.is-expanded { width: 310px; z-index: 6; }
+.plot-node-main {
+  width: 100%; display: flex; align-items: center; padding: 0; border: 0; background: transparent;
+  text-align: left; cursor: move;
+}
+.plot-knot {
+  position: relative; z-index: 2; flex: 0 0 50px; width: 50px; height: 50px; display: grid; place-items: center;
+  border: 1px solid var(--node-color); border-radius: 50%; background: #f8f7f2; color: var(--node-color);
+  box-shadow: 0 5px 13px rgba(47,59,68,.10); font: 18px var(--font-prose);
+}
+.plot-knot::before { content: ''; position: absolute; inset: 6px; border: 1px dotted color-mix(in srgb, var(--node-color) 48%, transparent); border-radius: 50%; }
+.plot-node-copy {
+  position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; margin-left: -2px;
+  padding: 8px 30px 8px 16px; border-top: 1px solid color-mix(in srgb, var(--node-color) 35%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--node-color) 35%, transparent); background: rgba(250,249,245,.94);
+  box-shadow: 6px 8px 16px rgba(47,59,68,.06);
+}
+.plot-node-copy::after { content: ''; position: absolute; right: 8px; top: 0; bottom: 0; width: 1px; background: rgba(177,138,85,.18); }
+.plot-node-copy small { color: var(--ink-soft); font: 7.5px var(--font-mono); text-transform: uppercase; letter-spacing: .07em; }
+.plot-node-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 15px/1.25 var(--font-prose); }
+.plot-node-copy p { margin: 5px 0 1px; color: var(--ink-mid); font: 11.5px/1.45 var(--font-prose); }
+.plot-expand {
+  position: absolute; z-index: 5; right: 2px; top: 50%; width: 23px; height: 23px; transform: translateY(-50%);
+  display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 50%; background: #f8f7f2; color: var(--ink-soft); font-size: 12px;
+}
+.plot-node-world { position: absolute; left: 13px; top: calc(50% + 31px); display: flex; gap: 2px; }
+.plot-node-world span { width: 13px; height: 13px; display: grid; place-items: center; border-radius: 50%; background: rgba(112,140,123,.14); color: var(--plot-world); font-size: 8px; }
+.plot-node:hover { filter: drop-shadow(0 4px 5px rgba(47,59,68,.08)); }
+.plot-node.is-selected .plot-knot { outline: 2px solid var(--node-color); outline-offset: 4px; background: color-mix(in srgb, var(--node-color) 9%, #f8f7f2); }
+.plot-node.is-selected .plot-node-copy { border-color: var(--node-color); }
+
+.plot-empty {
+  position: absolute; z-index: 3; left: 180px; top: 280px; transform: translate(-44px,-50%);
+  display: grid; grid-template-columns: 88px minmax(240px,360px); column-gap: 18px; align-items: center;
+}
+.plot-empty > span { grid-row: span 3; width: 88px; height: 88px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 50%; }
+.plot-empty > span::before, .plot-empty > span::after { content: ''; position: absolute; border-radius: 50%; border: 1px dotted var(--line-strong); }
+.plot-empty > span::before { width: 62px; height: 62px; }
+.plot-empty > span::after { width: 14px; height: 14px; background: var(--plot-slate); border: 0; }
+.plot-empty h3 { margin: 0; font: 500 23px var(--font-prose); }
+.plot-empty p { margin: 4px 0 11px; color: var(--ink-soft); font-size: 11px; }
+.plot-empty .btn { justify-self: start; }
+
+.plot-folio {
+  position: absolute; z-index: 20; top: 83px; right: 18px; bottom: 18px; width: min(360px, calc(100% - 36px));
+  display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(255,255,255,.86); border-radius: 14px;
+  background: rgba(252,251,247,.95); box-shadow: -11px 15px 38px rgba(47,59,68,.18); backdrop-filter: blur(13px);
+  animation: inspector-in .18s ease-out;
+}
+.plot-folio > header { flex: 0 0 auto; display: flex; justify-content: space-between; gap: 12px; padding: 16px 17px 13px; border-bottom: 1px solid var(--line); }
+.plot-folio > header span { color: var(--ink-soft); font-size: 8.5px; text-transform: uppercase; letter-spacing: .11em; }
+.plot-folio > header h1 { margin: 3px 0 0; font: 500 26px/1.05 var(--font-prose); letter-spacing: -.015em; }
+.plot-folio > header button { align-self: flex-start; border: 0; background: transparent; color: var(--ink-soft); font-size: 22px; line-height: 1; }
+.plot-folio-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 17px 18px 22px; }
+.plot-change { padding: 0 0 17px; border-bottom: 1px solid var(--line-strong); }
+.plot-change > span, .plot-notes > span { color: var(--plot-thread); font-size: 8px; text-transform: uppercase; letter-spacing: .12em; }
+.plot-change p { margin: 5px 0 0; font: 16px/1.48 var(--font-prose); }
+.plot-mechanics { display: grid; grid-template-columns: 1fr 1fr; }
+.plot-mechanics > div { min-height: 84px; padding: 12px 11px 11px 0; border-bottom: 1px solid var(--line); }
+.plot-mechanics > div:nth-child(odd) { border-right: 1px solid var(--line); }
+.plot-mechanics > div:nth-child(even) { padding-left: 11px; }
+.plot-mechanics span { color: var(--ink-soft); font-size: 8px; text-transform: uppercase; letter-spacing: .08em; }
+.plot-mechanics p { margin: 5px 0 0; font: 11.5px/1.45 var(--font-prose); }
+.plot-notes { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.plot-notes p { margin: 5px 0 0; color: var(--ink-mid); font: italic 11px/1.5 var(--font-prose); }
+.plot-world-anchors, .plot-connections, .plot-connect { padding-top: 17px; }
+.plot-world-anchors h3, .plot-connections h3, .plot-connect h3 { display: flex; justify-content: space-between; margin: 0 0 8px; font-size: 9px; text-transform: uppercase; letter-spacing: .09em; }
+.plot-world-anchors h3 span, .plot-connections h3 span { color: var(--ink-soft); }
+.plot-world-anchors > p, .plot-connections > p { margin: 5px 0; color: var(--ink-soft); font-size: 10px; }
+.plot-world-anchors > div { display: grid; grid-template-columns: 21px minmax(0,1fr) auto; gap: 7px; align-items: center; padding: 7px 0; border-bottom: 1px dotted var(--line-strong); }
+.plot-world-anchors > div > i { color: var(--plot-world); font-style: normal; }
+.plot-world-anchors > div p { display: flex; flex-direction: column; margin: 0; }
+.plot-world-anchors > div small { color: var(--ink-soft); font-size: 7.5px; text-transform: uppercase; }
+.plot-world-anchors > div strong { font: 12px var(--font-prose); }
+.plot-connections > button { width: 100%; display: grid; grid-template-columns: 8px 62px minmax(0,1fr); gap: 7px; padding: 8px 0; border: 0; border-bottom: 1px dotted var(--line-strong); background: transparent; text-align: left; }
+.plot-connections > button i { width: 7px; height: 7px; margin-top: 3px; border-radius: 50%; background: var(--plot-slate); }
+.plot-connections > button i.relation-branch { background: var(--plot-branch); }
+.plot-connections > button i.relation-merge { background: var(--plot-thread); }
+.plot-connections > button i.relation-cause { background: var(--plot-world); }
+.plot-connections > button span { color: var(--ink-soft); font-size: 8px; }
+.plot-connections > button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11px var(--font-prose); }
+.plot-connections > button em { grid-column: 3; color: var(--ink-soft); font-size: 8px; font-style: normal; }
+.plot-connect { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.plot-connect h3, .plot-connect input, .plot-connect button { grid-column: span 2; }
+.plot-connect select, .plot-connect input {
+  min-width: 0; border: 1px solid var(--line-strong); border-radius: 6px; padding: 6px 7px;
+  background: rgba(255,255,255,.72); color: var(--ink-mid); font: 9.5px var(--font-ui);
+}
+.plot-folio > footer { flex: 0 0 auto; display: flex; align-items: center; gap: 7px; padding: 10px 14px; border-top: 1px solid var(--line); }
+.plot-folio > footer .linkish { margin-left: auto; }
+
+.plot-drawer-backdrop { position: absolute; inset: 0; z-index: 70; display: flex; justify-content: flex-end; background: rgba(47,59,68,.22); }
+.plot-drawer { width: min(610px, 95%); height: 100%; display: flex; flex-direction: column; background: var(--paper-raised); box-shadow: -14px 0 42px rgba(47,59,68,.18); animation: drawer-in .2s ease-out; }
+.plot-drawer > header { display: flex; justify-content: space-between; gap: 14px; padding: 20px 24px 15px; border-bottom: 1px solid var(--line); }
+.plot-drawer > header span { color: var(--ink-soft); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; }
+.plot-drawer h2 { margin: 4px 0 0; font: 500 25px var(--font-prose); }
+.plot-drawer-note { margin: 0 0 10px; color: var(--ink-soft); font-size: 10px; line-height: 1.45; }
+.plot-anchor-editor { display: flex; flex-direction: column; gap: 7px; }
+.plot-anchor-editor > div { display: grid; grid-template-columns: 22px minmax(0,1fr) 112px; gap: 7px; align-items: center; }
+.plot-anchor-editor > div > span { color: var(--ink-soft); font: 9px var(--font-mono); }
+.plot-anchor-editor select { min-width: 0; border: 1px solid var(--line-strong); border-radius: 6px; padding: 7px; background: rgba(255,255,255,.72); color: var(--ink-mid); font: 10px var(--font-ui); }
+.plot-drawer > footer { display: flex; justify-content: flex-end; gap: 8px; padding: 13px 24px; border-top: 1px solid var(--line); }
+
+.plot-workspace button:focus-visible, .plot-workspace input:focus-visible, .plot-workspace textarea:focus-visible, .plot-workspace select:focus-visible { outline: 2px solid var(--accent-soft); outline-offset: 2px; }
+
+@container plot (max-width: 720px) {
+  .plot-toolbar { gap: 8px; padding-left: 12px; }
+  .plot-heading { min-width: 0; }
+  .plot-heading > span { display: none; }
+  .plot-heading h2 { max-width: 145px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+  .plot-count { display: none; }
+  .plot-folio { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; height: min(58%, 470px); }
+  .plot-drawer { width: min(560px,100%); }
+}
+@container plot (max-width: 480px) {
+  .plot-heading { display: none; }
+  .plot-world-toggle { margin-left: auto; font-size: 0; }
+  .plot-world-toggle i { font-size: 13px; }
+  .plot-folio > header h1 { font-size: 22px; }
+  .plot-mechanics { grid-template-columns: 1fr; }
+  .plot-mechanics > div:nth-child(odd) { border-right: 0; }
+  .plot-mechanics > div:nth-child(even) { padding-left: 0; }
+  .plot-anchor-editor > div { grid-template-columns: 20px minmax(0,1fr); }
+  .plot-anchor-editor > div select:last-child { grid-column: 2; }
+  .plot-drawer { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .plot-node, .plot-folio, .plot-drawer { transition: none; animation: none; }
 }
 
 /* ------------------------------------------------------------------- canon */

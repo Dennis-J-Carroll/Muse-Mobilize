@@ -1,6 +1,7 @@
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   DocumentMeta, MuseEvent, Patch, ProjectManifest,
+  PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
   ProviderStatus, Selection, SettingsView, WorkspaceDef, WorldProfile,
 } from './types';
 
@@ -61,6 +62,16 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(patch),
     }),
+
+  plot: (id: string) => req<{ plot: PlotGraph }>(`/api/projects/${id}/plot`),
+  createPlotNode: (id: string, body: {
+    title: string; summary?: string; kind?: PlotNodeKind; section?: string; position?: { x: number; y: number };
+    details?: Partial<PlotNode['details']>; documentId?: string; worldRefs?: PlotWorldRef[];
+  }) => req<{ node: PlotNode }>(`/api/projects/${id}/plot/nodes`, { method: 'POST', body: JSON.stringify(body) }),
+  updatePlotNode: (id: string, nodeId: string, patch: Partial<Pick<PlotNode, 'title' | 'summary' | 'kind' | 'section' | 'position' | 'details' | 'documentId' | 'worldRefs'>>) =>
+    req<{ node: PlotNode }>(`/api/projects/${id}/plot/nodes/${nodeId}`, { method: 'PUT', body: JSON.stringify(patch) }),
+  createPlotEdge: (id: string, body: { from: string; to: string; relation?: PlotEdgeRelation; label?: string }) =>
+    req<{ edge: PlotEdge }>(`/api/projects/${id}/plot/edges`, { method: 'POST', body: JSON.stringify(body) }),
 
   setAgentState: (id: string, agentId: string, mode: string) =>
     req<{ agent: AgentDef }>(`/api/projects/${id}/agents/${agentId}/state`, {
