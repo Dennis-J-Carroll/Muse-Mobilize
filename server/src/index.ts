@@ -8,6 +8,7 @@ import { runAgent } from './agents.js';
 import { applyPatch } from './protocol.js';
 import { readSettings, writeSettings, redact } from './settings.js';
 import { providerStatus } from './providers/index.js';
+import { createCanonEntity, createCanonFact, readCanon, updateCanonFact } from './canon.js';
 
 const app = express();
 app.use(express.json({ limit: '8mb' }));
@@ -81,6 +82,33 @@ app.post('/api/projects/:id/documents', wrap(async (req, res) => {
   const title = String(req.body?.title ?? 'Untitled').trim() || 'Untitled';
   const kind = (req.body?.kind ?? 'manuscript') as any;
   res.json({ meta: await createDocument(req.params.id, title, kind) });
+}));
+
+/* ------------------------------------------------------------------- canon */
+
+app.get('/api/projects/:id/canon', wrap(async (req, res) => {
+  res.json({ canon: await readCanon(await projectDir(req.params.id)) });
+}));
+
+app.post('/api/projects/:id/canon/entities', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const entity = await createCanonEntity(dir, req.body ?? {});
+  await emit(dir, 'canon.entity.created', { entityId: entity.id, type: entity.type, name: entity.name });
+  res.json({ entity });
+}));
+
+app.post('/api/projects/:id/canon/facts', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const fact = await createCanonFact(dir, req.body ?? {});
+  await emit(dir, 'canon.fact.created', { factId: fact.id, subject: fact.subject, status: fact.status });
+  res.json({ fact });
+}));
+
+app.put('/api/projects/:id/canon/facts/:factId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const fact = await updateCanonFact(dir, req.params.factId, req.body ?? {});
+  await emit(dir, 'canon.fact.updated', { factId: fact.id, status: fact.status });
+  res.json({ fact });
 }));
 
 /* ------------------------------------------------------------------ agents */

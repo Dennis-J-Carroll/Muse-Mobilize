@@ -23,6 +23,44 @@ export type AgentState = 'live' | 'idle' | 'frozen';
 export type Activation = 'manual' | 'on_request' | 'watcher';
 export type Authority = 'read' | 'suggest' | 'patch' | 'write' | 'direct';
 
+export type CanonStatus = 'idea' | 'proposed' | 'established' | 'canonical' | 'retconned' | 'deprecated';
+export type CanonEntityType = 'character' | 'location' | 'organization' | 'object' | 'event' | 'rule' | 'lore';
+
+export interface CanonEvidence {
+  documentId: string;
+  quote?: string;
+  start?: number;
+  end?: number;
+}
+
+export interface CanonEntity {
+  id: string;
+  type: CanonEntityType;
+  name: string;
+  aliases: string[];
+  summary?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CanonFact {
+  id: string;
+  subject: string;
+  subjectId?: string;
+  predicate: string;
+  value: string | number | boolean;
+  status: CanonStatus;
+  evidence: CanonEvidence[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CanonStore {
+  version: 1;
+  entities: CanonEntity[];
+  facts: CanonFact[];
+}
+
 // Context scope tokens the ContextEngine understands (§11).
 export type ScopeToken =
   | 'selection'

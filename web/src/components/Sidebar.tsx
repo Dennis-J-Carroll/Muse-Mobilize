@@ -29,6 +29,7 @@ const agentItem = (label: string, agentId: string): Item => ({
   run: () => useStore.getState().openPane('agent', { bindingId: agentId }),
 });
 const soon = (label: string): Item => ({ label, soon: true });
+const canonItem = (): Item => ({ label: 'Canon & continuity', run: () => useStore.getState().openPane('canon', { title: 'Canon' }) });
 
 const newDoc = (title: string, kind: 'manuscript' | 'notes' | 'canon' | 'outline'): Item => ({
   label: title,
@@ -57,6 +58,7 @@ const CARDS: Card[] = [
     key: 'characters', title: 'Characters', blurb: 'Build rich, memorable characters.', tone: 'blue',
     icon: <Icon.Users />,
     items: (s) => [
+      canonItem(),
       ...s.agents.filter((a) => a.role === 'character').map((a) => agentItem(`${a.name} (character agent)`, a.id)),
       newDoc('New Character sheet', 'canon'),
       ...(s.project?.documents.filter((d) => d.kind === 'canon').map((d) => docItem(d.title, d.id)) ?? []),
@@ -66,7 +68,7 @@ const CARDS: Card[] = [
   {
     key: 'world', title: 'World Building', blurb: 'Create immersive worlds and settings.', tone: 'mist',
     icon: <Icon.Pin />,
-    items: () => [newDoc('New lore page', 'canon'), soon('Location Builder'), soon('Faction Builder'), soon('World Rules')],
+    items: () => [canonItem(), newDoc('New lore page', 'canon'), soon('Location Builder'), soon('Faction Builder'), soon('World Rules')],
   },
   {
     key: 'plot', title: 'Plot Outline', blurb: 'Plan your story structure.', tone: 'stone',

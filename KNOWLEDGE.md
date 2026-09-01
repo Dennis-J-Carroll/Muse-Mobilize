@@ -4,13 +4,14 @@ Last updated: 2026-09-01 by Codex, continuing Opus 5 work.
 
 ## Current goal
 
-Prove and harden first milestone from handoff §37: writer selects manuscript text, asks specialized agent, sees agent consultation, reviews patch, accepts or rejects it, and keeps writing without leaving workspace.
+Phase 5 continuity and canon vertical slice is complete. Next goal: choose Phase 6 watcher/event-subscription scope or harden Phase 5 before expanding automation.
 
 ## Repository state
 
 - Project path: `/home/dennisjcarroll/Desktop/creative/Muse-Mobilize`
-- Git boundary: project currently sits untracked inside parent `creative` repository on branch `master` at parent revision `2e12aa1`.
-- Consequence: file timestamps, handoff, runtime event log, tests, and build output are current continuity evidence; project has no useful file-level commit history yet.
+- Git boundary: isolated repository on branch `main`.
+- Baseline commit: `ccbb660` (`chore: establish Muse-Mobilize baseline`).
+- Parent `creative` repository no longer determines project history.
 - Product/architecture source: `muse-mobilize-handoff/MUSE_MOBILIZE_HANDOFF.md`
 - Run commands: `npm run dev`, `npm test`, `npm run build`
 
@@ -23,6 +24,7 @@ Prove and harden first milestone from handoff §37: writer selects manuscript te
 - Core agent flow: `server/src/agents.ts`.
 - Provider-neutral response parsing and patch anchoring: `server/src/protocol.ts`.
 - Local project persistence: `server/src/projects.ts`; append-only history: `server/src/events.ts`.
+- Portable canon store and agent rendering: `server/src/canon.ts`.
 - Providers: deterministic offline mock, Anthropic, and Ollama under `server/src/providers/`.
 
 ## Recovered Opus checkpoint
@@ -40,9 +42,9 @@ Existing `Kiala Test` project event history shows:
 
 ### Code-confirmed
 
-- Handoff phases 0–4 have substantial MVP implementations.
-- Phase 5 canon store, watchers, Writers' Room, frozen-reader semantics, plugins, branches, and desktop packaging remain future work.
-- Current automated coverage focuses on output parsing, malformed response tolerance, patch anchoring, and stale-patch refusal.
+- Handoff phases 0–5 now have substantial MVP implementations.
+- Watchers, Writers' Room, frozen-reader semantics, plugins, branches, and desktop packaging remain future work.
+- Automated coverage includes canon persistence/status/context plus output parsing, patch anchoring, and stale-patch refusal.
 
 ## Codex continuation — 2026-09-01
 
@@ -69,12 +71,42 @@ This prevents rapid repeated clicks from issuing duplicate patch requests and in
 
 - No frontend interaction test harness currently protects patch-card single-flight behavior.
 - Server patch-apply endpoint is safe against changed source text but not idempotent by patch ID; client guard handles normal UI double-submit, while retry-safe API behavior remains future hardening.
-- Current project source is untracked in parent repository, so rollback and attribution remain weak.
-- Phase 5 canon model needs product decisions for fact status, evidence links, and character knowledge boundaries before implementation.
+- Canon writes use whole-file JSON replacement; concurrent writers could overwrite each other. Single-user MVP is safe, multi-user work is not.
+- Entity editing/deletion and fact deletion are not exposed yet.
+- Character knowledge cutoffs remain Phase 8; current character entities represent stable identity, not revision-specific knowledge.
+- Existing agent YAML is never silently rewritten. Pre-Phase-5 Continuity agents receive canon through role fallback but retain their original prompt text.
 
 ## Suggested next step
 
-Create tracked project baseline, then begin Phase 5 with smallest vertical slice: portable canon facts tied to manuscript evidence, readable by Continuity agent. Add runtime tests before UI expansion.
+Before Phase 6, add frontend interaction tests and decide watcher authority: notify-only, suggest, or patch. Recommended first watcher: debounced Continuity notification on manuscript save, never automatic manuscript writes.
+
+## Phase 5 continuation — 2026-09-01
+
+### Implemented
+
+- Isolated Git repository and verified baseline commit `ccbb660`.
+- Portable `canon/canon.json` with versioned entities and facts.
+- Statuses: `idea`, `proposed`, `established`, `canonical`, `retconned`, `deprecated`.
+- Stable entity IDs with character and broader entity types.
+- Evidence links carrying document ID, exact quote, and optional offsets.
+- Runtime API for listing canon, creating entities/facts, and updating facts.
+- Canon mutation events in append-only project history.
+- Status-aware canon rendering for agent context; trusted facts sort before speculation.
+- Continuity role fallback gives older projects canon without rewriting user-owned YAML.
+- Workspace Canon pane with entity capture, fact capture, status promotion, and selection-to-evidence flow.
+
+### Runtime-confirmed
+
+- `Kiala Test` now contains Kiala character entity and canonical `recognizes → imperial seal` fact backed by Chapter One evidence.
+- Continuity run context reported `canon (1 entities, 1 facts)`.
+- Headless browser opened Characters launcher, mounted Canon pane, and displayed stored entity, canonical fact, and evidence link.
+
+### Verification
+
+- `npm test`: pass — canon and protocol test files, 0 failures.
+- `npm run build`: pass — frontend TypeScript and Vite production bundle.
+- `npx tsc -p server/tsconfig.json --noEmit`: pass.
+- `git diff --check`: pass.
 
 ## Session log
 
@@ -82,3 +114,5 @@ Create tracked project baseline, then begin Phase 5 with smallest vertical slice
 - 2026-09-01 — Baseline tests/build passed; full local UI rendered.
 - 2026-09-01 — Duplicate patch-decision race fixed in patch card.
 - 2026-09-01 — Continuation recorded here for next agent/session.
+- 2026-09-01 — Isolated Git repository initialized; baseline committed at `ccbb660`.
+- 2026-09-01 — Phase 5 canon store, API, Continuity context, and Canon pane implemented through red-green tests.

@@ -1,5 +1,6 @@
 import type {
-  AgentDef, AgentRun, DocumentMeta, MuseEvent, Patch, ProjectManifest,
+  AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore,
+  DocumentMeta, MuseEvent, Patch, ProjectManifest,
   ProviderStatus, Selection, SettingsView, WorkspaceDef,
 } from './types';
 
@@ -37,6 +38,23 @@ export const api = {
     req<{ meta: DocumentMeta }>(`/api/projects/${id}/documents`, {
       method: 'POST',
       body: JSON.stringify({ title, kind }),
+    }),
+
+  canon: (id: string) => req<{ canon: CanonStore }>(`/api/projects/${id}/canon`),
+  createCanonEntity: (id: string, body: { type: CanonEntityType; name: string; aliases?: string[]; summary?: string }) =>
+    req<{ entity: CanonEntity }>(`/api/projects/${id}/canon/entities`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  createCanonFact: (id: string, body: Omit<CanonFact, 'id' | 'createdAt' | 'updatedAt'> & { status?: CanonStatus }) =>
+    req<{ fact: CanonFact }>(`/api/projects/${id}/canon/facts`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateCanonFact: (id: string, factId: string, patch: Partial<CanonFact>) =>
+    req<{ fact: CanonFact }>(`/api/projects/${id}/canon/facts/${factId}`, {
+      method: 'PUT',
+      body: JSON.stringify(patch),
     }),
 
   setAgentState: (id: string, agentId: string, mode: string) =>

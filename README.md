@@ -58,7 +58,9 @@ identities never change when the engine does.
 ├── manuscript/chapter-01.md      ← plain Markdown, open it anywhere
 ├── outline/outline.md
 ├── notes/scratchpad.md
-├── canon/characters/
+├── canon/
+│   ├── canon.json                ← portable entities, facts, statuses, evidence
+│   └── characters/
 ├── agents/*.yml                  ← edit these to change an agent
 ├── workspaces/*.json
 └── .muse/
@@ -83,14 +85,27 @@ budget:
 Permission is checked in both directions before any agent-to-agent contact, and
 a refused contact is written to the event log.
 
+## Canon and continuity
+
+Open **Characters → Canon & continuity** or **World Building → Canon & continuity**.
+
+- Create stable character, location, organization, object, event, rule, or lore entities.
+- Capture facts as `idea`, `proposed`, `established`, `canonical`, `retconned`, or `deprecated`.
+- Highlight manuscript text before capturing a fact to attach exact evidence.
+- Promote facts explicitly; new facts default to `proposed`.
+- Continuity receives status-labelled canon and privileges `established` and `canonical` facts.
+
+Canon stays in readable JSON inside story project. Older projects need no migration;
+missing `canon.json` behaves as empty canon until first entity or fact is captured.
+
 ## Tests
 
 ```bash
 npm test
 ```
 
-Covers the agent output protocol: block parsing, malformed-block tolerance,
-patch anchoring, and refusal to apply a patch to a document that has changed.
+Covers canon persistence, character identity, fact promotion, evidence-aware
+context, validation, agent output parsing, patch anchoring, and stale-patch refusal.
 
 ## What is not built yet
 

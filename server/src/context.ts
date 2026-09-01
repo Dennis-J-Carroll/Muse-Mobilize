@@ -1,4 +1,5 @@
-import { readDocument, readManifest } from './projects.js';
+import { projectDir, readDocument, readManifest } from './projects.js';
+import { readCanon, renderCanonContext } from './canon.js';
 import type { AgentDef, Selection } from './types.js';
 
 /**
@@ -134,6 +135,14 @@ export async function buildContext(
       }
     }
     if (parts.length) push('notes', parts.join('\n\n'), 'project notes');
+  }
+
+  // Role fallback keeps pre-Phase-5 projects compatible; newly seeded
+  // Continuity definitions also declare `canon` explicitly.
+  if (scope.has('canon') || agent.role === 'continuity') {
+    const canon = await readCanon(await projectDir(projectId));
+    const rendered = renderCanonContext(canon);
+    if (rendered) push('canon', rendered, `canon (${canon.entities.length} entities, ${canon.facts.length} facts)`);
   }
 
   for (const attachId of opts.attachments ?? []) {

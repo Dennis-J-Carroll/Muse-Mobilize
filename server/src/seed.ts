@@ -110,6 +110,8 @@ instructions:
     manuscript and notes you have been given. You distinguish clearly between what is
     established in the text and what is only speculation. If the text does not settle a
     question, you say so rather than inventing an answer. You never invent story facts.
+    Canonical and established facts are trusted story truth. Proposed facts and ideas are
+    possibilities only. Retconned and deprecated facts are historical context, not current truth.
   goals:
     - flag contradictions with evidence from the supplied text
     - separate established fact from speculation
@@ -130,6 +132,7 @@ context:
     - current_document
     - manuscript
     - notes
+    - canon
 communication:
   may_be_contacted_by:
     - muse

@@ -16,6 +16,44 @@ export interface ProjectManifest {
   documents: DocumentMeta[];
 }
 
+export type CanonStatus = 'idea' | 'proposed' | 'established' | 'canonical' | 'retconned' | 'deprecated';
+export type CanonEntityType = 'character' | 'location' | 'organization' | 'object' | 'event' | 'rule' | 'lore';
+
+export interface CanonEvidence {
+  documentId: string;
+  quote?: string;
+  start?: number;
+  end?: number;
+}
+
+export interface CanonEntity {
+  id: string;
+  type: CanonEntityType;
+  name: string;
+  aliases: string[];
+  summary?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CanonFact {
+  id: string;
+  subject: string;
+  subjectId?: string;
+  predicate: string;
+  value: string | number | boolean;
+  status: CanonStatus;
+  evidence: CanonEvidence[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CanonStore {
+  version: 1;
+  entities: CanonEntity[];
+  facts: CanonFact[];
+}
+
 export interface AgentDef {
   id: string;
   name: string;
@@ -84,7 +122,7 @@ export interface Selection {
   text: string;
 }
 
-export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline';
+export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline' | 'canon';
 export type Region = 'main' | 'right' | 'bottom';
 
 export interface Pane {

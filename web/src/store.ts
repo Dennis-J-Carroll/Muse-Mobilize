@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { api } from './api';
 import type {
-  AgentDef, AgentRun, MuseEvent, Pane, PaneType, Patch, ProjectManifest,
+  AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore,
+  MuseEvent, Pane, PaneType, Patch, ProjectManifest,
   ProviderStatus, Region, Selection, SettingsView, WorkspaceDef,
 } from './types';
 
@@ -32,6 +33,7 @@ interface State {
   runs: Record<string, AgentRun[]>;
   busy: Record<string, boolean>;
   events: MuseEvent[];
+  canon: CanonStore | null;
 
   settings: SettingsView | null;
   providers: ProviderStatus[];
@@ -58,6 +60,11 @@ interface State {
   rejectPatch: (agentId: string, patch: Patch) => Promise<void>;
   cycleAgentState: (agentId: string) => Promise<void>;
 
+  loadCanon: () => Promise<void>;
+  createCanonEntity: (input: { type: CanonEntityType; name: string; aliases?: string[]; summary?: string }) => Promise<CanonEntity | null>;
+  createCanonFact: (input: Omit<CanonFact, 'id' | 'createdAt' | 'updatedAt'> & { status?: CanonStatus }) => Promise<CanonFact | null>;
+  updateCanonFact: (factId: string, patch: Partial<CanonFact>) => Promise<void>;
+
   refreshEvents: () => Promise<void>;
   loadSettings: () => Promise<void>;
   saveSettings: (patch: Record<string, string>) => Promise<void>;
@@ -71,6 +78,7 @@ const titleFor = (type: PaneType, s: State, bindingId?: string): string => {
   if (type === 'agent') return s.agents.find((a) => a.id === bindingId)?.name ?? 'Agent';
   if (type === 'events') return 'Activity';
   if (type === 'review') return 'Review';
+  if (type === 'canon') return 'Canon';
   return s.docs[bindingId ?? '']?.title ?? s.project?.documents.find((d) => d.id === bindingId)?.title ?? 'Document';
 };
 
@@ -91,6 +99,7 @@ export const useStore = create<State>((set, get) => ({
   runs: {},
   busy: {},
   events: [],
+  canon: null,
   settings: null,
   providers: [],
 
@@ -119,7 +128,7 @@ export const useStore = create<State>((set, get) => ({
     try {
       const { project, agents, workspaces } = await api.openProject(id);
       localStorage.setItem('muse:lastProject', id);
-      set({ project, agents, workspaces, docs: {}, panes: [], runs: {}, events: [], selection: null, error: null });
+      set({ project, agents, workspaces, docs: {}, panes: [], runs: {}, events: [], canon: null, selection: null, error: null });
       const drafting = workspaces.find((w) => w.id === 'drafting') ?? workspaces[0];
       if (drafting) await get().applyWorkspace(drafting.id);
       else {
@@ -173,7 +182,7 @@ export const useStore = create<State>((set, get) => ({
       set({ panes: s.panes.map((p) => (p.id === existing.id ? { ...p, sizeMode: 'normal' } : p)) });
       return;
     }
-    const region: Region = opts.region ?? (type === 'agent' ? 'right' : type === 'editor' ? 'main' : 'bottom');
+    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' ? 'main' : 'bottom');
     const pane: Pane = {
       id: `pane-${++paneSeq}-${type}-${bindingId ?? ''}`,
       type,
@@ -309,6 +318,60 @@ export const useStore = create<State>((set, get) => ({
     const { agent: updated } = await api.setAgentState(s.project.id, agentId, next);
     set({ agents: s.agents.map((a) => (a.id === agentId ? { ...a, state: updated.state } : a)) });
     await get().refreshEvents();
+  },
+
+  async loadCanon() {
+    const s = get();
+    if (!s.project) return;
+    try {
+      const { canon } = await api.canon(s.project.id);
+      set({ canon });
+    } catch (err: any) {
+      set({ error: `Could not load canon: ${err.message}` });
+    }
+  },
+
+  async createCanonEntity(input) {
+    const s = get();
+    if (!s.project) return null;
+    try {
+      const { entity } = await api.createCanonEntity(s.project.id, input);
+      const canon = get().canon ?? { version: 1, entities: [], facts: [] };
+      set({ canon: { ...canon, entities: [...canon.entities, entity] }, notice: `${entity.name} added to canon.` });
+      await get().refreshEvents();
+      return entity;
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
+    }
+  },
+
+  async createCanonFact(input) {
+    const s = get();
+    if (!s.project) return null;
+    try {
+      const { fact } = await api.createCanonFact(s.project.id, input);
+      const canon = get().canon ?? { version: 1, entities: [], facts: [] };
+      set({ canon: { ...canon, facts: [...canon.facts, fact] }, notice: 'Fact captured as proposed.' });
+      await get().refreshEvents();
+      return fact;
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
+    }
+  },
+
+  async updateCanonFact(factId, patch) {
+    const s = get();
+    if (!s.project) return;
+    try {
+      const { fact } = await api.updateCanonFact(s.project.id, factId, patch);
+      const canon = get().canon;
+      if (canon) set({ canon: { ...canon, facts: canon.facts.map((item) => (item.id === factId ? fact : item)) }, notice: `Fact marked ${fact.status}.` });
+      await get().refreshEvents();
+    } catch (err: any) {
+      set({ error: err.message });
+    }
   },
 
   async refreshEvents() {

@@ -4,6 +4,7 @@ import { EditorPane } from '../panes/EditorPane';
 import { AgentPane } from '../panes/AgentPane';
 import { EventsPane } from '../panes/EventsPane';
 import { ReviewPane } from '../panes/ReviewPane';
+import { CanonPane } from '../panes/CanonPane';
 import type { Pane } from '../types';
 import * as Icon from './icons';
 
@@ -25,6 +26,8 @@ function PaneBody({ pane }: { pane: Pane }) {
       return <EventsPane />;
     case 'review':
       return <ReviewPane />;
+    case 'canon':
+      return <CanonPane />;
     default:
       return <div className="pane-body">Unknown pane type.</div>;
   }
