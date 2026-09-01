@@ -82,6 +82,14 @@ This prevents rapid repeated clicks from issuing duplicate patch requests and in
 
 Build Plot Outline as expandable branch-and-merge timeline, or harden Characters with managed image upload. Sidebar collapse remains important for narrow windows.
 
+## Continuation handoff — 2026-09-01
+
+- Copy-paste handoff prompt created at `/tmp/muse-mobilize-plot-outline-handoff.md`.
+- Intended next objective: first distinct Plot Outline surface with expandable nodes, detail-page handoff, and branch/merge through-line.
+- Prompt anchors next agent to exact project path, implementation checkpoint `44a349b`, committed phase history, acceptance gates, and suggested skills.
+- Repository still has no configured remote. Next agent must use exact local path; commit hash alone cannot transfer changes across machines or containers.
+- Handoff references this knowledge log and commits instead of duplicating implementation detail.
+
 ## Phase 5 continuation — 2026-09-01
 
 ### Implemented
@@ -192,3 +200,4 @@ Build Plot Outline as expandable branch-and-merge timeline, or harden Characters
 - 2026-09-01 — Phase 5 canon store, API, Continuity context, and Canon pane implemented through red-green tests.
 - 2026-09-01 — Characters converted from generic launcher menu into focused cast workspace.
 - 2026-09-01 — World Building converted into Living Atlas canvas with canon-backed relationship threads and Pages fallback.
+- 2026-09-01 — Plot Outline continuation prompt prepared and handoff location recorded.
