@@ -4,9 +4,8 @@ import { useStore } from '../store';
 import * as Icon from './icons';
 
 /**
- * Domain cards are LAUNCHERS, not navigation (§10). Clicking one opens a small
- * menu; choosing an item adds a pane to the workspace. The manuscript never
- * gets replaced by a "page".
+ * Domain cards mobilize a tool into the workspace. Rich domains can launch a
+ * dedicated surface directly; lighter domains still use a pane menu.
  */
 
 type Item = { label: string; run?: () => void; soon?: boolean };
@@ -32,6 +31,7 @@ const agentItem = (label: string, agentId: string): Item => ({
 const soon = (label: string): Item => ({ label, soon: true });
 const canonItem = (): Item => ({ label: 'Canon & continuity', run: () => useStore.getState().openPane('canon', { title: 'Canon' }) });
 const openCharacters = () => useStore.getState().openPane('characters', { title: 'Cast', region: 'main', focus: true });
+const openWorld = () => useStore.getState().openPane('world', { title: 'World Atlas', region: 'main', focus: true });
 
 const newDoc = (title: string, kind: 'manuscript' | 'notes' | 'canon' | 'outline'): Item => ({
   label: title,
@@ -69,8 +69,9 @@ const CARDS: Card[] = [
     ],
   },
   {
-    key: 'world', title: 'World Building', blurb: 'Create immersive worlds and settings.', tone: 'mist',
+    key: 'world', title: 'World Building', blurb: 'Map places, powers, and hidden rules.', tone: 'mist',
     icon: <Icon.Pin />,
+    launch: openWorld,
     items: () => [canonItem(), newDoc('New lore page', 'canon'), soon('Location Builder'), soon('Faction Builder'), soon('World Rules')],
   },
   {

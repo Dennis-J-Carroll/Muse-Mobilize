@@ -1,7 +1,7 @@
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   DocumentMeta, MuseEvent, Patch, ProjectManifest,
-  ProviderStatus, Selection, SettingsView, WorkspaceDef,
+  ProviderStatus, Selection, SettingsView, WorkspaceDef, WorldProfile,
 } from './types';
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
@@ -41,12 +41,12 @@ export const api = {
     }),
 
   canon: (id: string) => req<{ canon: CanonStore }>(`/api/projects/${id}/canon`),
-  createCanonEntity: (id: string, body: { type: CanonEntityType; name: string; aliases?: string[]; summary?: string; character?: CharacterProfile }) =>
+  createCanonEntity: (id: string, body: { type: CanonEntityType; name: string; aliases?: string[]; summary?: string; character?: CharacterProfile; world?: WorldProfile }) =>
     req<{ entity: CanonEntity }>(`/api/projects/${id}/canon/entities`, {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  updateCanonEntity: (id: string, entityId: string, patch: Partial<Pick<CanonEntity, 'name' | 'aliases' | 'summary' | 'character'>>) =>
+  updateCanonEntity: (id: string, entityId: string, patch: Partial<Pick<CanonEntity, 'name' | 'aliases' | 'summary' | 'character' | 'world'>>) =>
     req<{ entity: CanonEntity }>(`/api/projects/${id}/canon/entities/${entityId}`, {
       method: 'PUT',
       body: JSON.stringify(patch),

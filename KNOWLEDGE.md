@@ -4,7 +4,7 @@ Last updated: 2026-09-01 by Codex, continuing Opus 5 work.
 
 ## Current goal
 
-Characters domain-workspace first implementation is complete. Next goal: managed local image uploads, relationships, or next distinct Mobilize surface.
+Characters and World Building first implementations are complete. Next goal: Plot Outline or Scenes as next distinct Mobilize surface; managed local image upload remains open.
 
 ## Repository state
 
@@ -76,10 +76,11 @@ This prevents rapid repeated clicks from issuing duplicate patch requests and in
 - Character knowledge cutoffs remain Phase 8; current character entities represent stable identity, not revision-specific knowledge.
 - Existing agent YAML is never silently rewritten. Pre-Phase-5 Continuity agents receive canon through role fallback but retain their original prompt text.
 - Character reference images currently use URL/project-path references; managed local file upload is not built yet.
+- World relationship rendering resolves fact values against exact entity names or aliases; richer typed/many-target relationships remain future work.
 
 ## Suggested next step
 
-Harden Characters with managed local image upload and relationship edges, then use same domain-surface contract for World Building. Sidebar collapse remains important for narrow windows.
+Build Plot Outline as expandable branch-and-merge timeline, or harden Characters with managed image upload. Sidebar collapse remains important for narrow windows.
 
 ## Phase 5 continuation — 2026-09-01
 
@@ -107,6 +108,47 @@ Harden Characters with managed local image upload and relationship edges, then u
 - `npm test`: pass — canon and protocol test files, 0 failures.
 - `npm run build`: pass — frontend TypeScript and Vite production bundle.
 - `npx tsc -p server/tsconfig.json --noEmit`: pass.
+- `git diff --check`: pass.
+
+## World Building workspace continuation — 2026-09-01
+
+### Implemented
+
+- World Building sidebar action launches focused Living Atlas directly instead of another launcher menu.
+- Default open spatial canvas with pan, centered zoom, fit-to-world, double-click placement, and persistent domain coordinates.
+- Landmark types: place, faction, object, event, rule, and lore, backed by existing non-character canon entities.
+- Atlas metadata: categories, era, atmosphere, story significance, aliases, summary, and optional lore-document binding.
+- Draggable landmark seals with keyboard arrow movement and deterministic overlap separation.
+- Relationship threads derived from stable canon facts; new connections default to `proposed`.
+- Floating atlas inspector with facts, relationship creation, editing, document handoff, and canon handoff.
+- Editorial Pages fallback with type index, structured entries, linked lore pages, and locate-on-canvas action.
+- Formal Draft 2020-12 schema at `schemas/world-profile.schema.json`.
+- Status-aware agent context now includes world categories and attributes.
+- Container-aware canvas, inspector, drawer, and Pages layouts.
+
+### Joint Characters + World fixes
+
+- Maximized pane shell remains flex-based, preventing dedicated surfaces from collapsing to intrinsic content height.
+- Opening one focused domain surface demotes prior maximized surface, so Characters and World Building switch deterministically.
+- New or legacy overlapping landmarks separate onto nearby open coordinates.
+- Landmark selection supports normal button clicks in addition to pointer dragging.
+
+### Runtime-confirmed
+
+- `Kiala Test` now contains Veyr and Tide Council world entities with structured atlas metadata.
+- Canvas rendered two distinct landmark seals joined by `Tide Council — governs → Veyr` as proposed canon.
+- Mouse drag moved Veyr and persisted its coordinates; Shift+Arrow moved Tide Council and persisted coordinates.
+- Pages mode rendered both structured entries and connection counts.
+- Characters reopened after World Building with Kiala dossier and Vision/Audio/Proximity bands intact.
+- Character edit/save roundtrip completed after shared shell changes.
+- Narrow `492px` pane switched Characters dossier to stacked layout and World inspector to bottom sheet with no page-level horizontal overflow.
+
+### Verification
+
+- `npm test`: pass — character, world profile, coordinate, and relationship persistence coverage included.
+- `npm run build`: pass — frontend TypeScript and Vite production bundle.
+- `npx tsc -p server/tsconfig.json --noEmit`: pass.
+- Both JSON schemas parse with `jq empty`.
 - `git diff --check`: pass.
 
 ## Characters workspace continuation — 2026-09-01
@@ -149,3 +191,4 @@ Harden Characters with managed local image upload and relationship edges, then u
 - 2026-09-01 — Isolated Git repository initialized; baseline committed at `ccbb660`.
 - 2026-09-01 — Phase 5 canon store, API, Continuity context, and Canon pane implemented through red-green tests.
 - 2026-09-01 — Characters converted from generic launcher menu into focused cast workspace.
+- 2026-09-01 — World Building converted into Living Atlas canvas with canon-backed relationship threads and Pages fallback.

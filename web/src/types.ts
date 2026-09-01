@@ -71,6 +71,20 @@ export interface CharacterProfile {
   references: { images: CharacterReferenceImage[] };
 }
 
+export interface WorldProfile {
+  categories: string[];
+  attributes: {
+    era: string;
+    atmosphere: string;
+    significance: string;
+  };
+  canvas: {
+    x: number;
+    y: number;
+  };
+  referenceDocumentId?: string;
+}
+
 export interface CanonEntity {
   id: string;
   type: CanonEntityType;
@@ -78,6 +92,7 @@ export interface CanonEntity {
   aliases: string[];
   summary?: string;
   character?: CharacterProfile;
+  world?: WorldProfile;
   createdAt: string;
   updatedAt: string;
 }
@@ -168,7 +183,7 @@ export interface Selection {
   text: string;
 }
 
-export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline' | 'canon' | 'characters';
+export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline' | 'canon' | 'characters' | 'world';
 export type Region = 'main' | 'right' | 'bottom';
 
 export interface Pane {

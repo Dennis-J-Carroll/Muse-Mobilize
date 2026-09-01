@@ -89,6 +89,50 @@ test('character profile and sensory subtags persist through updates', async (t) 
   assert.equal(reopened.entities[0].character?.senses.vision.subtags[0].indicator, 'limitation');
 });
 
+test('world profile and canvas position persist without losing atlas details', async (t) => {
+  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-canon-'));
+  t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
+
+  const veyr = await createCanonEntity(projectDir, {
+    type: 'location',
+    name: 'Veyr',
+    summary: 'Council city built above tidal caverns.',
+    world: {
+      categories: ['capital', 'coastal'],
+      attributes: { era: 'late empire', atmosphere: 'salt, bells, and political pressure', significance: 'Kiala’s birthplace' },
+      canvas: { x: 180.25, y: -42.75 },
+      referenceDocumentId: 'world-veyr',
+    },
+  });
+
+  await updateCanonEntity(projectDir, veyr.id, {
+    world: { ...veyr.world!, canvas: { x: 420.44, y: 118.86 } },
+  });
+  const reopened = await readCanon(projectDir);
+  assert.deepEqual(reopened.entities[0].world?.categories, ['capital', 'coastal']);
+  assert.deepEqual(reopened.entities[0].world?.canvas, { x: 420.4, y: 118.9 });
+  assert.equal(reopened.entities[0].world?.attributes.atmosphere, 'salt, bells, and political pressure');
+  assert.equal(reopened.entities[0].world?.referenceDocumentId, 'world-veyr');
+});
+
+test('world relationship fact connects stable atlas entities', async (t) => {
+  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-canon-'));
+  t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
+
+  const veyr = await createCanonEntity(projectDir, { type: 'location', name: 'Veyr' });
+  const council = await createCanonEntity(projectDir, { type: 'organization', name: 'Tide Council' });
+  const relationship = await createCanonFact(projectDir, {
+    subject: council.name,
+    subjectId: council.id,
+    predicate: 'governs',
+    value: veyr.name,
+  });
+
+  assert.equal(relationship.subjectId, council.id);
+  assert.equal(relationship.value, veyr.name);
+  assert.match(renderCanonContext(await readCanon(projectDir)), /\[PROPOSED\] Tide Council — governs: Veyr/);
+});
+
 test('writer explicitly promotes fact status', async (t) => {
   const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-canon-'));
   t.after(() => fs.rm(projectDir, { recursive: true, force: true }));

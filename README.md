@@ -99,9 +99,23 @@ not another launcher menu:
 
 Character profile contract lives at `schemas/character-profile.schema.json`.
 
+## World Building workspace
+
+Click **World Building** to open the Living Atlas directly. Canvas mode is the
+default domain surface instead of another launcher menu:
+
+- Pan and zoom an open spatial field; drag landmarks to persistent positions.
+- Add places, factions, objects, events, rules, and lore through an edge drawer.
+- Record era, atmosphere, story significance, categories, aliases, and summary.
+- Draw relationship threads backed by proposed canon facts.
+- Use **Pages** for an editorial atlas index and open bound lore documents.
+- Move focused landmarks with arrow keys; hold Shift for larger steps.
+
+World profile contract lives at `schemas/world-profile.schema.json`.
+
 ## Canon and continuity
 
-Open **World Building → Canon & continuity**, or use **open canon trail** inside Characters workspace.
+Use **canon trail** inside Characters or World Building workspace.
 
 - Create stable character, location, organization, object, event, rule, or lore entities.
 - Capture facts as `idea`, `proposed`, `established`, `canonical`, `retconned`, or `deprecated`.
@@ -118,9 +132,10 @@ missing `canon.json` behaves as empty canon until first entity or fact is captur
 npm test
 ```
 
-Covers canon persistence, character profiles and sensory metadata, character
-identity, fact promotion, evidence-aware context, validation, agent output
-parsing, patch anchoring, and stale-patch refusal.
+Covers canon persistence, character profiles and sensory metadata, world
+profiles and canvas coordinates, stable relationship edges, fact promotion,
+evidence-aware context, validation, agent output parsing, patch anchoring, and
+stale-patch refusal.
 
 ## What is not built yet
 

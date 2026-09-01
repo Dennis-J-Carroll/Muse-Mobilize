@@ -13,6 +13,7 @@ import type {
   CharacterSense,
   CharacterSenseSubtag,
   SenseIndicator,
+  WorldProfile,
 } from './types.js';
 
 export const CANON_STATUSES: CanonStatus[] = [
@@ -93,6 +94,29 @@ function cleanCharacterProfile(value: any): CharacterProfile {
   };
 }
 
+function coordinate(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.round(Math.max(-100000, Math.min(100000, parsed)) * 10) / 10;
+}
+
+function cleanWorldProfile(value: any): WorldProfile {
+  const referenceDocumentId = String(value?.referenceDocumentId ?? '').trim();
+  return {
+    categories: strings(value?.categories),
+    attributes: {
+      era: String(value?.attributes?.era ?? '').trim(),
+      atmosphere: String(value?.attributes?.atmosphere ?? '').trim(),
+      significance: String(value?.attributes?.significance ?? '').trim(),
+    },
+    canvas: {
+      x: coordinate(value?.canvas?.x),
+      y: coordinate(value?.canvas?.y),
+    },
+    ...(referenceDocumentId ? { referenceDocumentId } : {}),
+  };
+}
+
 export async function readCanon(projectDir: string): Promise<CanonStore> {
   const file = canonPath(projectDir);
   if (!(await exists(file))) return emptyCanon();
@@ -159,7 +183,7 @@ export async function createCanonFact(
 
 export async function createCanonEntity(
   projectDir: string,
-  input: { type: CanonEntityType; name: string; aliases?: string[]; summary?: string; character?: CharacterProfile },
+  input: { type: CanonEntityType; name: string; aliases?: string[]; summary?: string; character?: CharacterProfile; world?: WorldProfile },
 ): Promise<CanonEntity> {
   const name = String(input.name ?? '').trim();
   if (!name) throw new Error('entity name is required');
@@ -174,6 +198,7 @@ export async function createCanonEntity(
     aliases: (input.aliases ?? []).map((alias) => alias.trim()).filter(Boolean),
     ...(input.summary?.trim() ? { summary: input.summary.trim() } : {}),
     ...(input.type === 'character' && input.character ? { character: cleanCharacterProfile(input.character) } : {}),
+    ...(input.type !== 'character' && input.world ? { world: cleanWorldProfile(input.world) } : {}),
     createdAt: now,
     updatedAt: now,
   };
@@ -186,7 +211,7 @@ export async function createCanonEntity(
 export async function updateCanonEntity(
   projectDir: string,
   entityId: string,
-  patch: Partial<Pick<CanonEntity, 'name' | 'aliases' | 'summary' | 'character'>>,
+  patch: Partial<Pick<CanonEntity, 'name' | 'aliases' | 'summary' | 'character' | 'world'>>,
 ): Promise<CanonEntity> {
   const canon = await readCanon(projectDir);
   const index = canon.entities.findIndex((entity) => entity.id === entityId);
@@ -199,6 +224,9 @@ export async function updateCanonEntity(
     ...(patch.summary !== undefined ? { summary: String(patch.summary).trim() || undefined } : {}),
     ...(patch.character !== undefined && current.type === 'character'
       ? { character: cleanCharacterProfile(patch.character) }
+      : {}),
+    ...(patch.world !== undefined && current.type !== 'character'
+      ? { world: cleanWorldProfile(patch.world) }
       : {}),
     updatedAt: new Date().toISOString(),
   };
@@ -250,7 +278,15 @@ export function renderCanonContext(canon: CanonStore): string {
     const aliases = entity.aliases.length ? `; aliases: ${entity.aliases.join(', ')}` : '';
     const summary = entity.summary ? ` — ${entity.summary}` : '';
     const character = entity.character;
-    if (!character) return `[ENTITY:${entity.type.toUpperCase()}] ${entity.name}${aliases}${summary}`;
+    if (!character) {
+      const world = entity.world;
+      if (!world) return `[ENTITY:${entity.type.toUpperCase()}] ${entity.name}${aliases}${summary}`;
+      const categories = world.categories.length ? `\n  categories: ${world.categories.join(', ')}` : '';
+      const era = world.attributes.era ? `\n  era: ${world.attributes.era}` : '';
+      const atmosphere = world.attributes.atmosphere ? `\n  atmosphere: ${world.attributes.atmosphere}` : '';
+      const significance = world.attributes.significance ? `\n  significance: ${world.attributes.significance}` : '';
+      return `[ENTITY:${entity.type.toUpperCase()}] ${entity.name}${aliases}${summary}${categories}${era}${atmosphere}${significance}`;
+    }
     const categories = character.categories.length ? `\n  categories: ${character.categories.join(', ')}` : '';
     const role = character.attributes.role ? `\n  role: ${character.attributes.role}` : '';
     const senses = (['vision', 'audio', 'proximity'] as const)
