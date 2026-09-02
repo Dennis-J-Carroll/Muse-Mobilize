@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../store';
-import type { ProviderCheckResult, ProviderStatus } from '../types';
+import type { LocalModelOption, LocalModelProgress, ProviderCheckResult, ProviderStatus } from '../types';
 
 const ENGINE_MARKS: Record<string, string> = {
   openai: 'O', google: 'G', xai: 'X', anthropic: 'A', ollama: '◌', mock: 'M',
@@ -35,9 +35,13 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const load = useStore((s) => s.loadSettings);
   const save = useStore((s) => s.saveSettings);
   const testProvider = useStore((s) => s.testProvider);
+  const installLocalModel = useStore((s) => s.installLocalModel);
   const [form, setForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [check, setCheck] = useState<ProviderCheckResult | null>(null);
+  const [installingId, setInstallingId] = useState<string | null>(null);
+  const [localProgress, setLocalProgress] = useState<LocalModelProgress | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
@@ -62,7 +66,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const selectedId = value('defaultProvider', 'mock');
   const selected = providers.find((provider) => provider.id === selectedId) ?? providers[0];
   const featured = useMemo(() => providers.filter((provider) => provider.featured), [providers]);
-  const alternatives = useMemo(() => providers.filter((provider) => !provider.featured), [providers]);
+  const localProviders = useMemo(() => providers.filter((provider) => provider.kind === 'local'), [providers]);
+  const alternatives = useMemo(() => providers.filter((provider) => !provider.featured && provider.kind !== 'local'), [providers]);
   const keyPendingClear = Boolean(
     selected?.setup && selected.setup.keyField in form && form[selected.setup.keyField] === '',
   );
@@ -79,6 +84,28 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       setCheck({ ok: false, provider: selected.id, error: String(err?.message ?? err) });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const chooseLocalModel = async (option: LocalModelOption) => {
+    if (!selected?.available || installingId) return;
+    setInstallingId(option.id);
+    setLocalProgress(option.installed ? { status: 'Activating', percent: 100 } : { status: 'Starting download', percent: 0 });
+    setLocalError(null);
+    try {
+      const baseUrl = value('ollamaBaseUrl', 'http://localhost:11434');
+      if (option.installed) {
+        await save({ defaultProvider: 'ollama', ollamaBaseUrl: baseUrl, ollamaModel: option.model });
+      } else {
+        await save({ defaultProvider: 'ollama', ollamaBaseUrl: baseUrl });
+        await installLocalModel(option.id, setLocalProgress);
+      }
+      setForm((current) => ({ ...current, defaultProvider: 'ollama', ollamaModel: option.model }));
+      setLocalProgress({ status: 'Ready for agents', percent: 100 });
+    } catch (err: any) {
+      setLocalError(String(err?.message ?? err));
+    } finally {
+      setInstallingId(null);
     }
   };
 
@@ -100,7 +127,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             {featured.map((provider) => (
               <EngineButton key={provider.id} provider={provider} selected={selected?.id === provider.id} onSelect={() => update('defaultProvider', provider.id)} />
             ))}
-            <span className="rail-label rail-label-secondary">Local &amp; other</span>
+            <span className="rail-label rail-label-secondary">Free local</span>
+            {localProviders.map((provider) => (
+              <EngineButton key={provider.id} provider={provider} selected={selected?.id === provider.id} onSelect={() => update('defaultProvider', provider.id)} />
+            ))}
+            <span className="rail-label rail-label-secondary">Other engines</span>
             {alternatives.map((provider) => (
               <EngineButton key={provider.id} provider={provider} selected={selected?.id === provider.id} onSelect={() => update('defaultProvider', provider.id)} />
             ))}
@@ -172,17 +203,86 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 )}
 
                 {selected.id === 'ollama' && (
-                  <section className="credential-fields">
-                    <label className="field">
-                      <span>Base URL</span>
-                      <input value={value('ollamaBaseUrl')} onChange={(event) => update('ollamaBaseUrl', event.target.value)} />
-                    </label>
-                    <label className="field">
-                      <span>Model</span>
-                      <input list="models-ollama" value={value('ollamaModel')} onChange={(event) => update('ollamaModel', event.target.value)} />
-                      <datalist id="models-ollama">{selected.models.map((model) => <option key={model} value={model} />)}</datalist>
-                    </label>
-                    <p className="storage-note">Muse talks only to local Ollama URL.</p>
+                  <section className="local-fast-start">
+                    <header className="local-fast-head">
+                      <div>
+                        <span className="engine-kind">Local fast start</span>
+                        <h4>Choose weight. Start room.</h4>
+                        <p>Download once. No API key or per-token bill.</p>
+                      </div>
+                      <span className="local-free-mark">FREE · LOCAL</span>
+                    </header>
+
+                    {!selected.available && (
+                      <div className="local-runtime-gate">
+                        <div>
+                          <strong>Ollama not found</strong>
+                          <span>Install runtime once, then Muse handles models here.</span>
+                        </div>
+                        <a className="btn btn-primary" href="https://ollama.com/download" target="_blank" rel="noreferrer">Get Ollama ↗</a>
+                        <button type="button" className="btn" onClick={() => void load()}>Check again</button>
+                      </div>
+                    )}
+
+                    <div className="local-model-rack" aria-label="Free local model choices">
+                      {(selected.localModels ?? []).map((option, index) => (
+                        <div
+                          key={option.id}
+                          className={`local-model-row ${option.recommended ? 'is-recommended' : ''} ${option.heavyweight ? 'is-heavy' : ''} ${option.active ? 'is-active' : ''}`}
+                        >
+                          <span className="model-spine" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+                          <div className="local-model-copy">
+                            <div>
+                              <strong>{option.label}</strong>
+                              {option.recommended && <span className="model-pick">Best start</span>}
+                              {option.active && <span className="model-active">In room</span>}
+                            </div>
+                            <span>{option.role}</span>
+                            <p>{option.note}</p>
+                          </div>
+                          <div className="local-model-weight">
+                            <b>{option.size}</b>
+                            <span>{option.ram}</span>
+                          </div>
+                          <button
+                            type="button"
+                            className={`btn ${option.recommended ? 'btn-primary' : ''}`}
+                            disabled={!selected.available || Boolean(installingId)}
+                            onClick={() => void chooseLocalModel(option)}
+                          >
+                            {installingId === option.id
+                              ? 'Working…'
+                              : option.active
+                                ? 'Active'
+                                : option.installed
+                                  ? 'Use now'
+                                  : 'Download & use'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {localProgress && (
+                      <div className="local-pull-track" role="status">
+                        <div><span>{localProgress.status}</span><b>{localProgress.percent ?? '…'}{typeof localProgress.percent === 'number' ? '%' : ''}</b></div>
+                        <progress max="100" value={localProgress.percent ?? 0} />
+                        <small>Keep Muse open while model arrives. Default agents switch only after completion.</small>
+                      </div>
+                    )}
+                    {localError && <div className="connection-result is-bad" role="alert">{localError}</div>}
+
+                    <details className="local-advanced">
+                      <summary>Advanced local settings</summary>
+                      <label className="field">
+                        <span>Ollama URL</span>
+                        <input value={value('ollamaBaseUrl')} onChange={(event) => update('ollamaBaseUrl', event.target.value)} />
+                      </label>
+                      <label className="field">
+                        <span>Custom installed model</span>
+                        <input list="models-ollama" value={value('ollamaModel')} onChange={(event) => update('ollamaModel', event.target.value)} />
+                        <datalist id="models-ollama">{selected.models.map((model) => <option key={model} value={model} />)}</datalist>
+                      </label>
+                    </details>
                   </section>
                 )}
 
@@ -212,7 +312,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <footer className="modal-actions settings-actions">
-          <span>{selected?.kind === 'offline' ? 'Offline engine needs no check.' : 'Connection check sends tiny request and may incur vendor charge.'}</span>
+          <span>{selected?.kind === 'offline'
+            ? 'Offline engine needs no check.'
+            : selected?.kind === 'local'
+              ? 'Local models run on this machine. No per-token charge.'
+              : 'Connection check sends tiny request and may incur vendor charge.'}</span>
           <button type="button" className="btn" onClick={onClose}>Close</button>
           <button type="button" className="btn" disabled={saving} onClick={() => void commit(false)}>Save</button>
           <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void commit(selected?.kind !== 'offline')}>

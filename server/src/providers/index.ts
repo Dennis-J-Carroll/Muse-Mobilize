@@ -4,6 +4,7 @@ import { ollamaProvider } from './ollama.js';
 import { openaiProvider } from './openai.js';
 import { googleProvider } from './google.js';
 import { xaiProvider } from './xai.js';
+import { localModelShelf } from './local-models.js';
 import { readSettings } from '../settings.js';
 import type { ModelProvider } from '../types.js';
 
@@ -76,7 +77,12 @@ export async function providerStatus() {
           ? 'environment'
           : null
       : null;
-    out.push({ id: p.id, label: p.label, available, models, credentialSource, ...meta });
+    out.push({
+      id: p.id, label: p.label, available, models, credentialSource, ...meta,
+      localModels: p.id === 'ollama'
+        ? localModelShelf(models, configured.defaultProvider === 'ollama' ? configured.ollamaModel : undefined)
+        : undefined,
+    });
   }
   return out;
 }

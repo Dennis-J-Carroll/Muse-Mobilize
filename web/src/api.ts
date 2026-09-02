@@ -1,7 +1,7 @@
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   DocumentMeta, MuseEvent, Patch, ProjectManifest,
-  PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
+  LocalModelInstallResult, LocalModelProgress, PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
   ProviderCheckResult, ProviderStatus, Selection, SettingsView, WorkspaceDef, WorldProfile,
 } from './types';
 
@@ -106,4 +106,29 @@ export const api = {
     }),
   testProvider: (providerId: string) =>
     req<{ result: ProviderCheckResult }>(`/api/providers/${encodeURIComponent(providerId)}/test`, { method: 'POST' }),
+  async installLocalModel(modelId: string, onProgress: (progress: LocalModelProgress) => void) {
+    const res = await fetch(`/api/local-models/${encodeURIComponent(modelId)}/install`, { method: 'POST' });
+    if (!res.ok) throw new Error(`Local model install failed (${res.status})`);
+    if (!res.body) throw new Error('Runtime returned no install progress stream.');
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let result: LocalModelInstallResult | undefined;
+    while (true) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const event = JSON.parse(line);
+        if (event.type === 'progress') onProgress({ status: event.status, percent: event.percent });
+        if (event.type === 'error') throw new Error(event.error);
+        if (event.type === 'complete') result = { id: event.id, model: event.model };
+      }
+      if (done) break;
+    }
+    if (!result) throw new Error('Local model install ended before activation.');
+    return result;
+  },
 };

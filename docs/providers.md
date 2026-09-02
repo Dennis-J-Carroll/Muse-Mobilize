@@ -33,6 +33,22 @@ For different wire formats, copy shape of `server/src/providers/google.ts`:
 3. Return normalized `{ text, model, usage }`.
 4. Reuse `providerHttpError` when status meanings match.
 
+## Local model recipe
+
+Curated Ollama choices live in `server/src/providers/local-models.ts`. Each
+recipe contains stable UI identity, exact Ollama tag, download size, RAM hint,
+and short fit guidance. Add a recipe there instead of hard-coding model choices
+inside React.
+
+`createLocalModelInstaller` keeps download behavior testable through injected
+settings and `fetch`. It parses Ollama's NDJSON pull stream and activates the
+model only after a terminal `success` event. Preserve that transaction boundary:
+failed or interrupted downloads must not change the room's active provider.
+
+The browser endpoint streams normalized NDJSON progress from
+`POST /api/local-models/:id/install`; vendor-specific pull events stay behind
+the server adapter.
+
 ## Register and expose setup
 
 1. Add key/model fields to `Settings` in `server/src/types.ts` and defaults in
@@ -52,6 +68,7 @@ For different wire formats, copy shape of `server/src/providers/google.ts`:
 - Model presets appear without credentials.
 - 401/403, 404, 429, and 5xx errors give an action, not raw vendor noise.
 - Fake-fetch test asserts endpoint, auth, request body, response parsing, and errors.
+- Local pull test asserts streamed progress and no activation after failed download.
 - `npm test`, `npx tsc -p server/tsconfig.json --noEmit`, and `npm run build` pass.
 
 ## Official references
@@ -59,3 +76,7 @@ For different wire formats, copy shape of `server/src/providers/google.ts`:
 - [OpenAI Responses quickstart](https://platform.openai.com/docs/quickstart/make-your-first-api-request)
 - [Google Gemini Interactions API](https://ai.google.dev/api/interactions-api)
 - [xAI text generation](https://docs.x.ai/developers/model-capabilities/text/generate-text)
+- [Ollama pull API](https://docs.ollama.com/api/pull)
+- [Ollama Qwen 3.5 tags](https://ollama.com/library/qwen3.5/tags)
+- [Ollama Phi-4 Mini](https://ollama.com/library/phi4-mini)
+- [Ollama Muse Glimmer](https://ollama.com/library/muse-glimmer)

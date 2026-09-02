@@ -51,7 +51,7 @@ Open **Settings** (cloud icon top-right). Fast lane puts common hosted engines f
 - **Google Gemini** — Interactions API, default preset `gemini-3.7-flash`.
 - **xAI / Grok** — Responses API, default preset `grok-4.6`.
 - **Anthropic** — Messages API remains available under Local & other.
-- **Ollama** — point at `http://localhost:11434` and name a pulled model.
+- **Ollama** — free local shelf with one-click model download and activation.
 
 Choose an engine, use **Create key**, paste one key, choose a preset, then
 **Save & check**. Checks are explicit because they send a tiny billable request.
@@ -69,6 +69,23 @@ XAI_API_KEY=… npm run dev
 
 An agent whose file says `provider: default` follows this setting. Agent
 identities never change when the engine does.
+
+### Free local fast start
+
+Install [Ollama](https://ollama.com/download) once, then open **Settings → Free
+local → Ollama**. Choose a model and press **Download & use**. Muse streams
+download progress and switches default agents only after Ollama reports success.
+
+| choice | download | fit |
+|---|---:|---|
+| Qwen 3.5 Tiny | 1.0 GB | fastest notes and short passes |
+| Phi-4 Mini | 2.5 GB | compact structured reasoning |
+| Qwen 3.5 4B | 3.4 GB | recommended drafting/agent balance |
+| Muse Glimmer 30B | 18 GB | heavyweight local agent work |
+
+Local use needs no API key and has no per-token charge. Hardware still matters:
+larger models need more RAM and run slower. Advanced settings preserve custom
+Ollama URLs and manually installed model names.
 
 Adding another provider should stay small. See [Provider adapter guide](docs/providers.md).
 

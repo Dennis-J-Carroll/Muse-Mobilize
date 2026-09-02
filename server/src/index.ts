@@ -10,6 +10,7 @@ import { readSettings, writeSettings, redact } from './settings.js';
 import { providerStatus, testProvider } from './providers/index.js';
 import { createCanonEntity, createCanonFact, readCanon, updateCanonEntity, updateCanonFact } from './canon.js';
 import { createPlotEdge, createPlotNode, readPlot, updatePlotNode } from './plot.js';
+import { localModelInstaller } from './providers/local-models.js';
 
 const app = express();
 app.use(express.json({ limit: '8mb' }));
@@ -50,6 +51,22 @@ app.put('/api/settings', wrap(async (req, res) => {
 app.post('/api/providers/:id/test', wrap(async (req, res) => {
   res.json({ result: await testProvider(req.params.id) });
 }));
+
+app.post('/api/local-models/:id/install', async (req, res) => {
+  res.status(200);
+  res.setHeader('content-type', 'application/x-ndjson; charset=utf-8');
+  res.setHeader('cache-control', 'no-cache, no-transform');
+  res.flushHeaders();
+  const send = (payload: Record<string, unknown>) => res.write(`${JSON.stringify(payload)}\n`);
+  try {
+    const result = await localModelInstaller.install(req.params.id, (progress) => send({ type: 'progress', ...progress }));
+    send({ type: 'complete', ...result });
+  } catch (err: any) {
+    send({ type: 'error', error: String(err?.message ?? err) });
+  } finally {
+    res.end();
+  }
+});
 
 /* ---------------------------------------------------------------- projects */
 

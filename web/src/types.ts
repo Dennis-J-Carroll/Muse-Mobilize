@@ -254,6 +254,7 @@ export interface ProviderStatus {
   kind: 'hosted' | 'local' | 'offline';
   note: string;
   credentialSource: 'settings' | 'environment' | null;
+  localModels?: LocalModelOption[];
   setup?: {
     keyField: string;
     modelField: string;
@@ -261,6 +262,30 @@ export interface ProviderStatus {
     keyUrl: string;
     envKeys: string[];
   };
+}
+
+export interface LocalModelOption {
+  id: string;
+  model: string;
+  label: string;
+  size: string;
+  ram: string;
+  role: string;
+  note: string;
+  recommended?: boolean;
+  heavyweight?: boolean;
+  installed: boolean;
+  active: boolean;
+}
+
+export interface LocalModelProgress {
+  status: string;
+  percent?: number;
+}
+
+export interface LocalModelInstallResult {
+  id: string;
+  model: string;
 }
 
 export type ProviderCheckResult =

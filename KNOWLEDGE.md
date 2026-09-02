@@ -1,10 +1,10 @@
 # Muse-Mobilize Knowledge & Continuation Log
 
-Last updated: 2026-09-01 by Codex, continuing Opus 5 work.
+Last updated: 2026-09-02 by Codex, continuing Opus 5 work.
 
 ## Current goal
 
-Characters, World Building, Plot Outline, and fast-lane hosted provider setup are complete. Next distinct Mobilize surface: Scenes. Sidebar collapse, focus modes, and managed local image upload remain open.
+Characters, World Building, Plot Outline, hosted provider fast lane, and one-click local model setup are complete. Next distinct Mobilize surface: Scenes. Sidebar collapse, focus modes, and managed local image upload remain open.
 
 ## Repository state
 
@@ -83,10 +83,51 @@ This prevents rapid repeated clicks from issuing duplicate patch requests and in
 - Hosted model preset lists are curated snapshots and need periodic vendor-doc review.
 - Manual connection checks make tiny hosted requests and may incur vendor charges; UI warns before action.
 - Hosted output is request/response only; streaming and OAuth are not built yet.
+- Ollama runtime installation remains an explicit operating-system step; browser
+  does not silently install software.
+- Local downloads have progress but no cancel control or disk-space preflight.
+- Muse Glimmer is a heavyweight 30B/18 GB option, not a low-resource default.
 
 ## Suggested next step
 
 Build Scenes as granular plot extension with character/theme/beat-sheet links, or implement collapsible sidebar and focus modes. Managed character image upload remains separate hardening work.
+
+## Local Fast Start continuation — 2026-09-02
+
+### Implemented
+
+- Curated local model shelf: Qwen 3.5 0.8B, Phi-4 Mini, recommended Qwen 3.5
+  4B, and heavyweight Meta Muse Glimmer 30B.
+- Server-owned model metadata with download size, RAM guidance, fit notes,
+  installed status, and active status.
+- Streamed Ollama pull adapter using `POST /api/pull` and robust NDJSON parsing
+  across arbitrary response chunks.
+- Public install stream at `POST /api/local-models/:id/install` with normalized
+  progress, completion, and useful error events.
+- Transactional activation: room switches to Ollama and selected model only
+  after terminal download success; failed pulls preserve existing engine.
+- Settings provider rail separates Fast lane, Free local, and Other engines.
+- Manuscript-ledger model shelf with **Download & use**, **Use now**, active
+  state, progress bar, missing-runtime guidance, and advanced custom settings.
+- Agents configured with `provider: default` follow selected local model without
+  editing agent YAML.
+
+### Runtime-confirmed
+
+- Existing Ollama runtime detected as configured; all four catalog choices
+  rendered without starting a download.
+- Desktop model shelf and `640px` compact layout remained readable and usable.
+- Browser console reported zero warnings/errors during Settings verification.
+
+### Verification
+
+- Local installer tests cover chunked progress, completion activation, and
+  failed-download rollback behavior with injected fake fetch; no network or
+  multi-GB download used.
+- `npm test`: pass — 6 test files, 0 failures.
+- `npx tsc -p server/tsconfig.json --noEmit`: pass.
+- `npm run build`: pass — frontend TypeScript and Vite production bundle.
+- `git diff --check`: pass.
 
 ## Continuation handoff — 2026-09-01
 
@@ -296,3 +337,4 @@ Build Scenes as granular plot extension with character/theme/beat-sheet links, o
 - 2026-09-01 — Plot Outline converted into braided branch/merge story current with optional World Atlas anchors and backlinks.
 - 2026-09-01 — OpenAI, Google Gemini, and xAI/Grok fast-lane setup, adapters, safe checks, docs, and tests added.
 - 2026-09-01 — Duplicate-dev port collision causing bootstrap 500 fixed with strict frontend port contract.
+- 2026-09-02 — One-click Ollama Local Fast Start added with curated light/heavy models, streamed safe activation, responsive UI, docs, and tests.

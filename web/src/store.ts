@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { api } from './api';
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
-  MuseEvent, Pane, PaneType, Patch, ProjectManifest,
+  LocalModelInstallResult, LocalModelProgress, MuseEvent, Pane, PaneType, Patch, ProjectManifest,
   PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
   ProviderCheckResult, ProviderStatus, Region, Selection, SettingsView, WorkspaceDef, WorldProfile,
 } from './types';
@@ -82,6 +82,7 @@ interface State {
   loadSettings: () => Promise<void>;
   saveSettings: (patch: Record<string, string>) => Promise<void>;
   testProvider: (providerId: string) => Promise<ProviderCheckResult>;
+  installLocalModel: (modelId: string, onProgress: (progress: LocalModelProgress) => void) => Promise<LocalModelInstallResult>;
   setNotice: (n: string | null) => void;
 }
 
@@ -501,6 +502,19 @@ export const useStore = create<State>((set, get) => ({
       const error = String(err?.message ?? err);
       set({ error });
       return { ok: false, provider: providerId, error };
+    }
+  },
+
+  async installLocalModel(modelId, onProgress) {
+    try {
+      const result = await api.installLocalModel(modelId, onProgress);
+      await get().loadSettings();
+      set({ notice: `${result.model} is ready. Default agents now use local Ollama.`, error: null });
+      return result;
+    } catch (err: any) {
+      const error = String(err?.message ?? err);
+      set({ error });
+      throw new Error(error);
     }
   },
 }));
