@@ -172,6 +172,9 @@ function Drawer({ entity, draft, setDraft, onClose, onSave }: {
 
   useEffect(() => {
     first.current?.focus();
+  }, []);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
