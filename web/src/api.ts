@@ -72,6 +72,8 @@ export const api = {
     req<{ node: PlotNode }>(`/api/projects/${id}/plot/nodes/${nodeId}`, { method: 'PUT', body: JSON.stringify(patch) }),
   createPlotEdge: (id: string, body: { from: string; to: string; relation?: PlotEdgeRelation; label?: string }) =>
     req<{ edge: PlotEdge }>(`/api/projects/${id}/plot/edges`, { method: 'POST', body: JSON.stringify(body) }),
+  updatePlotEdge: (id: string, edgeId: string, patch: Partial<Pick<PlotEdge, 'relation' | 'label'>>) =>
+    req<{ edge: PlotEdge }>(`/api/projects/${id}/plot/edges/${edgeId}`, { method: 'PUT', body: JSON.stringify(patch) }),
 
   setAgentState: (id: string, agentId: string, mode: string) =>
     req<{ agent: AgentDef }>(`/api/projects/${id}/agents/${agentId}/state`, {

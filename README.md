@@ -162,6 +162,7 @@ narrative-order surface rather than a card board or spatial world map:
 - Expand manuscript strips in place or open a focused folio with goal, conflict,
   stakes, outcome, and planning notes.
 - Draw typed `sequence`, `branch`, `merge`, and `cause` threads between beats.
+- Give every thread its own path text and revise that text/type directly from a beat folio.
 - Bind a beat to a manuscript or planning document for direct page handoff.
 - Drag knots or move them with arrow keys; hold Shift for larger steps.
 - Add up to three optional World Atlas anchors per beat. World pins stay hidden

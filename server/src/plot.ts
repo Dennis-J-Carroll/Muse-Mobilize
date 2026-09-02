@@ -153,3 +153,26 @@ export async function createPlotEdge(
   await writePlot(projectDir, graph);
   return edge;
 }
+
+export async function updatePlotEdge(
+  projectDir: string,
+  edgeId: string,
+  patch: Partial<Pick<PlotEdge, 'relation' | 'label'>>,
+): Promise<PlotEdge> {
+  const graph = await readPlot(projectDir);
+  const index = graph.edges.findIndex((edge) => edge.id === edgeId);
+  if (index === -1) throw new Error(`No such plot edge: ${edgeId}`);
+  if (patch.relation !== undefined && !EDGE_RELATIONS.includes(patch.relation)) {
+    throw new Error(`plot edge relation must be one of: ${EDGE_RELATIONS.join(' | ')}`);
+  }
+  const current = graph.edges[index];
+  const updated: PlotEdge = {
+    ...current,
+    ...(patch.relation !== undefined ? { relation: patch.relation } : {}),
+    ...(patch.label !== undefined ? { label: String(patch.label).trim() } : {}),
+    updatedAt: new Date().toISOString(),
+  };
+  graph.edges[index] = updated;
+  await writePlot(projectDir, graph);
+  return updated;
+}

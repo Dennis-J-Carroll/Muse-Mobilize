@@ -868,14 +868,20 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .plot-world-anchors > div p { display: flex; flex-direction: column; margin: 0; }
 .plot-world-anchors > div small { color: var(--ink-soft); font-size: 7.5px; text-transform: uppercase; }
 .plot-world-anchors > div strong { font: 12px var(--font-prose); }
-.plot-connections > button { width: 100%; display: grid; grid-template-columns: 8px 62px minmax(0,1fr); gap: 7px; padding: 8px 0; border: 0; border-bottom: 1px dotted var(--line-strong); background: transparent; text-align: left; }
-.plot-connections > button i { width: 7px; height: 7px; margin-top: 3px; border-radius: 50%; background: var(--plot-slate); }
-.plot-connections > button i.relation-branch { background: var(--plot-branch); }
-.plot-connections > button i.relation-merge { background: var(--plot-thread); }
-.plot-connections > button i.relation-cause { background: var(--plot-world); }
-.plot-connections > button span { color: var(--ink-soft); font-size: 8px; }
-.plot-connections > button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11px var(--font-prose); }
-.plot-connections > button em { grid-column: 3; color: var(--ink-soft); font-size: 8px; font-style: normal; }
+.plot-connection-row { position: relative; display: grid; grid-template-columns: minmax(0,1fr) auto; border-bottom: 1px dotted var(--line-strong); }
+.plot-connection-row.is-editing { padding-bottom: 9px; border-bottom-style: solid; }
+.plot-connection-jump { min-width: 0; display: grid; grid-template-columns: 8px 62px minmax(0,1fr); gap: 7px; padding: 8px 4px 8px 0; border: 0; background: transparent; text-align: left; }
+.plot-connection-jump i { width: 7px; height: 7px; margin-top: 3px; border-radius: 50%; background: var(--plot-slate); }
+.plot-connection-jump i.relation-branch { background: var(--plot-branch); }
+.plot-connection-jump i.relation-merge { background: var(--plot-thread); }
+.plot-connection-jump i.relation-cause { background: var(--plot-world); }
+.plot-connection-jump span { color: var(--ink-soft); font-size: 8px; }
+.plot-connection-jump strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11px var(--font-prose); }
+.plot-connection-jump em { grid-column: 3; color: var(--ink-soft); font-size: 8px; font-style: normal; }
+.plot-connection-edit { align-self: center; padding: 5px 0 5px 7px; border: 0; background: transparent; color: var(--accent); font-size: 8px; }
+.plot-edge-edit { grid-column: 1 / -1; display: grid; grid-template-columns: 92px minmax(0,1fr); gap: 6px; padding: 7px 0 0 15px; }
+.plot-edge-edit select, .plot-edge-edit input { min-width: 0; border: 1px solid var(--line-strong); border-radius: 6px; padding: 6px 7px; background: rgba(255,255,255,.76); color: var(--ink-mid); font: 9.5px var(--font-ui); }
+.plot-edge-edit > div { grid-column: 1 / -1; display: flex; justify-content: flex-end; align-items: center; gap: 7px; }
 .plot-connect { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .plot-connect h3, .plot-connect input, .plot-connect button { grid-column: span 2; }
 .plot-connect select, .plot-connect input {

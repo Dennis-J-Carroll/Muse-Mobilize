@@ -9,7 +9,7 @@ import { applyPatch } from './protocol.js';
 import { readSettings, writeSettings, redact } from './settings.js';
 import { providerStatus, testProvider } from './providers/index.js';
 import { createCanonEntity, createCanonFact, readCanon, updateCanonEntity, updateCanonFact } from './canon.js';
-import { createPlotEdge, createPlotNode, readPlot, updatePlotNode } from './plot.js';
+import { createPlotEdge, createPlotNode, readPlot, updatePlotEdge, updatePlotNode } from './plot.js';
 import { localModelInstaller } from './providers/local-models.js';
 
 const app = express();
@@ -169,6 +169,13 @@ app.post('/api/projects/:id/plot/edges', wrap(async (req, res) => {
   const dir = await projectDir(req.params.id);
   const edge = await createPlotEdge(dir, req.body ?? {});
   await emit(dir, 'plot.edge.created', { edgeId: edge.id, from: edge.from, to: edge.to, relation: edge.relation });
+  res.json({ edge });
+}));
+
+app.put('/api/projects/:id/plot/edges/:edgeId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const edge = await updatePlotEdge(dir, req.params.edgeId, req.body ?? {});
+  await emit(dir, 'plot.edge.updated', { edgeId: edge.id, from: edge.from, to: edge.to, relation: edge.relation, label: edge.label });
   res.json({ edge });
 }));
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createPlotEdge, createPlotNode, readPlot, updatePlotNode } from '../src/plot.js';
+import { createPlotEdge, createPlotNode, readPlot, updatePlotEdge, updatePlotNode } from '../src/plot.js';
 
 test('branching through-line persists and merges into one later beat', async (t) => {
   const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-plot-'));
@@ -44,6 +44,26 @@ test('connection to a missing plot node is rejected before persistence', async (
     /No such plot node/,
   );
   assert.deepEqual((await readPlot(projectDir)).edges, []);
+});
+
+test('story thread label and relation can be revised after creation', async (t) => {
+  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-plot-'));
+  t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
+
+  const opening = await createPlotNode(projectDir, { title: 'Council summons Kiala' });
+  const archive = await createPlotNode(projectDir, { title: 'Search the sealed archive' });
+  const edge = await createPlotEdge(projectDir, {
+    from: opening.id, to: archive.id, relation: 'sequence', label: 'first idea',
+  });
+
+  const updated = await updatePlotEdge(projectDir, edge.id, {
+    relation: 'branch', label: 'quiet path',
+  });
+
+  assert.equal(updated.id, edge.id);
+  assert.equal(updated.relation, 'branch');
+  assert.equal(updated.label, 'quiet path');
+  assert.deepEqual((await readPlot(projectDir)).edges, [updated]);
 });
 
 test('plot folio persists optional world anchors by stable ID and role', async (t) => {

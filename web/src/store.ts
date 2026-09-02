@@ -77,6 +77,7 @@ interface State {
   }) => Promise<PlotNode | null>;
   updatePlotNode: (nodeId: string, patch: Partial<Pick<PlotNode, 'title' | 'summary' | 'kind' | 'section' | 'position' | 'details' | 'documentId' | 'worldRefs'>>) => Promise<PlotNode | null>;
   createPlotEdge: (input: { from: string; to: string; relation?: PlotEdgeRelation; label?: string }) => Promise<PlotEdge | null>;
+  updatePlotEdge: (edgeId: string, patch: Partial<Pick<PlotEdge, 'relation' | 'label'>>) => Promise<PlotEdge | null>;
 
   refreshEvents: () => Promise<void>;
   loadSettings: () => Promise<void>;
@@ -463,6 +464,21 @@ export const useStore = create<State>((set, get) => ({
       const { edge } = await api.createPlotEdge(s.project.id, input);
       const plot = get().plot ?? { version: 1, nodes: [], edges: [] };
       set({ plot: { ...plot, edges: [...plot.edges, edge] }, notice: `${edge.relation} connection added.` });
+      await get().refreshEvents();
+      return edge;
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
+    }
+  },
+
+  async updatePlotEdge(edgeId, patch) {
+    const s = get();
+    if (!s.project) return null;
+    try {
+      const { edge } = await api.updatePlotEdge(s.project.id, edgeId, patch);
+      const plot = get().plot;
+      if (plot) set({ plot: { ...plot, edges: plot.edges.map((item) => (item.id === edgeId ? edge : item)) }, notice: 'Story thread updated.' });
       await get().refreshEvents();
       return edge;
     } catch (err: any) {

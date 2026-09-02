@@ -137,6 +137,7 @@ export function PlotPane({ pane }: { pane: Pane }) {
   const [edgeTarget, setEdgeTarget] = useState('');
   const [edgeRelation, setEdgeRelation] = useState<PlotEdgeRelation>('sequence');
   const [edgeLabel, setEdgeLabel] = useState('');
+  const [edgeEdit, setEdgeEdit] = useState<{ id: string; relation: PlotEdgeRelation; label: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; clientX: number; clientY: number; origin: Point } | null>(null);
   const initializedSelection = useRef(false);
@@ -209,6 +210,16 @@ export function PlotPane({ pane }: { pane: Pane }) {
     if (!selected || !edgeTarget) return;
     const created = await useStore.getState().createPlotEdge({ from: selected.id, to: edgeTarget, relation: edgeRelation, label: edgeLabel.trim() });
     if (created) { setEdgeTarget(''); setEdgeLabel(''); }
+  };
+
+  const saveEdge = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!edgeEdit) return;
+    const updated = await useStore.getState().updatePlotEdge(edgeEdit.id, {
+      relation: edgeEdit.relation,
+      label: edgeEdit.label,
+    });
+    if (updated) setEdgeEdit(null);
   };
 
   const openDocument = (documentId: string) => {
@@ -299,7 +310,7 @@ export function PlotPane({ pane }: { pane: Pane }) {
           <section className="plot-mechanics">{(['goal', 'conflict', 'stakes', 'outcome'] as const).map((key) => <div key={key}><span>{key}</span><p>{selected.details[key] || '—'}</p></div>)}</section>
           {selected.details.notes && <section className="plot-notes"><span>Planning notes</span><p>{selected.details.notes}</p></section>}
           <section className="plot-world-anchors"><h3>World anchors <span>{selected.worldRefs.length}/3</span></h3>{selected.worldRefs.length ? selected.worldRefs.map((ref) => { const entity = worldById.get(ref.entityId); return <div key={ref.entityId}><i>⌖</i><p><small>{ROLE_LABEL[ref.role]}</small><strong>{entity?.name ?? 'Missing world entity'}</strong></p>{entity && <button className="linkish" onClick={() => locateWorld(entity.id)}>Locate in Atlas</button>}</div>; }) : <p>None. Plot stands without World context.</p>}</section>
-          <section className="plot-connections"><h3>Story threads <span>{selectedEdges.length}</span></h3>{selectedEdges.length ? selectedEdges.map((edge) => { const outward = edge.from === selected.id; const other = nodes.find((node) => node.id === (outward ? edge.to : edge.from)); return <button key={edge.id} onClick={() => { if (other) { setSelectedId(other.id); centerNode(other.id); } }}><i className={`relation-${edge.relation}`} /><span>{outward ? 'to' : 'from'} · {edge.relation}</span><strong>{other?.title ?? 'Missing beat'}</strong>{edge.label && <em>{edge.label}</em>}</button>; }) : <p>No connected beats yet.</p>}</section>
+          <section className="plot-connections"><h3>Story threads <span>{selectedEdges.length}</span></h3>{selectedEdges.length ? selectedEdges.map((edge) => { const outward = edge.from === selected.id; const other = nodes.find((node) => node.id === (outward ? edge.to : edge.from)); const editing = edgeEdit?.id === edge.id; return <div className={`plot-connection-row ${editing ? 'is-editing' : ''}`} key={edge.id}><button className="plot-connection-jump" onClick={() => { if (other) { setSelectedId(other.id); centerNode(other.id); } }}><i className={`relation-${edge.relation}`} /><span>{outward ? 'to' : 'from'} · {edge.relation}</span><strong>{other?.title ?? 'Missing beat'}</strong><em>{edge.label || 'No path text'}</em></button><button className="plot-connection-edit" aria-label={`Edit thread to ${other?.title ?? 'missing beat'}`} onClick={() => setEdgeEdit({ id: edge.id, relation: edge.relation, label: edge.label })}>{editing ? 'Editing' : 'Edit text'}</button>{editing && <form className="plot-edge-edit" onSubmit={saveEdge}><select aria-label="Thread type" value={edgeEdit.relation} onChange={(event) => setEdgeEdit({ ...edgeEdit, relation: event.target.value as PlotEdgeRelation })}>{EDGE_RELATIONS.map((relation) => <option key={relation} value={relation}>{relation}</option>)}</select><input aria-label="Thread text" autoFocus value={edgeEdit.label} onChange={(event) => setEdgeEdit({ ...edgeEdit, label: event.target.value })} placeholder="e.g. quiet path" /><div><button type="button" className="linkish" onClick={() => setEdgeEdit(null)}>Cancel</button><button className="btn btn-primary">Save thread</button></div></form>}</div>; }) : <p>No connected beats yet.</p>}</section>
           {nodes.length > 1 && <form className="plot-connect" onSubmit={connect}><h3>Draw story thread</h3><select aria-label="Connection type" value={edgeRelation} onChange={(event) => setEdgeRelation(event.target.value as PlotEdgeRelation)}>{EDGE_RELATIONS.map((relation) => <option key={relation} value={relation}>{relation}</option>)}</select><select aria-label="Connection target" value={edgeTarget} onChange={(event) => setEdgeTarget(event.target.value)}><option value="">Choose next beat</option>{nodes.filter((node) => node.id !== selected.id).map((node) => <option key={node.id} value={node.id}>{node.title}</option>)}</select><input aria-label="Connection label" value={edgeLabel} onChange={(event) => setEdgeLabel(event.target.value)} placeholder="optional path label" /><button className="btn" disabled={!edgeTarget}>Connect</button></form>}
         </div>
         <footer>{selected.documentId && documents.some((document) => document.id === selected.documentId) && <button className="btn" onClick={() => openDocument(selected.documentId!)}>Open bound page</button>}<button className="btn" onClick={() => setDrawer({ node: selected, point: selected.position })}>Edit folio</button>{agents.some((agent) => agent.id === 'architect') && <button className="linkish" onClick={openArchitect}>ask Architect</button>}</footer>

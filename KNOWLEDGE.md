@@ -193,6 +193,8 @@ Build Scenes as granular plot extension with character/theme/beat-sheet links, o
 - Plot Outline sidebar action launches focused Plot Through-line directly instead of another launcher menu.
 - Versioned `plot/plot.json` persistence with beat, turn, reveal, climax, and resolution nodes.
 - Typed story edges: sequence, branch, merge, and cause; missing endpoints reject before persistence.
+- Per-edge path text is now directly editable from Story threads inside beat folio;
+  relation type can be revised in same focused control.
 - Editorial story-current surface with circular knots, manuscript strips, curved typed threads, section markers, and telling-order columns.
 - Expandable nodes plus floating folio for change summary, goal, conflict, stakes, outcome, private notes, and document binding.
 - Drag and keyboard movement persisted to graph coordinates.
@@ -222,6 +224,15 @@ Build Scenes as granular plot extension with character/theme/beat-sheet links, o
 - `npx tsc -p server/tsconfig.json --noEmit`: pass.
 - Browser console: 0 errors in fresh Plot workspace load.
 - `git diff --check`: pass before commit.
+
+### Notes-folder question resolved — 2026-09-02
+
+Recovered question from `notes/mm_outline_notes_01n.xcf`: “How do edges of each
+note get their own text?” Each connection already stored independent text in
+`PlotEdge.label`, but old UI exposed it only as optional path label during edge
+creation. Beat folio now shows **Edit text** on every Story thread. Writer can
+revise both thread type and unique path text; SVG current redraws from persisted
+edge. Blank path text deliberately falls back to relation name.
 
 ## Phase 5 continuation — 2026-09-01
 
@@ -338,3 +349,4 @@ Build Scenes as granular plot extension with character/theme/beat-sheet links, o
 - 2026-09-01 — OpenAI, Google Gemini, and xAI/Grok fast-lane setup, adapters, safe checks, docs, and tests added.
 - 2026-09-01 — Duplicate-dev port collision causing bootstrap 500 fixed with strict frontend port contract.
 - 2026-09-02 — One-click Ollama Local Fast Start added with curated light/heavy models, streamed safe activation, responsive UI, docs, and tests.
+- 2026-09-02 — Notes question answered in-product: Plot thread path text and relation are directly editable per edge.
