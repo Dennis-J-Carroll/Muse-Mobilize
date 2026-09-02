@@ -126,6 +126,25 @@ Build Scenes as granular plot extension with character/theme/beat-sheet links, o
   default presets verified for OpenAI, Google, and xAI.
 - No hosted connection check executed during verification.
 
+## Dev-port 500 fix — 2026-09-01
+
+### Root cause
+
+- Duplicate `npm run dev` stacks existed.
+- Older Vite owned frontend port `5177`, while its runtime had stopped.
+- New Vite silently fell through onto runtime port `5178`; new Express runtime
+  then failed with `EADDRINUSE`.
+- Frontend still rendered from `5178`, but `/api` proxied back into same Vite,
+  producing bootstrap hang/500 and empty project screen.
+
+### Fix and verification
+
+- `web/vite.config.ts` now sets `strictPort: true`; frontend can never steal API port.
+- Regression test locks web `5177`, API proxy `5178`, and strict-port contract.
+- Original collision repro now exits immediately with `Port 5177 is already in use`.
+- Duplicate Muse dev process groups stopped; one clean stack restarted.
+- Frontend, proxied settings, runtime health, projects, and settings all return 200.
+
 ## Plot Outline workspace continuation — 2026-09-01
 
 ### Implemented
@@ -276,3 +295,4 @@ Build Scenes as granular plot extension with character/theme/beat-sheet links, o
 - 2026-09-01 — Plot Outline continuation prompt prepared and handoff location recorded.
 - 2026-09-01 — Plot Outline converted into braided branch/merge story current with optional World Atlas anchors and backlinks.
 - 2026-09-01 — OpenAI, Google Gemini, and xAI/Grok fast-lane setup, adapters, safe checks, docs, and tests added.
+- 2026-09-01 — Duplicate-dev port collision causing bootstrap 500 fixed with strict frontend port contract.

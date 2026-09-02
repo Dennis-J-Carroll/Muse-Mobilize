@@ -15,6 +15,11 @@ npm run dev
 
 Then open **http://localhost:5177** (Vite opens it for you).
 
+Port `5177` is frontend; `5178` is runtime API. Vite uses strict port binding so
+duplicate `npm run dev` commands fail clearly instead of moving frontend onto
+API port and creating a proxy-loop 500. If `5177` is already in use, use
+existing Muse tab or stop duplicate dev process before restarting.
+
 Two processes start:
 
 | process | port | what it is |
