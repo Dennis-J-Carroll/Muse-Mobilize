@@ -11,6 +11,7 @@ import { providerStatus, testProvider } from './providers/index.js';
 import { createCanonEntity, createCanonFact, readCanon, updateCanonEntity, updateCanonFact } from './canon.js';
 import { createPlotEdge, createPlotNode, readPlot, updatePlotEdge, updatePlotNode } from './plot.js';
 import { localModelInstaller } from './providers/local-models.js';
+import { createScene, createSceneTheme, readScenes, updateScene } from './scenes.js';
 
 const app = express();
 app.use(express.json({ limit: '8mb' }));
@@ -177,6 +178,39 @@ app.put('/api/projects/:id/plot/edges/:edgeId', wrap(async (req, res) => {
   const edge = await updatePlotEdge(dir, req.params.edgeId, req.body ?? {});
   await emit(dir, 'plot.edge.updated', { edgeId: edge.id, from: edge.from, to: edge.to, relation: edge.relation, label: edge.label });
   res.json({ edge });
+}));
+
+/* ------------------------------------------------------------------ scenes */
+
+app.get('/api/projects/:id/scenes', wrap(async (req, res) => {
+  res.json({ board: await readScenes(await projectDir(req.params.id)) });
+}));
+
+app.post('/api/projects/:id/scenes/themes', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const theme = await createSceneTheme(dir, req.body ?? {});
+  await emit(dir, 'scene.theme.created', { themeId: theme.id, name: theme.name });
+  res.json({ theme });
+}));
+
+app.post('/api/projects/:id/scenes', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const scene = await createScene(dir, req.body ?? {});
+  await emit(dir, 'scene.created', { sceneId: scene.id, title: scene.title, section: scene.section });
+  res.json({ scene });
+}));
+
+app.put('/api/projects/:id/scenes/:sceneId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const scene = await updateScene(dir, req.params.sceneId, req.body ?? {});
+  await emit(dir, 'scene.updated', {
+    sceneId: scene.id,
+    title: scene.title,
+    status: scene.status,
+    beats: scene.beats.length,
+    dialogueLines: scene.dialogue.length,
+  });
+  res.json({ scene });
 }));
 
 /* ------------------------------------------------------------------ agents */

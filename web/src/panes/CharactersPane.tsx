@@ -276,14 +276,19 @@ export function CharactersPane({ pane }: { pane: Pane }) {
       const updated = await useStore.getState().updateCanonEntity(drawerEntity.id, {
         name: draft.name.trim(), aliases: list(draft.aliases), summary: draft.summary.trim(), character: profile,
       });
-      if (updated) setSelectedId(updated.id);
+      if (updated) {
+        setSelectedId(updated.id);
+        closeDrawer();
+      }
     } else {
       const created = await useStore.getState().createCanonEntity({
         type: 'character', name: draft.name.trim(), aliases: list(draft.aliases), summary: draft.summary.trim(), character: profile,
       });
-      if (created) setSelectedId(created.id);
+      if (created) {
+        setSelectedId(created.id);
+        closeDrawer();
+      }
     }
-    closeDrawer();
   };
 
   if (!canon) return <div className="pane-body pane-loading">Gathering cast…</div>;

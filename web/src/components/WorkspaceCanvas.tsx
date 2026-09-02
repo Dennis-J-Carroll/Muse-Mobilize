@@ -8,6 +8,8 @@ import { CanonPane } from '../panes/CanonPane';
 import { CharactersPane } from '../panes/CharactersPane';
 import { WorldPane } from '../panes/WorldPane';
 import { PlotPane } from '../panes/PlotPane';
+import { ScenesPane } from '../panes/ScenesPane';
+import { DialoguePane } from '../panes/DialoguePane';
 import type { Pane } from '../types';
 import * as Icon from './icons';
 
@@ -37,6 +39,10 @@ function PaneBody({ pane }: { pane: Pane }) {
       return <WorldPane pane={pane} />;
     case 'plot':
       return <PlotPane pane={pane} />;
+    case 'scenes':
+      return <ScenesPane pane={pane} />;
+    case 'dialogue':
+      return <DialoguePane pane={pane} />;
     default:
       return <div className="pane-body">Unknown pane type.</div>;
   }

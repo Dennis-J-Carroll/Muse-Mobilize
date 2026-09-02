@@ -4,7 +4,7 @@ Last updated: 2026-09-02 by Codex, continuing Opus 5 work.
 
 ## Current goal
 
-Characters, World Building, Plot Outline, hosted provider fast lane, and one-click local model setup are complete. Next distinct Mobilize surface: Scenes. Sidebar collapse, focus modes, and managed local image upload remain open.
+Characters, World Building, Plot Outline, Scenes, Dialogue, hosted provider fast lane, and one-click local model setup are complete. Next distinct Mobilize surface: Themes or References. Sidebar collapse, focus modes, and managed local image upload remain open.
 
 ## Repository state
 
@@ -78,6 +78,7 @@ This prevents rapid repeated clicks from issuing duplicate patch requests and in
 - Character reference images currently use URL/project-path references; managed local file upload is not built yet.
 - World relationship rendering resolves fact values against exact entity names or aliases; richer typed/many-target relationships remain future work.
 - Plot graph writes use whole-file JSON replacement like canon. Single-user MVP is safe; concurrent writers are not.
+- Scene board writes use whole-file JSON replacement like canon and plot. Single-user MVP is safe; concurrent writers are not.
 - Plot edge deletion, node deletion, automatic layout, and undo are not exposed yet.
 - Plot World anchors deliberately cap at three and reference canon entity IDs; they do not snapshot World data.
 - Hosted model preset lists are curated snapshots and need periodic vendor-doc review.
@@ -90,7 +91,7 @@ This prevents rapid repeated clicks from issuing duplicate patch requests and in
 
 ## Suggested next step
 
-Build Scenes as granular plot extension with character/theme/beat-sheet links, or implement collapsible sidebar and focus modes. Managed character image upload remains separate hardening work.
+Build Themes/Motif Tracker as structured story material, or implement collapsible sidebar and focus modes. Managed character image upload remains separate hardening work.
 
 ## Local Fast Start continuation — 2026-09-02
 
@@ -350,3 +351,84 @@ edge. Blank path text deliberately falls back to relation name.
 - 2026-09-01 — Duplicate-dev port collision causing bootstrap 500 fixed with strict frontend port contract.
 - 2026-09-02 — One-click Ollama Local Fast Start added with curated light/heavy models, streamed safe activation, responsive UI, docs, and tests.
 - 2026-09-02 — Notes question answered in-product: Plot thread path text and relation are directly editable per edge.
+- 2026-09-02 — Scenes became storyboard beat lanes with draggable character, theme, location, and plot references; Dialogue became scene-bound table-read surface with subtext, knowledge state, and voice checks.
+- 2026-09-02 — Screencast-led QA fixed Character drawer draft loss on failed create/update and exercised recent domain surfaces end to end in isolated project.
+
+## Scenes + Dialogue workspace continuation — 2026-09-02
+
+### Implemented
+
+- Focused Scene Board launch with story-section groups and horizontal beat lanes.
+- Scene folios for title, section, purpose, summary, drafting status, manuscript
+  binding, beat creation, removal, and left/right sequence changes.
+- Story-material rail populated from existing canon Characters, canon Locations,
+  Plot nodes, and scene-owned Themes.
+- Native drag/drop into scene lanes plus click-to-attach accessibility fallback.
+- Stable typed references instead of copied source labels; reference removal and
+  missing-reference fallback remain explicit.
+- Focused Dialogue table with scene selection and exact Scene Board handoff.
+- Ordered speaker lines with separate audible text, subtext, line-specific
+  knowledge state, manual voice status, and voice-check note.
+- Versioned `scenes/scenes.json` persistence and Draft 2020-12 schema at
+  `schemas/scene-board.schema.json`.
+- Append-only history events for scene/theme creation and scene updates.
+
+### Runtime-confirmed
+
+- Existing Kiala canon/plot resources appeared in story-material rail without
+  copying or mutating project story data.
+- Empty-board, scene folio, beat editor, and empty Dialogue states rendered.
+- Sidebar direct launches switched between Scene Board and Dialogue Table.
+- `312px` scene pane used compact horizontal resource rail with zero page-level
+  overflow.
+- Browser console reported zero warnings/errors after fixing unstable filtered
+  document selector in Scene folio.
+
+### Verification
+
+- Persistence tests cover typed asset dedupe, ordered beat lanes, all Dialogue
+  continuity fields, and invalid-status rollback.
+- `npm test`: pass — 7 test files, 0 failures.
+- `npm run build`: pass — frontend TypeScript and Vite production bundle.
+- `npx tsc -p server/tsconfig.json --noEmit`: pass.
+- `jq empty schemas/scene-board.schema.json`: pass.
+
+## Screencast-led recent-change QA — 2026-09-02
+
+### Diagnosis and fix
+
+- Reviewed supplied 1920×1080 WebM screencast frame by frame. Clip shows New
+  Character drawer accepting `Justin`, but ends before Add to cast submission.
+- Kiala event history contains Character pane open but no character-create event
+  around report. Project canon remained unchanged.
+- Isolated normal-path reproduction created and persisted character correctly.
+- Isolated runtime-failure reproduction exposed concrete bug: store returned
+  `null`, but Characters pane closed drawer unconditionally. Name, role, and all
+  other entered fields disappeared behind generic error toast.
+- Character create/edit drawer now closes only after API returns saved entity.
+  Failed request keeps complete draft and permits successful retry after runtime
+  reconnects.
+- No frontend interaction-test harness exists at correct component seam; browser
+  failure/retry loop provides regression evidence. Existing server canon tests
+  still cover persistence contract.
+
+### Cross-workspace runtime verification
+
+- Isolated QA project created two Characters and completed dossier edit.
+- World created one Location; Plot created two nodes, one World anchor, and one
+  labeled sequence edge.
+- Scenes created one lane, one beat, one Theme, and attached Character, Theme,
+  Location, and Plot references through accessible click path.
+- Dialogue created one line with speaker, subtext, knowledge state, in-voice
+  status, and voice note.
+- Full reload preserved every artifact. Disk JSON counts matched UI counts.
+- Character failed-save draft remained open, then same draft succeeded unchanged
+  after isolated runtime restart.
+- `640px` viewport produced `312px` Characters, World, Plot, Scenes, and Dialogue
+  panes with no page-level horizontal overflow.
+- Fresh cross-workspace browser tab reported zero warnings/errors.
+- Browser automation driver emitted no native `dragstart`, so HTML5 drag itself
+  could not be mechanically asserted; click-to-attach fallback and persisted
+  typed-reference path passed.
+- Isolated project, temporary instrumentation, and QA processes removed. Kiala
+  project data was never mutated.

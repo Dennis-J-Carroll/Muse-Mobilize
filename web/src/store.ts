@@ -4,7 +4,7 @@ import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   LocalModelInstallResult, LocalModelProgress, MuseEvent, Pane, PaneType, Patch, ProjectManifest,
   PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
-  ProviderCheckResult, ProviderStatus, Region, Selection, SettingsView, WorkspaceDef, WorldProfile,
+  ProviderCheckResult, ProviderStatus, Region, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, WorkspaceDef, WorldProfile,
 } from './types';
 
 interface DocState {
@@ -36,8 +36,10 @@ interface State {
   events: MuseEvent[];
   canon: CanonStore | null;
   plot: PlotGraph | null;
+  sceneBoard: SceneBoard | null;
   worldFocusEntityId: string | null;
   plotFocusNodeId: string | null;
+  sceneFocusId: string | null;
 
   settings: SettingsView | null;
   providers: ProviderStatus[];
@@ -79,6 +81,14 @@ interface State {
   createPlotEdge: (input: { from: string; to: string; relation?: PlotEdgeRelation; label?: string }) => Promise<PlotEdge | null>;
   updatePlotEdge: (edgeId: string, patch: Partial<Pick<PlotEdge, 'relation' | 'label'>>) => Promise<PlotEdge | null>;
 
+  loadScenes: () => Promise<void>;
+  createSceneTheme: (input: { name: string; description?: string }) => Promise<SceneTheme | null>;
+  createScene: (input: {
+    title: string; summary?: string; section?: string; purpose?: string; status?: SceneStatus; order?: number;
+    documentId?: string; assets?: Scene['assets']; beats?: Scene['beats']; dialogue?: Scene['dialogue'];
+  }) => Promise<Scene | null>;
+  updateScene: (sceneId: string, patch: Partial<Pick<Scene, 'title' | 'summary' | 'section' | 'purpose' | 'status' | 'order' | 'documentId' | 'assets' | 'beats' | 'dialogue'>>) => Promise<Scene | null>;
+
   refreshEvents: () => Promise<void>;
   loadSettings: () => Promise<void>;
   saveSettings: (patch: Record<string, string>) => Promise<void>;
@@ -98,6 +108,8 @@ const titleFor = (type: PaneType, s: State, bindingId?: string): string => {
   if (type === 'characters') return 'Cast';
   if (type === 'world') return 'World Atlas';
   if (type === 'plot') return 'Plot Through-line';
+  if (type === 'scenes') return 'Scene Board';
+  if (type === 'dialogue') return 'Dialogue Table';
   return s.docs[bindingId ?? '']?.title ?? s.project?.documents.find((d) => d.id === bindingId)?.title ?? 'Document';
 };
 
@@ -120,8 +132,10 @@ export const useStore = create<State>((set, get) => ({
   events: [],
   canon: null,
   plot: null,
+  sceneBoard: null,
   worldFocusEntityId: null,
   plotFocusNodeId: null,
+  sceneFocusId: null,
   settings: null,
   providers: [],
 
@@ -150,7 +164,7 @@ export const useStore = create<State>((set, get) => ({
     try {
       const { project, agents, workspaces } = await api.openProject(id);
       localStorage.setItem('muse:lastProject', id);
-      set({ project, agents, workspaces, docs: {}, panes: [], runs: {}, events: [], canon: null, plot: null, worldFocusEntityId: null, plotFocusNodeId: null, selection: null, error: null });
+      set({ project, agents, workspaces, docs: {}, panes: [], runs: {}, events: [], canon: null, plot: null, sceneBoard: null, worldFocusEntityId: null, plotFocusNodeId: null, sceneFocusId: null, selection: null, error: null });
       const drafting = workspaces.find((w) => w.id === 'drafting') ?? workspaces[0];
       if (drafting) await get().applyWorkspace(drafting.id);
       else {
@@ -204,7 +218,7 @@ export const useStore = create<State>((set, get) => ({
       set({ panes: s.panes.map((p) => (p.id === existing.id ? { ...p, sizeMode: opts.focus ? 'maximized' : 'normal' } : opts.focus && p.sizeMode === 'maximized' ? { ...p, sizeMode: 'normal' } : p)) });
       return;
     }
-    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' || type === 'world' || type === 'plot' ? 'main' : 'bottom');
+    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' || type === 'world' || type === 'plot' || type === 'scenes' || type === 'dialogue' ? 'main' : 'bottom');
     const pane: Pane = {
       id: `pane-${++paneSeq}-${type}-${bindingId ?? ''}`,
       type,
@@ -481,6 +495,62 @@ export const useStore = create<State>((set, get) => ({
       if (plot) set({ plot: { ...plot, edges: plot.edges.map((item) => (item.id === edgeId ? edge : item)) }, notice: 'Story thread updated.' });
       await get().refreshEvents();
       return edge;
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
+    }
+  },
+
+  async loadScenes() {
+    const s = get();
+    if (!s.project) return;
+    try {
+      const { board } = await api.scenes(s.project.id);
+      set({ sceneBoard: board });
+    } catch (err: any) {
+      set({ error: `Could not load scenes: ${err.message}` });
+    }
+  },
+
+  async createSceneTheme(input) {
+    const s = get();
+    if (!s.project) return null;
+    try {
+      const { theme } = await api.createSceneTheme(s.project.id, input);
+      const board = get().sceneBoard ?? { version: 1, themes: [], scenes: [] };
+      set({ sceneBoard: { ...board, themes: [...board.themes, theme] }, notice: `${theme.name} added to scene themes.` });
+      await get().refreshEvents();
+      return theme;
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
+    }
+  },
+
+  async createScene(input) {
+    const s = get();
+    if (!s.project) return null;
+    try {
+      const { scene } = await api.createScene(s.project.id, input);
+      const board = get().sceneBoard ?? { version: 1, themes: [], scenes: [] };
+      set({ sceneBoard: { ...board, scenes: [...board.scenes, scene].sort((a, b) => a.order - b.order) }, sceneFocusId: scene.id, notice: `${scene.title} added to board.` });
+      await get().refreshEvents();
+      return scene;
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
+    }
+  },
+
+  async updateScene(sceneId, patch) {
+    const s = get();
+    if (!s.project) return null;
+    try {
+      const { scene } = await api.updateScene(s.project.id, sceneId, patch);
+      const board = get().sceneBoard;
+      if (board) set({ sceneBoard: { ...board, scenes: board.scenes.map((item) => (item.id === sceneId ? scene : item)).sort((a, b) => a.order - b.order) }, notice: `${scene.title} updated.` });
+      await get().refreshEvents();
+      return scene;
     } catch (err: any) {
       set({ error: err.message });
       return null;

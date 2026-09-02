@@ -154,6 +154,64 @@ export interface PlotGraph {
   edges: PlotEdge[];
 }
 
+export type SceneStatus = 'planned' | 'drafting' | 'revised' | 'locked';
+export type SceneAssetKind = 'character' | 'theme' | 'location' | 'plot';
+export type DialogueVoiceStatus = 'unchecked' | 'in_voice' | 'review';
+
+export interface SceneTheme {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SceneAssetRef {
+  kind: SceneAssetKind;
+  refId: string;
+  role: string;
+}
+
+export interface SceneBeat {
+  id: string;
+  title: string;
+  summary: string;
+  order: number;
+}
+
+export interface DialogueLine {
+  id: string;
+  speakerId: string;
+  text: string;
+  subtext: string;
+  knowledgeState: string;
+  voiceStatus: DialogueVoiceStatus;
+  voiceNote: string;
+  order: number;
+}
+
+export interface Scene {
+  id: string;
+  title: string;
+  summary: string;
+  section: string;
+  purpose: string;
+  status: SceneStatus;
+  order: number;
+  documentId?: string;
+  assets: SceneAssetRef[];
+  beats: SceneBeat[];
+  dialogue: DialogueLine[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SceneBoard {
+  version: 1;
+  themes: SceneTheme[];
+  scenes: Scene[];
+}
+
 export interface AgentDef {
   id: string;
   name: string;
@@ -222,7 +280,7 @@ export interface Selection {
   text: string;
 }
 
-export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline' | 'canon' | 'characters' | 'world' | 'plot';
+export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline' | 'canon' | 'characters' | 'world' | 'plot' | 'scenes' | 'dialogue';
 export type Region = 'main' | 'right' | 'bottom';
 
 export interface Pane {

@@ -2,7 +2,7 @@ import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   DocumentMeta, MuseEvent, Patch, ProjectManifest,
   LocalModelInstallResult, LocalModelProgress, PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
-  ProviderCheckResult, ProviderStatus, Selection, SettingsView, WorkspaceDef, WorldProfile,
+  ProviderCheckResult, ProviderStatus, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, WorkspaceDef, WorldProfile,
 } from './types';
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
@@ -74,6 +74,16 @@ export const api = {
     req<{ edge: PlotEdge }>(`/api/projects/${id}/plot/edges`, { method: 'POST', body: JSON.stringify(body) }),
   updatePlotEdge: (id: string, edgeId: string, patch: Partial<Pick<PlotEdge, 'relation' | 'label'>>) =>
     req<{ edge: PlotEdge }>(`/api/projects/${id}/plot/edges/${edgeId}`, { method: 'PUT', body: JSON.stringify(patch) }),
+
+  scenes: (id: string) => req<{ board: SceneBoard }>(`/api/projects/${id}/scenes`),
+  createSceneTheme: (id: string, body: { name: string; description?: string }) =>
+    req<{ theme: SceneTheme }>(`/api/projects/${id}/scenes/themes`, { method: 'POST', body: JSON.stringify(body) }),
+  createScene: (id: string, body: {
+    title: string; summary?: string; section?: string; purpose?: string; status?: SceneStatus; order?: number;
+    documentId?: string; assets?: Scene['assets']; beats?: Scene['beats']; dialogue?: Scene['dialogue'];
+  }) => req<{ scene: Scene }>(`/api/projects/${id}/scenes`, { method: 'POST', body: JSON.stringify(body) }),
+  updateScene: (id: string, sceneId: string, patch: Partial<Pick<Scene, 'title' | 'summary' | 'section' | 'purpose' | 'status' | 'order' | 'documentId' | 'assets' | 'beats' | 'dialogue'>>) =>
+    req<{ scene: Scene }>(`/api/projects/${id}/scenes/${sceneId}`, { method: 'PUT', body: JSON.stringify(patch) }),
 
   setAgentState: (id: string, agentId: string, mode: string) =>
     req<{ agent: AgentDef }>(`/api/projects/${id}/agents/${agentId}/state`, {

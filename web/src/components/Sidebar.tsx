@@ -33,6 +33,8 @@ const canonItem = (): Item => ({ label: 'Canon & continuity', run: () => useStor
 const openCharacters = () => useStore.getState().openPane('characters', { title: 'Cast', region: 'main', focus: true });
 const openWorld = () => useStore.getState().openPane('world', { title: 'World Atlas', region: 'main', focus: true });
 const openPlot = () => useStore.getState().openPane('plot', { title: 'Plot Through-line', region: 'main', focus: true });
+const openScenes = () => useStore.getState().openPane('scenes', { title: 'Scene Board', region: 'main', focus: true });
+const openDialogue = () => useStore.getState().openPane('dialogue', { title: 'Dialogue Table', region: 'main', focus: true });
 
 const newDoc = (title: string, kind: 'manuscript' | 'notes' | 'canon' | 'outline'): Item => ({
   label: title,
@@ -88,6 +90,7 @@ const CARDS: Card[] = [
   {
     key: 'scenes', title: 'Scenes', blurb: 'Organize and draft key scenes.', tone: 'mist',
     icon: <Icon.List />,
+    launch: openScenes,
     items: (s) => [
       ...(s.project?.documents.filter((d) => d.kind === 'manuscript').map((d) => docItem(d.title, d.id)) ?? []),
       newDoc('New scene', 'manuscript'),
@@ -97,6 +100,7 @@ const CARDS: Card[] = [
   {
     key: 'dialogue', title: 'Dialogue', blurb: 'Write and refine conversations.', tone: 'blue',
     icon: <Icon.Chat />,
+    launch: openDialogue,
     items: (s) => [
       ...s.agents.filter((a) => a.role === 'character').map((a) => agentItem(`Speak with ${a.name}`, a.id)),
       soon('Subtext Critic'), soon('Conversation Simulator'),

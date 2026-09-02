@@ -101,6 +101,7 @@ Adding another provider should stay small. See [Provider adapter guide](docs/pro
 │   ├── canon.json                ← portable entities, facts, statuses, evidence
 │   └── characters/
 ├── plot/plot.json                ← branching through-line, folios, and typed edges
+├── scenes/scenes.json            ← scene lanes, story references, beats, and dialogue
 ├── agents/*.yml                  ← edit these to change an agent
 ├── workspaces/*.json
 └── .muse/
@@ -169,6 +170,31 @@ narrative-order surface rather than a card board or spatial world map:
   until requested; Atlas backlinks appear only on referenced landmarks.
 
 Plot graph contract lives at `schemas/plot-graph.schema.json`.
+
+## Scenes workspace
+
+Click **Scenes** to open storyboard directly:
+
+- Each scene becomes horizontal beat lane grouped by story section.
+- Add, revise, and reorder small dramatic beats through scene folio.
+- Drag Characters, Themes, Locations, and Plot nodes from story-material rail
+  into any scene. Clicking resource adds it to selected scene for keyboard use.
+- References use stable canon/plot IDs, so source names and descriptions remain
+  authoritative.
+- Bind scene to manuscript page, record purpose/status, and hand selected scene
+  directly to Dialogue table.
+
+## Dialogue workspace
+
+Click **Dialogue** for script/table-read surface tied to selected scene:
+
+- Write and reorder spoken lines by canon-backed speaker.
+- Track subtext separately from audible dialogue.
+- Record speaker knowledge, belief, or misunderstanding at each line.
+- Mark manual voice check as `unchecked`, `in_voice`, or `review`, with note.
+- Open bound manuscript draft or return to exact scene on storyboard.
+
+Scenes and Dialogue share portable contract at `schemas/scene-board.schema.json`.
 
 ## Canon and continuity
 

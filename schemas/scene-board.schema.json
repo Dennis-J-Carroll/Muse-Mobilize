@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://muse-mobilize.local/schemas/scene-board.schema.json",
+  "title": "Muse-Mobilize Scene Board",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "themes", "scenes"],
+  "properties": {
+    "version": { "const": 1 },
+    "themes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/theme" }
+    },
+    "scenes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/scene" }
+    }
+  },
+  "$defs": {
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "description", "createdAt", "updatedAt"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "refId", "role"],
+      "properties": {
+        "kind": { "enum": ["character", "theme", "location", "plot"] },
+        "refId": { "type": "string", "minLength": 1 },
+        "role": { "type": "string" }
+      }
+    },
+    "beat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "summary", "order"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string" },
+        "order": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "dialogue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "speakerId", "text", "subtext", "knowledgeState", "voiceStatus", "voiceNote", "order"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "speakerId": { "type": "string" },
+        "text": { "type": "string", "minLength": 1 },
+        "subtext": { "type": "string" },
+        "knowledgeState": { "type": "string" },
+        "voiceStatus": { "enum": ["unchecked", "in_voice", "review"] },
+        "voiceNote": { "type": "string" },
+        "order": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "scene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "summary", "section", "purpose", "status", "order", "assets", "beats", "dialogue", "createdAt", "updatedAt"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string" },
+        "section": { "type": "string", "minLength": 1 },
+        "purpose": { "type": "string" },
+        "status": { "enum": ["planned", "drafting", "revised", "locked"] },
+        "order": { "type": "integer", "minimum": 0 },
+        "documentId": { "type": "string", "minLength": 1 },
+        "assets": { "type": "array", "items": { "$ref": "#/$defs/asset" } },
+        "beats": { "type": "array", "items": { "$ref": "#/$defs/beat" } },
+        "dialogue": { "type": "array", "items": { "$ref": "#/$defs/dialogue" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}
