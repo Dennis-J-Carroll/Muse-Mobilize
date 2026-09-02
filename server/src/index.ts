@@ -7,7 +7,7 @@ import { readEvents, emit } from './events.js';
 import { runAgent } from './agents.js';
 import { applyPatch } from './protocol.js';
 import { readSettings, writeSettings, redact } from './settings.js';
-import { providerStatus } from './providers/index.js';
+import { providerStatus, testProvider } from './providers/index.js';
 import { createCanonEntity, createCanonFact, readCanon, updateCanonEntity, updateCanonFact } from './canon.js';
 import { createPlotEdge, createPlotNode, readPlot, updatePlotNode } from './plot.js';
 
@@ -33,13 +33,22 @@ app.get('/api/settings', wrap(async (_req, res) => {
 app.put('/api/settings', wrap(async (req, res) => {
   const body = req.body ?? {};
   const patch: Record<string, unknown> = {};
-  for (const k of ['workspaceRoot', 'anthropicModel', 'ollamaBaseUrl', 'ollamaModel', 'defaultProvider']) {
+  for (const k of [
+    'workspaceRoot', 'anthropicModel', 'openaiModel', 'googleModel', 'xaiModel',
+    'ollamaBaseUrl', 'ollamaModel', 'defaultProvider',
+  ]) {
     if (typeof body[k] === 'string') patch[k] = body[k];
   }
   // An empty string clears the key; undefined leaves it untouched.
-  if (typeof body.anthropicApiKey === 'string') patch.anthropicApiKey = body.anthropicApiKey || undefined;
+  for (const k of ['anthropicApiKey', 'openaiApiKey', 'googleApiKey', 'xaiApiKey']) {
+    if (typeof body[k] === 'string') patch[k] = body[k] || undefined;
+  }
   await writeSettings(patch);
   res.json({ settings: redact(await readSettings()), providers: await providerStatus() });
+}));
+
+app.post('/api/providers/:id/test', wrap(async (req, res) => {
+  res.json({ result: await testProvider(req.params.id) });
 }));
 
 /* ---------------------------------------------------------------- projects */

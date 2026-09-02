@@ -274,6 +274,12 @@ export interface Settings {
   workspaceRoot: string;
   anthropicApiKey?: string;
   anthropicModel?: string;
+  openaiApiKey?: string;
+  openaiModel?: string;
+  googleApiKey?: string;
+  googleModel?: string;
+  xaiApiKey?: string;
+  xaiModel?: string;
   ollamaBaseUrl?: string;
   ollamaModel?: string;
   defaultProvider?: string;

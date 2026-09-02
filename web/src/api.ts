@@ -2,7 +2,7 @@ import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   DocumentMeta, MuseEvent, Patch, ProjectManifest,
   PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
-  ProviderStatus, Selection, SettingsView, WorkspaceDef, WorldProfile,
+  ProviderCheckResult, ProviderStatus, Selection, SettingsView, WorkspaceDef, WorldProfile,
 } from './types';
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
@@ -104,4 +104,6 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(patch),
     }),
+  testProvider: (providerId: string) =>
+    req<{ result: ProviderCheckResult }>(`/api/providers/${encodeURIComponent(providerId)}/test`, { method: 'POST' }),
 };

@@ -80,7 +80,7 @@ export default function App() {
                 {w.name}
               </button>
             ))}
-            <button className="ws-btn ghost" onClick={() => setShowSettings(true)}>
+            <button className="ws-btn ghost" aria-label="Model settings" title="Model settings" onClick={() => setShowSettings(true)}>
               <Icon.Cloud size={16} />
             </button>
           </div>

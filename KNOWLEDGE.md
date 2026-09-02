@@ -4,7 +4,7 @@ Last updated: 2026-09-01 by Codex, continuing Opus 5 work.
 
 ## Current goal
 
-Characters, World Building, and Plot Outline first implementations are complete. Next distinct Mobilize surface: Scenes. Sidebar collapse, focus modes, and managed local image upload remain open.
+Characters, World Building, Plot Outline, and fast-lane hosted provider setup are complete. Next distinct Mobilize surface: Scenes. Sidebar collapse, focus modes, and managed local image upload remain open.
 
 ## Repository state
 
@@ -25,7 +25,7 @@ Characters, World Building, and Plot Outline first implementations are complete.
 - Provider-neutral response parsing and patch anchoring: `server/src/protocol.ts`.
 - Local project persistence: `server/src/projects.ts`; append-only history: `server/src/events.ts`.
 - Portable canon store and agent rendering: `server/src/canon.ts`.
-- Providers: deterministic offline mock, Anthropic, and Ollama under `server/src/providers/`.
+- Providers: deterministic offline mock, OpenAI, Google Gemini, xAI/Grok, Anthropic, and Ollama under `server/src/providers/`.
 
 ## Recovered Opus checkpoint
 
@@ -80,6 +80,9 @@ This prevents rapid repeated clicks from issuing duplicate patch requests and in
 - Plot graph writes use whole-file JSON replacement like canon. Single-user MVP is safe; concurrent writers are not.
 - Plot edge deletion, node deletion, automatic layout, and undo are not exposed yet.
 - Plot World anchors deliberately cap at three and reference canon entity IDs; they do not snapshot World data.
+- Hosted model preset lists are curated snapshots and need periodic vendor-doc review.
+- Manual connection checks make tiny hosted requests and may incur vendor charges; UI warns before action.
+- Hosted output is request/response only; streaming and OAuth are not built yet.
 
 ## Suggested next step
 
@@ -92,6 +95,36 @@ Build Scenes as granular plot extension with character/theme/beat-sheet links, o
 - Prompt anchors next agent to exact project path, implementation checkpoint `44a349b`, committed phase history, acceptance gates, and suggested skills.
 - Repository still has no configured remote. Next agent must use exact local path; commit hash alone cannot transfer changes across machines or containers.
 - Handoff references this knowledge log and commits instead of duplicating implementation detail.
+
+## Provider fast lane continuation — 2026-09-01
+
+### Implemented
+
+- Fast-lane Settings rail for OpenAI, Google Gemini, and xAI/Grok; Anthropic,
+  Ollama, and offline Mock remain available below.
+- Data-driven credential deck sourced from server provider registry metadata.
+- Direct official key-creation links, blank secret inputs, key-present status,
+  model presets available before setup, and explicit Forget key action.
+- Standard env fast paths: `OPENAI_API_KEY`, `GEMINI_API_KEY`/`GOOGLE_API_KEY`,
+  and `XAI_API_KEY`; UI reports environment source without exposing value.
+- Shared OpenAI-compatible Responses adapter for OpenAI and xAI.
+- Native Google Gemini Interactions adapter.
+- Hosted requests set `store: false`; keys stay server-side in environment or
+  owner-only (`0600`) local settings.
+- Manual **Save & check** route with billability warning and useful credential,
+  model, rate-limit, and service errors.
+- Provider adapter recipe at `docs/providers.md`.
+
+### Verification
+
+- Provider tests use injected fake settings/fetch; no real key, network, or spend.
+- Redaction test confirms no API key value reaches browser-facing settings.
+- `npm test`: pass — 4 test files, 0 failures.
+- `npx tsc -p server/tsconfig.json --noEmit`: pass.
+- `npm run build`: pass — frontend TypeScript and Vite production bundle.
+- Browser: desktop and `640px` settings layouts passed; official key links and
+  default presets verified for OpenAI, Google, and xAI.
+- No hosted connection check executed during verification.
 
 ## Plot Outline workspace continuation — 2026-09-01
 
@@ -242,3 +275,4 @@ Build Scenes as granular plot extension with character/theme/beat-sheet links, o
 - 2026-09-01 — World Building converted into Living Atlas canvas with canon-backed relationship threads and Pages fallback.
 - 2026-09-01 — Plot Outline continuation prompt prepared and handoff location recorded.
 - 2026-09-01 — Plot Outline converted into braided branch/merge story current with optional World Atlas anchors and backlinks.
+- 2026-09-01 — OpenAI, Google Gemini, and xAI/Grok fast-lane setup, adapters, safe checks, docs, and tests added.

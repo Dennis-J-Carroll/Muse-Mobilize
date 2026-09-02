@@ -40,15 +40,32 @@ consultation with another agent, and proposes a real patch anchored to your text
 
 ## Using a real model
 
-Open **Settings** (the ⋮ button top-left, or the cloud icon top-right):
+Open **Settings** (cloud icon top-right). Fast lane puts common hosted engines first:
 
-- **Anthropic** — paste an API key. Stored in `~/.muse-mobilize/settings.json`
-  on your machine only, never inside the project folder, never in git.
+- **OpenAI** — Responses API, default preset `gpt-5`.
+- **Google Gemini** — Interactions API, default preset `gemini-3.7-flash`.
+- **xAI / Grok** — Responses API, default preset `grok-4.6`.
+- **Anthropic** — Messages API remains available under Local & other.
 - **Ollama** — point at `http://localhost:11434` and name a pulled model.
-  The dot next to the provider shows whether it is actually reachable.
+
+Choose an engine, use **Create key**, paste one key, choose a preset, then
+**Save & check**. Checks are explicit because they send a tiny billable request.
+Keys stay in `~/.muse-mobilize/settings.json` on this machine, never inside story
+folder or git, with owner-only file permissions. Server returns only key-present
+flags to browser. Hosted calls set `store: false` where vendor API supports it.
+
+Developers and CI can skip paste flow with standard environment variables:
+
+```bash
+OPENAI_API_KEY=… npm run dev
+GEMINI_API_KEY=… npm run dev
+XAI_API_KEY=… npm run dev
+```
 
 An agent whose file says `provider: default` follows this setting. Agent
 identities never change when the engine does.
+
+Adding another provider should stay small. See [Provider adapter guide](docs/providers.md).
 
 ## Your project on disk
 
@@ -153,7 +170,8 @@ npm test
 Covers canon persistence, character profiles and sensory metadata, world
 profiles and canvas coordinates, branching plot persistence, sparse World
 anchors, stable relationship edges, fact promotion, evidence-aware context,
-validation, agent output parsing, patch anchoring, and stale-patch refusal.
+provider request/redaction contracts, validation, agent output parsing, patch
+anchoring, and stale-patch refusal.
 
 ## What is not built yet
 

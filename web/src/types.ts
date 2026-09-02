@@ -250,12 +250,33 @@ export interface ProviderStatus {
   label: string;
   available: boolean;
   models: string[];
+  featured: boolean;
+  kind: 'hosted' | 'local' | 'offline';
+  note: string;
+  credentialSource: 'settings' | 'environment' | null;
+  setup?: {
+    keyField: string;
+    modelField: string;
+    keyPlaceholder: string;
+    keyUrl: string;
+    envKeys: string[];
+  };
 }
+
+export type ProviderCheckResult =
+  | { ok: true; provider: string; model: string; ms: number }
+  | { ok: false; provider: string; error: string };
 
 export interface SettingsView {
   workspaceRoot: string;
   anthropicModel?: string;
   anthropicKeySet: boolean;
+  openaiModel?: string;
+  openaiKeySet: boolean;
+  googleModel?: string;
+  googleKeySet: boolean;
+  xaiModel?: string;
+  xaiKeySet: boolean;
   ollamaBaseUrl?: string;
   ollamaModel?: string;
   defaultProvider?: string;

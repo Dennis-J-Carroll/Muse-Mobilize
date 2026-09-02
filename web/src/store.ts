@@ -4,7 +4,7 @@ import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   MuseEvent, Pane, PaneType, Patch, ProjectManifest,
   PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
-  ProviderStatus, Region, Selection, SettingsView, WorkspaceDef, WorldProfile,
+  ProviderCheckResult, ProviderStatus, Region, Selection, SettingsView, WorkspaceDef, WorldProfile,
 } from './types';
 
 interface DocState {
@@ -81,6 +81,7 @@ interface State {
   refreshEvents: () => Promise<void>;
   loadSettings: () => Promise<void>;
   saveSettings: (patch: Record<string, string>) => Promise<void>;
+  testProvider: (providerId: string) => Promise<ProviderCheckResult>;
   setNotice: (n: string | null) => void;
 }
 
@@ -488,6 +489,19 @@ export const useStore = create<State>((set, get) => ({
   async saveSettings(patch) {
     const cfg = await api.saveSettings(patch);
     set({ settings: cfg.settings, providers: cfg.providers, notice: 'Settings saved.' });
+  },
+
+  async testProvider(providerId) {
+    try {
+      const { result } = await api.testProvider(providerId);
+      if (result.ok) set({ notice: `${result.provider} connected in ${result.ms} ms.`, error: null });
+      else set({ error: result.error });
+      return result;
+    } catch (err: any) {
+      const error = String(err?.message ?? err);
+      set({ error });
+      return { ok: false, provider: providerId, error };
+    }
   },
 }));
 
