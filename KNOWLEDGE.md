@@ -1,10 +1,10 @@
 # Muse-Mobilize Knowledge & Continuation Log
 
-Last updated: 2026-09-02 by Codex, continuing Opus 5 work.
+Last updated: 2026-09-03 by Codex, continuing Opus 5 work.
 
 ## Current goal
 
-Characters, World Building, Plot Outline, Scenes, Dialogue, hosted provider fast lane, and one-click local model setup are complete. Next distinct Mobilize surface: Themes or References. Sidebar collapse, focus modes, and managed local image upload remain open.
+Characters, World Building, Plot Outline, Scenes, Dialogue, managed story images, hosted provider fast lane, and one-click local model setup are complete. Next distinct Mobilize surface: Themes or References. Sidebar collapse and focus modes remain open.
 
 ## Repository state
 
@@ -75,7 +75,7 @@ This prevents rapid repeated clicks from issuing duplicate patch requests and in
 - Entity deletion and fact deletion are not exposed yet.
 - Character knowledge cutoffs remain Phase 8; current character entities represent stable identity, not revision-specific knowledge.
 - Existing agent YAML is never silently rewritten. Pre-Phase-5 Continuity agents receive canon through role fallback but retain their original prompt text.
-- Character reference images currently use URL/project-path references; managed local file upload is not built yet.
+- Managed images accept PNG, JPEG, WebP, GIF, and AVIF up to 5 MB. SVG and larger-file workflows remain intentionally unsupported.
 - World relationship rendering resolves fact values against exact entity names or aliases; richer typed/many-target relationships remain future work.
 - Plot graph writes use whole-file JSON replacement like canon. Single-user MVP is safe; concurrent writers are not.
 - Scene board writes use whole-file JSON replacement like canon and plot. Single-user MVP is safe; concurrent writers are not.
@@ -91,7 +91,7 @@ This prevents rapid repeated clicks from issuing duplicate patch requests and in
 
 ## Suggested next step
 
-Build Themes/Motif Tracker as structured story material, or implement collapsible sidebar and focus modes. Managed character image upload remains separate hardening work.
+Build Themes/Motif Tracker as structured story material, or implement collapsible sidebar and focus modes.
 
 ## Local Fast Start continuation — 2026-09-02
 
@@ -353,6 +353,26 @@ edge. Blank path text deliberately falls back to relation name.
 - 2026-09-02 — Notes question answered in-product: Plot thread path text and relation are directly editable per edge.
 - 2026-09-02 — Scenes became storyboard beat lanes with draggable character, theme, location, and plot references; Dialogue became scene-bound table-read surface with subtext, knowledge state, and voice checks.
 - 2026-09-02 — Screencast-led QA fixed Character drawer draft loss on failed create/update and exercised recent domain surfaces end to end in isolated project.
+- 2026-09-03 — Added managed multi-image upload/contact sheets across Characters, Plot Outline, and World Building.
+
+## Managed story images continuation — 2026-09-03
+
+### Implemented
+
+- Shared `StoryImage` contract across character profiles, plot nodes, and world profiles.
+- Managed project upload endpoint stores files under `assets/images/` and returns portable project URLs.
+- PNG, JPEG, WebP, GIF, and AVIF validation by MIME type and file signature; 5 MB per-image cap.
+- Reusable contact-sheet editor supports drag/drop, multi-file chooser, URL fallback, captions, cover order, and removal.
+- First character image drives portrait; first plot image marks beat; first world image marks canvas landmark and atlas page.
+- Character dossier, plot folio, and world inspector show scrollable multi-image strips.
+- Character, World, and Plot schemas now formalize image arrays.
+
+### Verification
+
+- Red-green persistence tests cover managed bytes, unsafe types/paths, and multiple Character, World, and Plot image references.
+- Browser chooser reached upload API and rendered returned 640×480 managed image.
+- Character, Plot, and World drawers exposed matching image controls; 700px viewport had no horizontal overflow.
+- Generated QA asset and exact QA activity records were removed after verification; Kiala story/canon data remained unchanged.
 
 ## Scenes + Dialogue workspace continuation — 2026-09-02
 

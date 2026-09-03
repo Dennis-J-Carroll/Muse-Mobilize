@@ -127,3 +127,18 @@ test('new plot folio is created atomically with details and sparse world anchors
   assert.equal(node.documentId, 'chapter-01');
   assert.deepEqual(node.worldRefs, [{ entityId: 'veyr-id', role: 'setting' }]);
 });
+
+test('plot folio persists multiple image references through updates', async (t) => {
+  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-plot-'));
+  t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
+  const node = await createPlotNode(projectDir, { title: 'Seal on table' });
+  const images = [
+    { id: 'wide', src: '/assets/seal-wide.png', caption: 'Room composition', tags: [] },
+    { id: 'detail', src: '/assets/seal-detail.jpg', caption: 'Seal detail', tags: ['prop'] },
+  ];
+
+  const updated = await updatePlotNode(projectDir, node.id, { images });
+
+  assert.deepEqual(updated.images, images);
+  assert.deepEqual((await readPlot(projectDir)).nodes[0].images, images);
+});

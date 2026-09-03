@@ -135,7 +135,7 @@ not another launcher menu:
 - Focused dossier with story function, physical presence, goals, fears, and canon trail.
 - Vision, Audio, and Proximity sensory bands with hierarchical indicators.
 - Category filters such as `active cast`, `council`, or `protagonist`.
-- Edge drawer for creating or revising character profiles and reference-image URLs.
+- Edge drawer for creating or revising character profiles with multi-image upload, drag/drop, links, captions, and cover portrait.
 - Direct handoff to matching character agent or Continuity canon.
 
 Character profile contract lives at `schemas/character-profile.schema.json`.
@@ -148,6 +148,7 @@ default domain surface instead of another launcher menu:
 - Pan and zoom an open spatial field; drag landmarks to persistent positions.
 - Add places, factions, objects, events, rules, and lore through an edge drawer.
 - Record era, atmosphere, story significance, categories, aliases, and summary.
+- Attach multiple uploaded or linked images; first image becomes landmark/page cover.
 - Draw relationship threads backed by proposed canon facts.
 - Use **Pages** for an editorial atlas index and open bound lore documents.
 - Move focused landmarks with arrow keys; hold Shift for larger steps.
@@ -162,6 +163,7 @@ narrative-order surface rather than a card board or spatial world map:
 - Arrange beat, turn, reveal, climax, and resolution knots along telling order.
 - Expand manuscript strips in place or open a focused folio with goal, conflict,
   stakes, outcome, and planning notes.
+- Attach multiple uploaded or linked visual references; first image marks plot beat.
 - Draw typed `sequence`, `branch`, `merge`, and `cause` threads between beats.
 - Give every thread its own path text and revise that text/type directly from a beat folio.
 - Bind a beat to a manuscript or planning document for direct page handoff.

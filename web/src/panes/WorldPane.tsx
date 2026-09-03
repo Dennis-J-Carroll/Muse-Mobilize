@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
-import type { CanonEntity, CanonEntityType, CanonFact, Pane, WorldProfile } from '../types';
+import { ImageGalleryEditor, StoryImageStrip } from '../components/ImageGalleryEditor';
+import type { CanonEntity, CanonEntityType, CanonFact, Pane, StoryImage, WorldProfile } from '../types';
 
 type Point = { x: number; y: number };
 type View = Point & { scale: number };
@@ -36,6 +37,7 @@ function profileAt(entity: CanonEntity, point: Point): WorldProfile {
     categories: entity.world?.categories ?? [],
     attributes: entity.world?.attributes ?? { era: '', atmosphere: '', significance: '' },
     canvas: point,
+    images: entity.world?.images ?? [],
     ...(entity.world?.referenceDocumentId ? { referenceDocumentId: entity.world.referenceDocumentId } : {}),
   };
 }
@@ -71,6 +73,7 @@ function WorldDrawer({
   const [atmosphere, setAtmosphere] = useState(entity?.world?.attributes.atmosphere ?? '');
   const [significance, setSignificance] = useState(entity?.world?.attributes.significance ?? '');
   const [referenceDocumentId, setReferenceDocumentId] = useState(entity?.world?.referenceDocumentId ?? '');
+  const [images, setImages] = useState<StoryImage[]>(entity?.world?.images ?? []);
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -93,6 +96,7 @@ function WorldDrawer({
         significance: significance.trim(),
       },
       canvas: entity?.world?.canvas ?? point,
+      images,
       ...(referenceDocumentId ? { referenceDocumentId } : {}),
     };
     const saved = entity
@@ -144,6 +148,10 @@ function WorldDrawer({
               </label>
             </div>
             <p className="world-drawer-note">Canvas entry remains structured canon. Linked page holds long-form lore.</p>
+          </section>
+          <section className="drawer-section">
+            <h3>Visual references</h3>
+            <ImageGalleryEditor images={images} onChange={setImages} noun="world" />
           </section>
         </div>
         <footer><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={!name.trim()}>{entity ? 'Save landmark' : 'Place landmark'}</button></footer>
@@ -413,6 +421,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
             </svg>
             {visible.map((entity, index) => {
               const point = positions[entity.id] ?? fallbackPoint(index);
+              const cover = entity.world?.images?.[0];
               return (
                 <button
                   key={entity.id}
@@ -431,7 +440,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
                     if (delta) { event.preventDefault(); moveNode(entity, delta[0], delta[1]); }
                   }}
                 >
-                  <span className="world-marker"><i>{TYPE_GLYPH[entity.type]}</i><em /></span>
+                  <span className={`world-marker ${cover ? 'has-image' : ''}`}>{cover ? <img src={cover.src} alt="" /> : <i>{TYPE_GLYPH[entity.type]}</i>}<em /></span>
                   <strong>{entity.name}</strong>
                   <small>{entity.world?.attributes.era || TYPE_LABEL[entity.type]}</small>
                 </button>
@@ -456,6 +465,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
                 <h1>{selected.name}</h1>
                 {selected.aliases.length > 0 && <p className="world-aliases">{selected.aliases.join(' · ')}</p>}
                 <div className="world-categories">{(selected.world?.categories ?? []).map((category) => <span key={category}>{category}</span>)}</div>
+                <StoryImageStrip images={selected.world?.images ?? []} label={`${selected.name} visual references`} />
                 <p className="world-summary">{selected.summary || 'No atlas summary yet.'}</p>
                 <dl className="world-ledger">
                   <div><dt>Era</dt><dd>{selected.world?.attributes.era || '—'}</dd></div>
@@ -482,7 +492,8 @@ export function WorldPane({ pane }: { pane: Pane }) {
             {!visible.length && <div className="world-pages-empty">No entries in this part of atlas.</div>}
             {visible.map((entity) => {
               const related = links.filter((link) => link.source.id === entity.id || link.target.id === entity.id);
-              return <article key={entity.id} className={`world-page-entry type-${entity.type}`}><div className="world-page-mark">{TYPE_GLYPH[entity.type]}<small>{TYPE_LABEL[entity.type]}</small></div><div><span>{entity.world?.attributes.era || 'Era unmarked'}</span><h2>{entity.name}</h2><p>{entity.summary || 'No summary recorded.'}</p><div className="world-page-meta">{entity.world?.attributes.atmosphere && <em>Atmosphere: {entity.world.attributes.atmosphere}</em>}{entity.world?.attributes.significance && <em>Story weight: {entity.world.attributes.significance}</em>}{related.length > 0 && <em>{related.length} connected {related.length === 1 ? 'thread' : 'threads'}</em>}</div></div><div className="world-page-actions">{entity.world?.referenceDocumentId && documents.some((document) => document.id === entity.world?.referenceDocumentId) && <button className="linkish" onClick={() => openDocument(entity.world!.referenceDocumentId!)}>Open lore page</button>}<button className="linkish" onClick={() => setDrawer({ entity, point: positions[entity.id] ?? fallbackPoint(0) })}>Edit</button><button className="linkish" onClick={() => { setSelectedId(entity.id); setMode('canvas'); }}>Locate</button></div></article>;
+              const cover = entity.world?.images?.[0];
+              return <article key={entity.id} className={`world-page-entry type-${entity.type}`}><div className={`world-page-mark ${cover ? 'has-image' : ''}`}>{cover ? <img src={cover.src} alt="" /> : TYPE_GLYPH[entity.type]}<small>{TYPE_LABEL[entity.type]}</small></div><div><span>{entity.world?.attributes.era || 'Era unmarked'}</span><h2>{entity.name}</h2><p>{entity.summary || 'No summary recorded.'}</p><div className="world-page-meta">{entity.world?.attributes.atmosphere && <em>Atmosphere: {entity.world.attributes.atmosphere}</em>}{entity.world?.attributes.significance && <em>Story weight: {entity.world.attributes.significance}</em>}{related.length > 0 && <em>{related.length} connected {related.length === 1 ? 'thread' : 'threads'}</em>}</div></div><div className="world-page-actions">{entity.world?.referenceDocumentId && documents.some((document) => document.id === entity.world?.referenceDocumentId) && <button className="linkish" onClick={() => openDocument(entity.world!.referenceDocumentId!)}>Open lore page</button>}<button className="linkish" onClick={() => setDrawer({ entity, point: positions[entity.id] ?? fallbackPoint(0) })}>Edit</button><button className="linkish" onClick={() => { setSelectedId(entity.id); setMode('canvas'); }}>Locate</button></div></article>;
             })}
           </main>
         </div>

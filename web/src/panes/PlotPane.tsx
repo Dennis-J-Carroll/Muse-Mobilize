@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
+import { ImageGalleryEditor, StoryImageStrip } from '../components/ImageGalleryEditor';
 import type {
-  CanonEntity, Pane, PlotEdgeRelation, PlotNode, PlotNodeKind, PlotWorldRef, PlotWorldRole,
+  CanonEntity, Pane, PlotEdgeRelation, PlotNode, PlotNodeKind, PlotWorldRef, PlotWorldRole, StoryImage,
 } from '../types';
 
 type Point = { x: number; y: number };
@@ -52,6 +53,7 @@ function PlotDrawer({
   const [summary, setSummary] = useState(node?.summary ?? '');
   const [details, setDetails] = useState<PlotNode['details']>(node?.details ?? emptyDetails());
   const [documentId, setDocumentId] = useState(node?.documentId ?? '');
+  const [images, setImages] = useState<StoryImage[]>(node?.images ?? []);
   const [anchors, setAnchors] = useState<Array<{ entityId: string; role: PlotWorldRole }>>(
     Array.from({ length: 3 }, (_, index) => node?.worldRefs[index] ?? { entityId: '', role: 'setting' }),
   );
@@ -73,7 +75,7 @@ function PlotDrawer({
     const worldRefs = anchors.filter((anchor) => anchor.entityId) as PlotWorldRef[];
     const input = {
       title: title.trim(), summary: summary.trim(), kind, section: section.trim(), position: node?.position ?? point,
-      details, documentId, worldRefs,
+      details, documentId, worldRefs, images,
     };
     const saved = node
       ? await useStore.getState().updatePlotNode(node.id, input)
@@ -108,6 +110,10 @@ function PlotDrawer({
           <section className="drawer-section">
             <h3>Detail page</h3>
             <div className="drawer-grid"><label className="span-2">Bound document<select value={documentId} onChange={(event) => setDocumentId(event.target.value)}><option value="">No bound page</option>{documents.map((document) => <option key={document.id} value={document.id}>{document.title} · {document.kind}</option>)}</select></label></div>
+          </section>
+          <section className="drawer-section">
+            <h3>Visual references</h3>
+            <ImageGalleryEditor images={images} onChange={setImages} noun="plot beat" />
           </section>
           <section className="drawer-section">
             <h3>World anchors · optional</h3>
@@ -292,7 +298,7 @@ export function PlotPane({ pane }: { pane: Pane }) {
                 }}
               >
                 <span className="plot-knot">{KIND_MARK[node.kind]}</span>
-                <span className="plot-node-copy"><small>{node.section || 'Unsectioned'} · {KIND_LABEL[node.kind]}</small><strong>{node.title}</strong>{isExpanded && <p>{node.summary || 'No change summary yet.'}</p>}</span>
+                <span className="plot-node-copy">{node.images?.[0] && <img className="plot-node-thumbnail" src={node.images[0].src} alt="" />}<small>{node.section || 'Unsectioned'} · {KIND_LABEL[node.kind]}</small><strong>{node.title}</strong>{isExpanded && <p>{node.summary || 'No change summary yet.'}</p>}</span>
               </button>
               <button className="plot-expand" aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${node.title}`} aria-expanded={isExpanded} onClick={() => toggleExpanded(node.id)}>{isExpanded ? '−' : '+'}</button>
               {showWorld && node.worldRefs.length > 0 && <div className="plot-node-world">{node.worldRefs.map((ref) => { const entity = worldById.get(ref.entityId); return <span key={ref.entityId} title={`${ROLE_LABEL[ref.role]}: ${entity?.name ?? 'Missing world entity'}`}>⌖</span>; })}</div>}
@@ -307,6 +313,7 @@ export function PlotPane({ pane }: { pane: Pane }) {
         <header><div><span>{selected.section || 'Unsectioned'} · {KIND_LABEL[selected.kind]}</span><h1>{selected.title}</h1></div><button onClick={() => setSelectedId('')} aria-label="Close folio">×</button></header>
         <div className="plot-folio-scroll">
           <section className="plot-change"><span>Change</span><p>{selected.summary || 'No change summary yet.'}</p></section>
+          <StoryImageStrip images={selected.images ?? []} label={`${selected.title} visual references`} />
           <section className="plot-mechanics">{(['goal', 'conflict', 'stakes', 'outcome'] as const).map((key) => <div key={key}><span>{key}</span><p>{selected.details[key] || '—'}</p></div>)}</section>
           {selected.details.notes && <section className="plot-notes"><span>Planning notes</span><p>{selected.details.notes}</p></section>}
           <section className="plot-world-anchors"><h3>World anchors <span>{selected.worldRefs.length}/3</span></h3>{selected.worldRefs.length ? selected.worldRefs.map((ref) => { const entity = worldById.get(ref.entityId); return <div key={ref.entityId}><i>⌖</i><p><small>{ROLE_LABEL[ref.role]}</small><strong>{entity?.name ?? 'Missing world entity'}</strong></p>{entity && <button className="linkish" onClick={() => locateWorld(entity.id)}>Locate in Atlas</button>}</div>; }) : <p>None. Plot stands without World context.</p>}</section>

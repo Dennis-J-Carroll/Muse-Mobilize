@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ensureDir, exists, slugify } from './paths.js';
+import { cleanStoryImages } from './assets.js';
 import type {
   CanonEntity,
   CanonEntityType,
@@ -82,14 +83,7 @@ function cleanCharacterProfile(value: any): CharacterProfile {
       proximity: cleanSense(value?.senses?.proximity),
     },
     references: {
-      images: (Array.isArray(value?.references?.images) ? value.references.images : [])
-        .map((image: any) => ({
-          id: String(image?.id ?? '').trim() || randomUUID(),
-          src: String(image?.src ?? '').trim(),
-          caption: String(image?.caption ?? '').trim(),
-          tags: strings(image?.tags),
-        }))
-        .filter((image: { src: string }) => Boolean(image.src)),
+      images: cleanStoryImages(value?.references?.images),
     },
   };
 }
@@ -113,6 +107,7 @@ function cleanWorldProfile(value: any): WorldProfile {
       x: coordinate(value?.canvas?.x),
       y: coordinate(value?.canvas?.y),
     },
+    images: cleanStoryImages(value?.images),
     ...(referenceDocumentId ? { referenceDocumentId } : {}),
   };
 }

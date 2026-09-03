@@ -2,8 +2,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ensureDir, exists } from './paths.js';
+import { cleanStoryImages } from './assets.js';
 import type {
-  PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef, PlotWorldRole,
+  PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef, PlotWorldRole, StoryImage,
 } from './types.js';
 
 const NODE_KINDS: PlotNodeKind[] = ['beat', 'turn', 'reveal', 'climax', 'resolution'];
@@ -47,7 +48,7 @@ export async function readPlot(projectDir: string): Promise<PlotGraph> {
   const parsed = JSON.parse(await fs.readFile(file, 'utf8')) as Partial<PlotGraph>;
   return {
     version: 1,
-    nodes: Array.isArray(parsed.nodes) ? parsed.nodes : [],
+    nodes: Array.isArray(parsed.nodes) ? parsed.nodes.map((node) => ({ ...node, images: cleanStoryImages(node.images) })) : [],
     edges: Array.isArray(parsed.edges) ? parsed.edges : [],
   };
 }
@@ -69,6 +70,7 @@ export async function createPlotNode(
     details?: Partial<PlotNode['details']>;
     documentId?: string;
     worldRefs?: PlotWorldRef[];
+    images?: StoryImage[];
   },
 ): Promise<PlotNode> {
   const title = String(input.title ?? '').trim();
@@ -87,6 +89,7 @@ export async function createPlotNode(
     details: cleanDetails(input.details),
     ...(documentId ? { documentId } : {}),
     worldRefs: cleanWorldRefs(input.worldRefs),
+    images: cleanStoryImages(input.images),
     createdAt: now,
     updatedAt: now,
   };
@@ -99,7 +102,7 @@ export async function createPlotNode(
 export async function updatePlotNode(
   projectDir: string,
   nodeId: string,
-  patch: Partial<Pick<PlotNode, 'title' | 'summary' | 'kind' | 'section' | 'position' | 'details' | 'documentId' | 'worldRefs'>>,
+  patch: Partial<Pick<PlotNode, 'title' | 'summary' | 'kind' | 'section' | 'position' | 'details' | 'documentId' | 'worldRefs' | 'images'>>,
 ): Promise<PlotNode> {
   const graph = await readPlot(projectDir);
   const index = graph.nodes.findIndex((node) => node.id === nodeId);
@@ -119,6 +122,7 @@ export async function updatePlotNode(
     ...(patch.details !== undefined ? { details: cleanDetails(patch.details) } : {}),
     ...(patch.documentId !== undefined ? { documentId } : {}),
     ...(patch.worldRefs !== undefined ? { worldRefs: cleanWorldRefs(patch.worldRefs) } : {}),
+    ...(patch.images !== undefined ? { images: cleanStoryImages(patch.images) } : {}),
     updatedAt: new Date().toISOString(),
   };
   if (!updated.title) throw new Error('plot node title is required');

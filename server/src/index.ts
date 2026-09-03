@@ -1,4 +1,6 @@
 import express from 'express';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import {
   listProjects, createProject, readManifest, readDocument, writeDocument, createDocument,
   readAgents, setAgentState, readWorkspaces, saveWorkspace, projectDir, snapshot,
@@ -12,6 +14,7 @@ import { createCanonEntity, createCanonFact, readCanon, updateCanonEntity, updat
 import { createPlotEdge, createPlotNode, readPlot, updatePlotEdge, updatePlotNode } from './plot.js';
 import { localModelInstaller } from './providers/local-models.js';
 import { createScene, createSceneTheme, readScenes, updateScene } from './scenes.js';
+import { imageAssetPath, saveImageAsset } from './assets.js';
 
 const app = express();
 app.use(express.json({ limit: '8mb' }));
@@ -76,6 +79,28 @@ app.get('/api/projects', wrap(async (_req, res) => res.json({ projects: await li
 app.post('/api/projects', wrap(async (req, res) => {
   const name = String(req.body?.name ?? '').trim() || 'Untitled Story';
   res.json({ project: await createProject(name) });
+}));
+
+app.post('/api/projects/:id/assets/images', wrap(async (req, res) => {
+  const stored = await saveImageAsset(await projectDir(req.params.id), req.body ?? {});
+  const image = {
+    id: path.parse(stored.fileName).name,
+    src: `/api/projects/${encodeURIComponent(req.params.id)}/assets/images/${stored.fileName}`,
+    caption: '',
+    tags: [],
+  };
+  await emit(await projectDir(req.params.id), 'asset.image.uploaded', {
+    imageId: image.id,
+    originalName: stored.originalName,
+    size: stored.size,
+  });
+  res.json({ image });
+}));
+
+app.get('/api/projects/:id/assets/images/:fileName', wrap(async (req, res) => {
+  const file = imageAssetPath(await projectDir(req.params.id), req.params.fileName);
+  const bytes = await fs.readFile(file);
+  res.type(path.extname(file)).set('cache-control', 'private, max-age=31536000, immutable').send(bytes);
 }));
 
 app.get('/api/projects/:id', wrap(async (req, res) => {

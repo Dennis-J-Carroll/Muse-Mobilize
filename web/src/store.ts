@@ -4,7 +4,7 @@ import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   LocalModelInstallResult, LocalModelProgress, MuseEvent, Pane, PaneType, Patch, ProjectManifest,
   PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
-  ProviderCheckResult, ProviderStatus, Region, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, WorkspaceDef, WorldProfile,
+  ProviderCheckResult, ProviderStatus, Region, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, StoryImage, WorkspaceDef, WorldProfile,
 } from './types';
 
 interface DocState {
@@ -47,6 +47,7 @@ interface State {
   bootstrap: () => Promise<void>;
   newProject: (name: string) => Promise<void>;
   openProject: (id: string) => Promise<void>;
+  uploadStoryImage: (file: File) => Promise<StoryImage | null>;
 
   loadDoc: (docId: string) => Promise<void>;
   editDoc: (docId: string, content: string) => void;
@@ -75,9 +76,9 @@ interface State {
   loadPlot: () => Promise<void>;
   createPlotNode: (input: {
     title: string; summary?: string; kind?: PlotNodeKind; section?: string; position?: { x: number; y: number };
-    details?: Partial<PlotNode['details']>; documentId?: string; worldRefs?: PlotWorldRef[];
+    details?: Partial<PlotNode['details']>; documentId?: string; worldRefs?: PlotWorldRef[]; images?: StoryImage[];
   }) => Promise<PlotNode | null>;
-  updatePlotNode: (nodeId: string, patch: Partial<Pick<PlotNode, 'title' | 'summary' | 'kind' | 'section' | 'position' | 'details' | 'documentId' | 'worldRefs'>>) => Promise<PlotNode | null>;
+  updatePlotNode: (nodeId: string, patch: Partial<Pick<PlotNode, 'title' | 'summary' | 'kind' | 'section' | 'position' | 'details' | 'documentId' | 'worldRefs' | 'images'>>) => Promise<PlotNode | null>;
   createPlotEdge: (input: { from: string; to: string; relation?: PlotEdgeRelation; label?: string }) => Promise<PlotEdge | null>;
   updatePlotEdge: (edgeId: string, patch: Partial<Pick<PlotEdge, 'relation' | 'label'>>) => Promise<PlotEdge | null>;
 
@@ -174,6 +175,19 @@ export const useStore = create<State>((set, get) => ({
       await get().refreshEvents();
     } catch (err: any) {
       set({ error: err.message });
+    }
+  },
+
+  async uploadStoryImage(file) {
+    const project = get().project;
+    if (!project) return null;
+    try {
+      const { image } = await api.uploadImage(project.id, file);
+      set({ notice: `${file.name} added to project images.`, error: null });
+      return image;
+    } catch (err: any) {
+      set({ error: `Could not upload image: ${err.message}` });
+      return null;
     }
   },
 

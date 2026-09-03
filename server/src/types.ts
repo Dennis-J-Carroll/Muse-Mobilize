@@ -49,12 +49,14 @@ export interface CharacterSense {
   subtags: CharacterSenseSubtag[];
 }
 
-export interface CharacterReferenceImage {
+export interface StoryImage {
   id: string;
   src: string;
   caption: string;
   tags: string[];
 }
+
+export type CharacterReferenceImage = StoryImage;
 
 export interface CharacterProfile {
   categories: string[];
@@ -89,6 +91,7 @@ export interface WorldProfile {
     x: number;
     y: number;
   };
+  images: StoryImage[];
   referenceDocumentId?: string;
 }
 
@@ -147,6 +150,7 @@ export interface PlotNode {
   };
   documentId?: string;
   worldRefs: PlotWorldRef[];
+  images: StoryImage[];
   createdAt: string;
   updatedAt: string;
 }

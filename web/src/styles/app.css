@@ -330,6 +330,41 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .review { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
 .review-from { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); margin-bottom: 5px; }
 
+/* -------------------------------------------------------------- story images */
+
+.image-gallery-editor { display: flex; flex-direction: column; gap: 10px; }
+.image-drop {
+  min-height: 84px; display: grid; grid-template-columns: 34px minmax(0,1fr) auto; gap: 10px; align-items: center;
+  padding: 12px; border: 1px dashed var(--line-strong); border-radius: 10px; background: rgba(198,216,222,.12);
+}
+.image-drop.is-uploading { border-style: solid; background: rgba(198,216,222,.28); }
+.image-drop-mark { width: 31px; height: 31px; display: grid; place-items: center; border: 1px solid var(--line-strong); color: var(--accent); font-size: 17px; transform: rotate(-2deg); }
+.image-drop p { min-width: 0; display: flex; flex-direction: column; gap: 3px; margin: 0; }
+.image-drop strong { font: 500 13px var(--font-prose); }
+.image-drop small { color: var(--ink-soft); font-size: 9px; line-height: 1.4; }
+.image-choose { position: relative; overflow: hidden; white-space: nowrap; }
+.image-choose input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.image-link-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: center; }
+.image-link-row input, .image-contact-sheet input { min-width: 0; border: 0; border-bottom: 1px solid var(--line-strong); border-radius: 0; outline: 0; background: transparent; padding: 6px 2px; color: var(--ink); font: 10px var(--font-ui); }
+.image-link-row input:focus, .image-contact-sheet input:focus { border-bottom-color: var(--accent); box-shadow: 0 1px 0 var(--accent); }
+.image-link-row .linkish:disabled { opacity: .4; cursor: default; }
+.image-contact-sheet { display: grid; grid-template-columns: repeat(auto-fill,minmax(116px,1fr)); gap: 10px; }
+.image-contact-sheet figure { min-width: 0; margin: 0; }
+.image-contact-sheet figure > div { position: relative; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid var(--line); border-radius: 8px 8px 2px 2px; background: var(--card-stone); }
+.image-contact-sheet img, .story-image-strip img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.image-contact-sheet figure button { position: absolute; top: 5px; right: 5px; width: 23px; height: 23px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(32,42,49,.76); color: white; font-size: 16px; line-height: 1; }
+.image-contact-sheet figure span { position: absolute; left: 5px; bottom: 5px; padding: 2px 5px; border-radius: 3px; background: rgba(250,251,249,.88); color: var(--ink-mid); font-size: 7px; }
+.image-contact-sheet figure > input { width: 100%; }
+.story-image-strip { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(92px,42%); gap: 7px; margin: 12px 0; overflow-x: auto; padding-bottom: 4px; }
+.story-image-strip figure { margin: 0; }
+.story-image-strip img { aspect-ratio: 4 / 3; border-radius: 7px; background: var(--card-stone); }
+.story-image-strip figcaption { margin-top: 4px; overflow: hidden; color: var(--ink-soft); font: 8.5px/1.3 var(--font-ui); text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 520px) {
+  .image-drop { grid-template-columns: 30px minmax(0,1fr); }
+  .image-choose { grid-column: 1 / -1; justify-content: center; }
+}
+
 /* -------------------------------------------------------------- characters */
 
 .characters-workspace {
@@ -589,6 +624,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .world-node:hover .world-marker { transform: translateY(-3px); box-shadow: 0 11px 25px rgba(47,59,68,.16); }
 .world-node.is-selected { z-index: 5; }
 .world-node.is-selected .world-marker { outline: 2px solid var(--node-color); outline-offset: 5px; background: color-mix(in srgb, var(--node-color) 18%, #fff); }
+.world-marker.has-image { overflow: hidden; border-color: rgba(255,255,255,.92); }
+.world-marker.has-image img { width: 100%; height: 100%; object-fit: cover; }
 
 .world-nav {
   position: absolute; z-index: 15; left: 16px; bottom: 16px; display: flex; align-items: center;
@@ -685,6 +722,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .world-page-entry.type-lore { --node-color: var(--world-moss); }
 .world-page-mark { width: 64px; height: 64px; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 1px solid var(--node-color); border-radius: 50%; color: var(--node-color); font: 25px var(--font-prose); }
 .world-page-mark small { margin-top: -1px; font: 7px var(--font-ui); text-transform: uppercase; letter-spacing: .08em; }
+.world-page-mark.has-image { position: relative; overflow: hidden; border-color: var(--line-strong); }
+.world-page-mark.has-image img { width: 100%; height: 100%; object-fit: cover; }
+.world-page-mark.has-image small { position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); padding: 2px 4px; border-radius: 3px; background: rgba(250,251,249,.86); color: var(--ink-mid); }
 .world-page-entry > div:nth-child(2) > span { color: var(--ink-soft); font: 9px var(--font-mono); text-transform: uppercase; }
 .world-page-entry h2 { margin: 3px 0 8px; font-family: var(--font-prose); font-size: 24px; font-weight: 500; }
 .world-page-entry p { margin: 0; font: 14px/1.55 var(--font-prose); }
@@ -815,6 +855,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .plot-node-copy small { color: var(--ink-soft); font: 7.5px var(--font-mono); text-transform: uppercase; letter-spacing: .07em; }
 .plot-node-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 15px/1.25 var(--font-prose); }
 .plot-node-copy p { margin: 5px 0 1px; color: var(--ink-mid); font: 11.5px/1.45 var(--font-prose); }
+.plot-node-thumbnail { position: absolute; inset: 0 22px 0 auto; width: 48px; height: 100%; object-fit: cover; opacity: .2; filter: saturate(.7); }
+.plot-node-thumbnail ~ small, .plot-node-thumbnail ~ strong, .plot-node-thumbnail ~ p { position: relative; padding-right: 38px; }
 .plot-expand {
   position: absolute; z-index: 5; right: 2px; top: 50%; width: 23px; height: 23px; transform: translateY(-50%);
   display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 50%; background: #f8f7f2; color: var(--ink-soft); font-size: 12px;

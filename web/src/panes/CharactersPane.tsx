@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
+import { ImageGalleryEditor, StoryImageStrip } from '../components/ImageGalleryEditor';
 import type {
   CanonEntity,
   CanonStatus,
@@ -8,6 +9,7 @@ import type {
   CharacterSenseSubtag,
   Pane,
   SenseIndicator,
+  StoryImage,
 } from '../types';
 
 const STATUS_ORDER: CanonStatus[] = ['canonical', 'established', 'proposed', 'idea', 'retconned', 'deprecated'];
@@ -34,8 +36,7 @@ interface CharacterDraft {
   physical: string;
   features: string;
   clothing: string;
-  imageUrl: string;
-  imageCaption: string;
+  images: StoryImage[];
   visionSummary: string;
   visionTags: string;
   audioSummary: string;
@@ -44,9 +45,11 @@ interface CharacterDraft {
   proximityTags: string;
 }
 
+type CharacterTextField = Exclude<keyof CharacterDraft, 'images'>;
+
 const blankDraft = (): CharacterDraft => ({
   name: '', aliases: '', categories: 'active cast', summary: '', role: '', pronouns: '', age: '',
-  goals: '', fears: '', physical: '', features: '', clothing: '', imageUrl: '', imageCaption: '',
+  goals: '', fears: '', physical: '', features: '', clothing: '', images: [],
   visionSummary: '', visionTags: '', audioSummary: '', audioTags: '', proximitySummary: '', proximityTags: '',
 });
 
@@ -92,7 +95,6 @@ function tagsToText(sense: CharacterSense): string {
 function draftFrom(entity?: CanonEntity): CharacterDraft {
   if (!entity) return blankDraft();
   const profile = entity.character ?? emptyProfile();
-  const image = profile.references.images[0];
   return {
     name: entity.name,
     aliases: entity.aliases.join(', '),
@@ -106,8 +108,7 @@ function draftFrom(entity?: CanonEntity): CharacterDraft {
     physical: profile.physical.description,
     features: profile.physical.distinguishingFeatures.join(', '),
     clothing: profile.physical.clothing.join(', '),
-    imageUrl: image?.src ?? '',
-    imageCaption: image?.caption ?? '',
+    images: profile.references.images,
     visionSummary: profile.senses.vision.summary,
     visionTags: tagsToText(profile.senses.vision),
     audioSummary: profile.senses.audio.summary,
@@ -118,7 +119,6 @@ function draftFrom(entity?: CanonEntity): CharacterDraft {
 }
 
 function profileFrom(draft: CharacterDraft, existing?: CharacterProfile): CharacterProfile {
-  const imageUrl = draft.imageUrl.trim();
   return {
     categories: list(draft.categories),
     attributes: {
@@ -134,7 +134,7 @@ function profileFrom(draft: CharacterDraft, existing?: CharacterProfile): Charac
       proximity: { summary: draft.proximitySummary.trim(), subtags: parseTags(draft.proximityTags, existing?.senses.proximity.subtags) },
     },
     references: {
-      images: imageUrl ? [{ id: 'primary-reference', src: imageUrl, caption: draft.imageCaption.trim(), tags: ['character reference'] }] : [],
+      images: draft.images,
     },
   };
 }
@@ -165,7 +165,7 @@ function Drawer({ entity, draft, setDraft, onClose, onSave }: {
 }) {
   const first = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
-  const field = (key: keyof CharacterDraft) => ({
+  const field = (key: CharacterTextField) => ({
     value: draft[key],
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setDraft((current) => ({ ...current, [key]: e.target.value })),
   });
@@ -221,8 +221,8 @@ function Drawer({ entity, draft, setDraft, onClose, onSave }: {
             <h3>Sensory signature</h3>
             <p className="notation">Subtags: <b>+</b> strength · <b>−</b> limitation · <b>!</b> sensitivity · <b>~</b> preference. Example: <code>- low light: poor</code></p>
             {(['vision', 'audio', 'proximity'] as const).map((sense) => {
-              const summaryKey = `${sense}Summary` as keyof CharacterDraft;
-              const tagsKey = `${sense}Tags` as keyof CharacterDraft;
+              const summaryKey = `${sense}Summary` as CharacterTextField;
+              const tagsKey = `${sense}Tags` as CharacterTextField;
               return <div className={`sense-editor-row sense-${sense}`} key={sense}>
                 <strong>{sense}</strong>
                 <input {...field(summaryKey)} placeholder={`${sense} baseline`} />
@@ -231,11 +231,8 @@ function Drawer({ entity, draft, setDraft, onClose, onSave }: {
             })}
           </section>
           <section className="drawer-section">
-            <h3>Reference image</h3>
-            <div className="drawer-grid">
-              <label className="span-2">Image URL or project asset path<input {...field('imageUrl')} placeholder="https://… or /api/projects/…/assets/…" /></label>
-              <label className="span-2">Caption<input {...field('imageCaption')} placeholder="Costume, age, scene, or visual target" /></label>
-            </div>
+            <h3>Visual references</h3>
+            <ImageGalleryEditor images={draft.images} onChange={(images) => setDraft((current) => ({ ...current, images }))} noun="character" />
           </section>
         </div>
         <footer><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={!draft.name.trim() || saving}>{saving ? 'Saving…' : entity ? 'Save changes' : 'Add to cast'}</button></footer>
@@ -346,7 +343,7 @@ export function CharactersPane({ pane }: { pane: Pane }) {
             <section className="body-motive">
               <div><span>Physical presence</span><p>{profile.physical.description || 'Physical presence unwritten.'}</p>{profile.physical.distinguishingFeatures.length > 0 && <ul>{profile.physical.distinguishingFeatures.map((item) => <li key={item}>{item}</li>)}</ul>}</div>
               <div><span>Wants</span>{profile.attributes.goals.length ? <ol>{profile.attributes.goals.map((item) => <li key={item}>{item}</li>)}</ol> : <p>Goals unwritten.</p>}<span className="secondary-label">Fears</span>{profile.attributes.fears.length ? <ol>{profile.attributes.fears.map((item) => <li key={item}>{item}</li>)}</ol> : <p>Fears unwritten.</p>}</div>
-              <div><span>Visual language</span>{profile.physical.clothing.length ? <ul>{profile.physical.clothing.map((item) => <li key={item}>{item}</li>)}</ul> : <p>Clothing and visual references unwritten.</p>}</div>
+              <div><span>Visual language</span>{profile.physical.clothing.length ? <ul>{profile.physical.clothing.map((item) => <li key={item}>{item}</li>)}</ul> : <p>Clothing and visual references unwritten.</p>}<StoryImageStrip images={profile.references.images} label={`${selected.name} visual references`} /></div>
             </section>
             <section className="sensory-signature">
               <header><div><span>Perception model</span><h3>Sensory signature</h3></div><p>What reaches this character—and what does not.</p></header>

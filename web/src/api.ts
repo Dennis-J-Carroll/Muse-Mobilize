@@ -2,8 +2,22 @@ import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   DocumentMeta, MuseEvent, Patch, ProjectManifest,
   LocalModelInstallResult, LocalModelProgress, PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
-  ProviderCheckResult, ProviderStatus, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, WorkspaceDef, WorldProfile,
+  ProviderCheckResult, ProviderStatus, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, StoryImage, WorkspaceDef, WorldProfile,
 } from './types';
+
+function imagePayload(file: File): Promise<{ name: string; mimeType: string; data: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+    reader.onload = () => {
+      const result = String(reader.result ?? '');
+      const comma = result.indexOf(',');
+      if (comma === -1) return reject(new Error(`Could not read ${file.name}.`));
+      resolve({ name: file.name, mimeType: file.type, data: result.slice(comma + 1) });
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -27,6 +41,11 @@ export const api = {
     req<{ project: ProjectManifest }>('/api/projects', { method: 'POST', body: JSON.stringify({ name }) }),
   openProject: (id: string) =>
     req<{ project: ProjectManifest; agents: AgentDef[]; workspaces: WorkspaceDef[] }>(`/api/projects/${id}`),
+  uploadImage: async (id: string, file: File) =>
+    req<{ image: StoryImage }>(`/api/projects/${id}/assets/images`, {
+      method: 'POST',
+      body: JSON.stringify(await imagePayload(file)),
+    }),
 
   readDoc: (id: string, docId: string) =>
     req<{ meta: DocumentMeta; content: string }>(`/api/projects/${id}/documents/${docId}`),
@@ -66,9 +85,9 @@ export const api = {
   plot: (id: string) => req<{ plot: PlotGraph }>(`/api/projects/${id}/plot`),
   createPlotNode: (id: string, body: {
     title: string; summary?: string; kind?: PlotNodeKind; section?: string; position?: { x: number; y: number };
-    details?: Partial<PlotNode['details']>; documentId?: string; worldRefs?: PlotWorldRef[];
+    details?: Partial<PlotNode['details']>; documentId?: string; worldRefs?: PlotWorldRef[]; images?: StoryImage[];
   }) => req<{ node: PlotNode }>(`/api/projects/${id}/plot/nodes`, { method: 'POST', body: JSON.stringify(body) }),
-  updatePlotNode: (id: string, nodeId: string, patch: Partial<Pick<PlotNode, 'title' | 'summary' | 'kind' | 'section' | 'position' | 'details' | 'documentId' | 'worldRefs'>>) =>
+  updatePlotNode: (id: string, nodeId: string, patch: Partial<Pick<PlotNode, 'title' | 'summary' | 'kind' | 'section' | 'position' | 'details' | 'documentId' | 'worldRefs' | 'images'>>) =>
     req<{ node: PlotNode }>(`/api/projects/${id}/plot/nodes/${nodeId}`, { method: 'PUT', body: JSON.stringify(patch) }),
   createPlotEdge: (id: string, body: { from: string; to: string; relation?: PlotEdgeRelation; label?: string }) =>
     req<{ edge: PlotEdge }>(`/api/projects/${id}/plot/edges`, { method: 'POST', body: JSON.stringify(body) }),

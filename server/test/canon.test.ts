@@ -101,6 +101,7 @@ test('world profile and canvas position persist without losing atlas details', a
       categories: ['capital', 'coastal'],
       attributes: { era: 'late empire', atmosphere: 'salt, bells, and political pressure', significance: 'Kiala’s birthplace' },
       canvas: { x: 180.25, y: -42.75 },
+      images: [],
       referenceDocumentId: 'world-veyr',
     },
   });
@@ -113,6 +114,46 @@ test('world profile and canvas position persist without losing atlas details', a
   assert.deepEqual(reopened.entities[0].world?.canvas, { x: 420.4, y: 118.9 });
   assert.equal(reopened.entities[0].world?.attributes.atmosphere, 'salt, bells, and political pressure');
   assert.equal(reopened.entities[0].world?.referenceDocumentId, 'world-veyr');
+});
+
+test('character and world profiles persist multiple image references', async (t) => {
+  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-canon-'));
+  t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
+  const images = [
+    { id: 'portrait', src: '/assets/portrait.png', caption: 'Portrait', tags: ['face'] },
+    { id: 'costume', src: '/assets/costume.webp', caption: 'Travel clothes', tags: ['costume'] },
+  ];
+
+  const character = await createCanonEntity(projectDir, {
+    type: 'character',
+    name: 'Kiala',
+    character: {
+      categories: [],
+      attributes: { role: '', pronouns: '', age: '', goals: [], fears: [] },
+      physical: { description: '', distinguishingFeatures: [], clothing: [] },
+      senses: {
+        vision: { summary: '', subtags: [] },
+        audio: { summary: '', subtags: [] },
+        proximity: { summary: '', subtags: [] },
+      },
+      references: { images },
+    },
+  });
+  const world = await createCanonEntity(projectDir, {
+    type: 'location',
+    name: 'Veyr',
+    world: {
+      categories: [],
+      attributes: { era: '', atmosphere: '', significance: '' },
+      canvas: { x: 0, y: 0 },
+      images,
+    },
+  });
+
+  assert.deepEqual(character.character?.references.images, images);
+  assert.deepEqual(world.world?.images, images);
+  const reopened = await readCanon(projectDir);
+  assert.deepEqual(reopened.entities.find((entity) => entity.id === world.id)?.world?.images, images);
 });
 
 test('world relationship fact connects stable atlas entities', async (t) => {
