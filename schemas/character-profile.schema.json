@@ -60,22 +60,17 @@
       "type": "array",
       "items": { "type": "string", "minLength": 1 }
     },
-    "status": {
-      "enum": ["idea", "proposed", "established", "canonical", "retconned", "deprecated"]
-    },
     "subtag": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "label", "value", "indicator", "status", "evidence"],
+      "required": ["id", "label", "value", "indicator"],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "label": { "type": "string", "minLength": 1 },
         "value": { "type": "string" },
         "indicator": {
           "enum": ["strength", "limitation", "sensitivity", "preference", "neutral"]
-        },
-        "status": { "$ref": "#/$defs/status" },
-        "evidence": { "$ref": "#/$defs/stringList" }
+        }
       }
     },
     "sense": {

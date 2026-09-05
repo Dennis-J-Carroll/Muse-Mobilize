@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { imageAssetPath } from '../src/assets.js';
+import { createCanonEntity } from '../src/canon.js';
 import { createReference, deleteReference } from '../src/references.js';
 import { deleteOrphanedImages } from '../src/imageGc.js';
 
@@ -41,6 +42,36 @@ test('image still used by another reference survives garbage collection', async 
   await createReference(projectDir, { kind: 'image', title: 'B', images: [shared] });
 
   await deleteReference(projectDir, first.id);
+  await deleteOrphanedImages(projectDir, [fileName]);
+
+  await assert.doesNotReject(fs.access(filePath));
+});
+
+test('image still used by a character survives garbage collection after its reference is deleted', async (t) => {
+  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-imagegc-'));
+  t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
+  const fileName = 'cccccccc-cccc-cccc-cccc-cccccccccccc.png';
+  const filePath = await plantManagedImage(projectDir, fileName);
+  const shared = { id: 'img', src: `/api/projects/story/assets/images/${fileName}`, caption: '', tags: [] };
+
+  const reference = await createReference(projectDir, { kind: 'image', title: 'Portrait study', images: [shared] });
+  await createCanonEntity(projectDir, {
+    type: 'character',
+    name: 'Kiala',
+    character: {
+      categories: [],
+      attributes: { role: '', pronouns: '', age: '', goals: [], fears: [] },
+      physical: { description: '', distinguishingFeatures: [], clothing: [] },
+      senses: {
+        vision: { summary: '', subtags: [] },
+        audio: { summary: '', subtags: [] },
+        proximity: { summary: '', subtags: [] },
+      },
+      references: { images: [shared] },
+    },
+  });
+
+  await deleteReference(projectDir, reference.id);
   await deleteOrphanedImages(projectDir, [fileName]);
 
   await assert.doesNotReject(fs.access(filePath));

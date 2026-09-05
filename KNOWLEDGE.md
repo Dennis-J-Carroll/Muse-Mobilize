@@ -1,10 +1,10 @@
 # Muse-Mobilize Knowledge & Continuation Log
 
-Last updated: 2026-09-04 by Codex, continuing Opus 5 work.
+Last updated: 2026-09-04 by Claude (Sonnet 5), continuing Codex/Opus 5 work.
 
 ## Current goal
 
-Characters, World Building, Plot Outline, Scenes, Dialogue, Themes, References, Goals, Progress, managed story images, hosted provider fast lane, and one-click local model setup are implemented. Automated acceptance now covers uploads and all four new story-system surfaces. Current goal: incorporate Dennis's testing feedback and make full unresolved revisions durable. Sidebar collapse and focus modes remain open.
+Characters, World Building, Plot Outline, Scenes, Dialogue, Themes, References, Goals, Progress, managed story images, hosted provider fast lane, and one-click local model setup are implemented. Automated acceptance now covers uploads and all four new story-system surfaces. Reference deletion with cross-store managed-image garbage collection now exists. Current goal: persist full unresolved revision bodies so a server restart doesn't strand an undecided patch (design consulted, not yet implemented — see below). Sidebar collapse and focus modes remain open.
 
 ## Repository state
 
@@ -91,7 +91,67 @@ This prevents rapid repeated clicks from issuing duplicate patch requests and in
 
 ## Suggested next step
 
-Incorporate Dennis's acceptance findings, then persist full unresolved revision bodies. Follow with reference deletion, safe managed-image cleanup, and References/Goals JSON schemas. Current automated evidence is in `docs/acceptance-2026-09-04.md`.
+Persist full unresolved revision bodies (see "Unresolved revision persistence — design" below). Follow with References/Goals JSON schemas. Current automated evidence is in `docs/acceptance-2026-09-04.md`.
+
+## Sensory subtag fork resolved: decorative-only — 2026-09-04
+
+Character sense subtags (`vision`/`audio`/`proximity`) previously carried `status`
+and `evidence` fields intended as a lightweight parallel canon system. The web
+editor (`CharactersPane.tsx`) re-parsed the free-text subtag field on every save
+and matched each parsed subtag back to its prior `status`/`evidence` by
+case-insensitive label — so renaming a subtag's label silently reset its status
+to `proposed` and dropped its evidence, with no error or warning.
+
+Decision: subtags are decorative only. `CharacterSenseSubtag` now has just
+`id`, `label`, `value`, `indicator` — no `status`, no `evidence`, no label-based
+matching to lose. Server (`canon.ts`), types (both packages), the editor
+(`CharactersPane.tsx`), `renderCanonContext`, and `schemas/character-profile.schema.json`
+were all updated together. If subtag status/evidence tracking is wanted later,
+it needs stable IDs threaded through the UI (not label matching) and is a
+bigger feature, not a fix — treat it as new scope, not a revert of this decision.
+
+## Reference deletion and cross-store image garbage collection — 2026-09-04
+
+`DELETE /api/projects/:id/references/:referenceId` (`deleteReference` in
+`references.ts`) removes a reference, then `deleteOrphanedImages`
+(`server/src/imageGc.ts`) deletes any managed image file the removed reference
+used, provided no other store still points to it. `collectManagedImageFileNames`
+scans `canon.json` (character + world images), `plot.json` (node images), and
+`references.json` — the three stores that can hold a `StoryImage[]`. Covered by
+`server/test/imageGc.test.ts` (orphan deleted; shared with another reference
+survives; shared with a character survives) and `e2e/references.spec.ts`
+("removing a reference…", verifies the file is actually gone on disk, not just
+absent from the UI).
+
+## Unresolved revision persistence — design (not yet implemented) — 2026-09-04
+
+Today, `patch.proposed` events in the append-only log carry only
+`{patchId, documentId, anchored, reason}` — never the patch body
+(`beforeText`/`afterText`). The full `Patch` object exists only in the
+browser's in-memory run state. After a page refresh or server restart, the
+Progress pane's "unresolved revisions" list still shows the patch (projected
+from the event log), but there is no way to view, accept, or reject it — the
+bytes needed to act on it are gone. This is a stuck-state bug, not just a
+missing feature.
+
+Recommended fix (not yet built): append `beforeText`, `afterText`, and `reason`
+into the `patch.proposed` event payload itself — `progress.ts` is already a
+pure projection over the event log via `projectUnresolvedRevisions`, so this
+needs no new storage or second source of truth. Patch bodies are bounded by
+design (agents are instructed to keep patches to "one to three sentences"), so
+event-log growth is not a real cost. Treat stored `start`/`end` offsets as a
+discardable hint, not a source of truth — `applyPatch` (`protocol.ts`) already
+falls back from the offset check to a unique `indexOf(beforeText)` search and
+refuses as stale if the document moved, so recovery should re-anchor via
+`beforeText` rather than trust old offsets. Patches proposed before this
+change will have no body in the log; render those as dismiss-only rather than
+backfilling.
+
+Before building this: confirm what UI action a stranded unresolved revision
+actually needs. If the only real requirement is an unstick/dismiss action
+(`POST /patches/reject` already accepts a bare `patchId`), the fix may be much
+smaller than full body persistence — check whether that alone resolves the
+stuck-counter problem before building the larger persistence path.
 
 ## Browser acceptance and regression repair — 2026-09-04
 
@@ -148,8 +208,8 @@ Incorporate Dennis's acceptance findings, then persist full unresolved revision 
 
 ### Known next risks
 
-- Managed image bytes outlive cancelled or deleted references; no reference delete
-  route or asset garbage collection exists.
+- ~~Managed image bytes outlive cancelled or deleted references~~ — fixed
+  2026-09-04, see "Reference deletion and cross-store image garbage collection" above.
 - Accepted patches now emit saved-word events. Historical patch deltas from before
   this fix are not backfilled.
 - Unresolved revision history preserves summary metadata, not full patch bodies,
