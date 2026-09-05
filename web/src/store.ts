@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { api } from './api';
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
-  GoalStore, ProgressProjection, ReferenceStore, StoryReference,
+  FloatingPanel, GoalStore, ProgressProjection, ReferenceStore, StoryReference,
   LocalModelInstallResult, LocalModelProgress, MuseEvent, Pane, PaneType, Patch, ProjectManifest,
   PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
   ProviderCheckResult, ProviderStatus, Region, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, StoryImage, WorkspaceDef, WorldMap, WorldProfile,
@@ -28,6 +28,7 @@ interface State {
 
   docs: Record<string, DocState>;
   panes: Pane[];
+  floatingPanels: FloatingPanel[];
   rightWidth: number;
   bottomHeight: number;
 
@@ -61,6 +62,12 @@ interface State {
   openPane: (type: PaneType, opts?: { bindingId?: string; title?: string; region?: Region; focus?: boolean }) => void;
   closePane: (paneId: string) => void;
   setPaneSize: (paneId: string, mode: Pane['sizeMode']) => void;
+  openFloatingPanel: (cfg: { id: string; paneType: PaneType; title: string; width?: number; height?: number }) => void;
+  closeFloatingPanel: (id: string) => void;
+  dockFloatingPanel: (id: string) => void;
+  undockFloatingPanel: (id: string) => void;
+  moveFloatingPanel: (id: string, x: number, y: number) => void;
+  focusFloatingPanel: (id: string) => void;
   setRightWidth: (w: number) => void;
   setBottomHeight: (h: number) => void;
   applyWorkspace: (id: string) => Promise<void>;
@@ -145,6 +152,7 @@ export const useStore = create<State>((set, get) => ({
   activeWorkspace: null,
   docs: {},
   panes: [],
+  floatingPanels: [],
   rightWidth: 400,
   bottomHeight: 210,
   selection: null,
@@ -189,7 +197,7 @@ export const useStore = create<State>((set, get) => ({
     try {
       const { project, agents, workspaces } = await api.openProject(id);
       localStorage.setItem('muse:lastProject', id);
-      set({ project, agents, workspaces, docs: {}, panes: [], runs: {}, events: [], canon: null, plot: null, sceneBoard: null, references: null, goals: null, progress: null, worldMap: null, worldFocusEntityId: null, plotFocusNodeId: null, sceneFocusId: null, selection: null, error: null });
+      set({ project, agents, workspaces, docs: {}, panes: [], floatingPanels: [], runs: {}, events: [], canon: null, plot: null, sceneBoard: null, references: null, goals: null, progress: null, worldMap: null, worldFocusEntityId: null, plotFocusNodeId: null, sceneFocusId: null, selection: null, error: null });
       const drafting = workspaces.find((w) => w.id === 'drafting') ?? workspaces[0];
       if (drafting) await get().applyWorkspace(drafting.id);
       else {
@@ -281,6 +289,77 @@ export const useStore = create<State>((set, get) => ({
       panes: get().panes.map((p) =>
         p.id === paneId ? { ...p, sizeMode: mode } : p.sizeMode === 'maximized' && mode === 'maximized' ? { ...p, sizeMode: 'normal' } : p,
       ),
+    });
+  },
+
+  openFloatingPanel(cfg) {
+    const s = get();
+    const existing = s.floatingPanels.find((p) => p.id === cfg.id);
+    if (existing) {
+      set({
+        floatingPanels: [
+          ...s.floatingPanels.filter((p) => p.id !== cfg.id),
+          { ...existing, docked: false },
+        ],
+      });
+      return;
+    }
+    const width = cfg.width ?? 560;
+    const height = cfg.height ?? 640;
+    const openIndex = s.floatingPanels.length;
+    const cascade = (openIndex % 6) * 28;
+    const usedSlots = new Set(s.floatingPanels.map((p) => p.slot).filter((n): n is number => n !== null));
+    let slot: number | null = null;
+    for (let n = 1; n <= 9; n++) {
+      if (!usedSlots.has(n)) { slot = n; break; }
+    }
+    const panel: FloatingPanel = {
+      id: cfg.id,
+      paneType: cfg.paneType,
+      title: cfg.title,
+      x: 160 + cascade,
+      y: 90 + cascade,
+      width,
+      height,
+      docked: false,
+      slot,
+    };
+    set({ floatingPanels: [...s.floatingPanels, panel] });
+  },
+
+  closeFloatingPanel(id) {
+    set({ floatingPanels: get().floatingPanels.filter((p) => p.id !== id) });
+  },
+
+  dockFloatingPanel(id) {
+    set({ floatingPanels: get().floatingPanels.map((p) => (p.id === id ? { ...p, docked: true } : p)) });
+  },
+
+  undockFloatingPanel(id) {
+    const s = get();
+    const panel = s.floatingPanels.find((p) => p.id === id);
+    if (!panel) return;
+    set({
+      floatingPanels: [
+        ...s.floatingPanels.filter((p) => p.id !== id),
+        { ...panel, docked: false },
+      ],
+    });
+  },
+
+  moveFloatingPanel(id, x, y) {
+    set({ floatingPanels: get().floatingPanels.map((p) => (p.id === id ? { ...p, x, y } : p)) });
+  },
+
+  focusFloatingPanel(id) {
+    const s = get();
+    const panel = s.floatingPanels.find((p) => p.id === id);
+    if (!panel) return;
+    set({
+      floatingPanels: [
+        ...s.floatingPanels.filter((p) => p.id !== id),
+        panel,
+      ],
     });
   },
 

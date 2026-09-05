@@ -388,6 +388,18 @@ export interface Pane {
   sizeMode: 'normal' | 'minimized' | 'maximized';
 }
 
+export interface FloatingPanel {
+  id: string;
+  paneType: PaneType;
+  title: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  docked: boolean;
+  slot: number | null;
+}
+
 export interface WorkspaceDef {
   id: string;
   name: string;
