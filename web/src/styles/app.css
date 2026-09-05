@@ -161,6 +161,7 @@ input, textarea, select { font-family: var(--font-ui); }
 /* ------------------------------------------------------------------ panes */
 
 .pane {
+  position: relative;
   flex: 1; min-width: 0; min-height: 0;
   display: flex; flex-direction: column;
   background: var(--glass-face);
@@ -168,6 +169,10 @@ input, textarea, select { font-family: var(--font-ui); }
   box-shadow: var(--shadow-inset);
   border-radius: var(--r-md);
   overflow: hidden;
+}
+.pane-resize-handle {
+  position: absolute; right: 2px; bottom: 2px; width: 14px; height: 14px; cursor: nwse-resize; z-index: 5;
+  background: linear-gradient(135deg, transparent 0 50%, var(--line-strong) 50% 58%, transparent 58% 66%, var(--line-strong) 66% 74%, transparent 74%);
 }
 .pane.is-min { flex: 0 0 auto; }
 .pane-head {

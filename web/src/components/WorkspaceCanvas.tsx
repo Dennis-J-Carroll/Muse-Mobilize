@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useStore } from '../store';
 import { useDrag } from './useDrag';
 import { EditorPane } from '../panes/EditorPane';
@@ -63,11 +64,22 @@ function PaneBody({ pane }: { pane: Pane }) {
 function PaneFrame({ pane }: { pane: Pane }) {
   const setPaneSize = useStore((s) => s.setPaneSize);
   const closePane = useStore((s) => s.closePane);
+  const resizePane = useStore((s) => s.resizePane);
   const doc = useStore((s) => (pane.binding?.type === 'document' ? s.docs[pane.binding.id] : undefined));
   const minimized = pane.sizeMode === 'minimized';
+  const ref = useRef<HTMLElement>(null);
+  const onResizeDrag = useDrag((dx, dy) => {
+    const el = ref.current;
+    if (!el) return;
+    resizePane(pane.id, el.offsetWidth + dx, el.offsetHeight + dy);
+  });
 
   return (
-    <section className={`pane pane-${pane.type} ${minimized ? 'is-min' : ''}`}>
+    <section
+      ref={ref}
+      className={`pane pane-${pane.type} ${minimized ? 'is-min' : ''}`}
+      style={pane.sizeMode === 'normal' && pane.size ? { width: pane.size.width, height: pane.size.height, flex: '0 0 auto' } : undefined}
+    >
       <header className="pane-head">
         <span className="pane-title">{pane.title}</span>
         {doc?.dirty && <span className="pane-dirty" title="unsaved">•</span>}
@@ -84,6 +96,7 @@ function PaneFrame({ pane }: { pane: Pane }) {
         </span>
       </header>
       {!minimized && <div className="pane-body">{<PaneBody pane={pane} />}</div>}
+      {pane.sizeMode === 'normal' && <div className="pane-resize-handle" onMouseDown={onResizeDrag} title="Drag to resize" />}
     </section>
   );
 }

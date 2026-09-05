@@ -96,3 +96,17 @@ test('successive opens cascade position so panels do not perfectly overlap', () 
   const [a, b] = useStore.getState().floatingPanels;
   assert.notEqual(`${a.x},${a.y}`, `${b.x},${b.y}`);
 });
+
+test('resizePane clamps to a sane minimum and only affects the targeted pane', () => {
+  useStore.setState({
+    panes: [
+      { id: 'p1', type: 'scenes', title: 'Scenes', region: 'main', sizeMode: 'normal' },
+      { id: 'p2', type: 'goals', title: 'Goals', region: 'main', sizeMode: 'normal' },
+    ],
+  });
+  useStore.getState().resizePane('p1', 900, 700);
+  useStore.getState().resizePane('p2', 10, 10);
+  const [p1, p2] = useStore.getState().panes;
+  assert.deepEqual(p1.size, { width: 900, height: 700 });
+  assert.deepEqual(p2.size, { width: 320, height: 200 });
+});

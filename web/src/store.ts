@@ -62,6 +62,7 @@ interface State {
   openPane: (type: PaneType, opts?: { bindingId?: string; title?: string; region?: Region; focus?: boolean }) => void;
   closePane: (paneId: string) => void;
   setPaneSize: (paneId: string, mode: Pane['sizeMode']) => void;
+  resizePane: (paneId: string, width: number, height: number) => void;
   openFloatingPanel: (cfg: { id: string; paneType: PaneType; title: string; width?: number; height?: number }) => void;
   closeFloatingPanel: (id: string) => void;
   dockFloatingPanel: (id: string) => void;
@@ -288,6 +289,14 @@ export const useStore = create<State>((set, get) => ({
     set({
       panes: get().panes.map((p) =>
         p.id === paneId ? { ...p, sizeMode: mode } : p.sizeMode === 'maximized' && mode === 'maximized' ? { ...p, sizeMode: 'normal' } : p,
+      ),
+    });
+  },
+
+  resizePane(paneId, width, height) {
+    set({
+      panes: get().panes.map((p) =>
+        p.id === paneId ? { ...p, size: { width: Math.max(320, width), height: Math.max(200, height) } } : p,
       ),
     });
   },
