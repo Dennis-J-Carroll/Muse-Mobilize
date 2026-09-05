@@ -870,7 +870,14 @@ Replace line 91 (`const [drawer, setDrawer] = useState<Scene | 'new' | null>(nul
 ```ts
   const [drawers, setDrawers] = useState<Map<string, Scene | 'new'>>(new Map());
   const [railCollapsed, setRailCollapsed] = useState(false);
-  const openDrawer = (key: string, value: Scene | 'new') => setDrawers((current) => new Map(current).set(key, value));
+  const openDrawer = (key: string, value: Scene | 'new') => {
+    if (drawers.has(key)) {
+      useStore.getState().undockFloatingPanel(`scenes:${key}`);
+      useStore.getState().focusFloatingPanel(`scenes:${key}`);
+      return;
+    }
+    setDrawers((current) => new Map(current).set(key, value));
+  };
   const closeDrawer = (key: string) => setDrawers((current) => { const next = new Map(current); next.delete(key); return next; });
 ```
 
@@ -894,7 +901,7 @@ with:
 
 ```tsx
     {[...drawers.entries()].map(([key, value]) => (
-      <FloatingDrawer key={key} id={`scenes:${key}`} paneType="scenes" title={value === 'new' ? 'Add scene' : `Revise ${value.title}`} onClose={() => closeDrawer(key)}>
+      <FloatingDrawer key={key} id={`scenes:${key}`} paneType="scenes" width={650} title={value === 'new' ? 'Add scene' : `Revise ${value.title}`} onClose={() => closeDrawer(key)}>
         <SceneDrawer scene={value === 'new' ? undefined : value} onClose={() => closeDrawer(key)} />
       </FloatingDrawer>
     ))}
@@ -1151,6 +1158,11 @@ with:
   const [drafts, setDrafts] = useState<Map<string, CharacterDraft>>(new Map());
   const openDrawer = (entity?: CanonEntity) => {
     const key = entity?.id ?? 'new';
+    if (drawers.has(key)) {
+      useStore.getState().undockFloatingPanel(`characters:${key}`);
+      useStore.getState().focusFloatingPanel(`characters:${key}`);
+      return;
+    }
     setDrafts((current) => new Map(current).set(key, draftFrom(entity)));
     setDrawers((current) => new Map(current).set(key, entity ?? 'new'));
   };
@@ -1197,7 +1209,7 @@ with:
 
 ```tsx
       {[...drawers.entries()].map(([key, entity]) => (
-        <FloatingDrawer key={key} id={`characters:${key}`} paneType="characters" title={entity === 'new' ? 'New character' : `Revise ${entity.name}`} onClose={() => closeDrawer(key)}>
+        <FloatingDrawer key={key} id={`characters:${key}`} paneType="characters" width={620} title={entity === 'new' ? 'New character' : `Revise ${entity.name}`} onClose={() => closeDrawer(key)}>
           <Drawer
             entity={entity === 'new' ? undefined : entity}
             draft={drafts.get(key) ?? blankDraft}
@@ -1334,8 +1346,15 @@ Replace line 177 (`const [drawer, setDrawer] = useState<{ entity?: CanonEntity; 
 
 ```ts
   const [drawers, setDrawers] = useState<Map<string, { entity?: CanonEntity; point: Point }>>(new Map());
-  const openDrawer = (value: { entity?: CanonEntity; point: Point }) =>
-    setDrawers((current) => new Map(current).set(value.entity?.id ?? 'new', value));
+  const openDrawer = (value: { entity?: CanonEntity; point: Point }) => {
+    const key = value.entity?.id ?? 'new';
+    if (drawers.has(key)) {
+      useStore.getState().undockFloatingPanel(`world:${key}`);
+      useStore.getState().focusFloatingPanel(`world:${key}`);
+      return;
+    }
+    setDrawers((current) => new Map(current).set(key, value));
+  };
   const closeDrawer = (key: string) => setDrawers((current) => { const next = new Map(current); next.delete(key); return next; });
 ```
 
@@ -1361,7 +1380,7 @@ with:
 
 ```tsx
       {[...drawers.entries()].map(([key, value]) => (
-        <FloatingDrawer key={key} id={`world:${key}`} paneType="world" title={value.entity ? `Edit ${value.entity.name}` : 'Place a landmark'} onClose={() => closeDrawer(key)}>
+        <FloatingDrawer key={key} id={`world:${key}`} paneType="world" width={560} title={value.entity ? `Edit ${value.entity.name}` : 'Place a landmark'} onClose={() => closeDrawer(key)}>
           <WorldDrawer entity={value.entity} point={value.point} onClose={() => closeDrawer(key)} onSaved={(entity) => { setSelectedId(entity.id); closeDrawer(key); }} />
         </FloatingDrawer>
       ))}
@@ -1460,8 +1479,15 @@ Replace line 144 (`const [drawer, setDrawer] = useState<{ node?: PlotNode; point
 
 ```ts
   const [drawers, setDrawers] = useState<Map<string, { node?: PlotNode; point: Point }>>(new Map());
-  const openDrawer = (value: { node?: PlotNode; point: Point }) =>
-    setDrawers((current) => new Map(current).set(value.node?.id ?? 'new', value));
+  const openDrawer = (value: { node?: PlotNode; point: Point }) => {
+    const key = value.node?.id ?? 'new';
+    if (drawers.has(key)) {
+      useStore.getState().undockFloatingPanel(`plot:${key}`);
+      useStore.getState().focusFloatingPanel(`plot:${key}`);
+      return;
+    }
+    setDrawers((current) => new Map(current).set(key, value));
+  };
   const closeDrawer = (key: string) => setDrawers((current) => { const next = new Map(current); next.delete(key); return next; });
 ```
 
@@ -1487,7 +1513,7 @@ with:
 
 ```tsx
       {[...drawers.entries()].map(([key, value]) => (
-        <FloatingDrawer key={key} id={`plot:${key}`} paneType="plot" title={value.node ? `Revise ${value.node.title}` : 'Add plot beat'} onClose={() => closeDrawer(key)}>
+        <FloatingDrawer key={key} id={`plot:${key}`} paneType="plot" width={610} title={value.node ? `Revise ${value.node.title}` : 'Add plot beat'} onClose={() => closeDrawer(key)}>
           <PlotDrawer
             node={value.node}
             point={value.point}
@@ -1582,7 +1608,7 @@ EOF
 
 **Files:**
 - Modify: `web/src/panes/ThemesPane.tsx`
-- Modify: `web/src/styles/app.css` (remove dead `.theme-drawer-backdrop`/shared `.story-drawer-backdrop` usage for this pane)
+- Modify: `web/src/styles/story-tools.css` (verify shared `.story-drawer-backdrop` usage for this pane — correction: this rule lives in `story-tools.css`, not `app.css`)
 - Test: `e2e/themes.spec.ts` (existing — verify/adjust selectors)
 
 - [ ] **Step 1: Change drawer state to a Map**
@@ -1591,7 +1617,14 @@ Replace line 117 (`const [drawer, setDrawer] = useState<SceneTheme | 'new' | nul
 
 ```ts
   const [drawers, setDrawers] = useState<Map<string, SceneTheme | 'new'>>(new Map());
-  const openDrawer = (key: string, value: SceneTheme | 'new') => setDrawers((current) => new Map(current).set(key, value));
+  const openDrawer = (key: string, value: SceneTheme | 'new') => {
+    if (drawers.has(key)) {
+      useStore.getState().undockFloatingPanel(`themes:${key}`);
+      useStore.getState().focusFloatingPanel(`themes:${key}`);
+      return;
+    }
+    setDrawers((current) => new Map(current).set(key, value));
+  };
   const closeDrawer = (key: string) => setDrawers((current) => { const next = new Map(current); next.delete(key); return next; });
 ```
 
@@ -1618,7 +1651,7 @@ with:
 
 ```tsx
       {[...drawers.entries()].map(([key, value]) => (
-        <FloatingDrawer key={key} id={`themes:${key}`} paneType="themes" title={value === 'new' ? 'Add theme' : `Revise ${value.name}`} onClose={() => closeDrawer(key)}>
+        <FloatingDrawer key={key} id={`themes:${key}`} paneType="themes" width={680} title={value === 'new' ? 'Add theme' : `Revise ${value.name}`} onClose={() => closeDrawer(key)}>
           <ThemeDrawer theme={value === 'new' ? undefined : value} onClose={() => closeDrawer(key)} />
         </FloatingDrawer>
       ))}
@@ -1664,7 +1697,7 @@ to:
 
 - [ ] **Step 5: CSS cleanup**
 
-`.story-drawer-backdrop` is shared by Themes, References, and Goals — don't delete it yet (References/Goals still use it until Tasks 11-12). Just confirm `.theme-drawer-backdrop`'s class name is no longer referenced anywhere: `grep -n "theme-drawer-backdrop" web/src/styles/app.css` — if it appears only as part of the combined selector removed in Step 4 (no standalone CSS rule keyed on it), no CSS file change is needed for this task.
+`.story-drawer-backdrop` (defined in `web/src/styles/story-tools.css:28-30`, not `app.css`) is shared by Themes, References, and Goals — don't delete it yet (References/Goals still use it until Tasks 11-12). `.theme-drawer-backdrop` has no standalone CSS rule of its own (it's just a second class name on the same div, unstyled) — confirm with `grep -n "theme-drawer-backdrop" web/src/styles/story-tools.css`, expect no matches, and make no CSS file change in this task.
 
 - [ ] **Step 6: Verify build**
 
@@ -1712,7 +1745,14 @@ Replace line 136 (`const [drawer, setDrawer] = useState<StoryReference | 'new' |
 
 ```ts
   const [drawers, setDrawers] = useState<Map<string, StoryReference | 'new'>>(new Map());
-  const openDrawer = (key: string, value: StoryReference | 'new') => setDrawers((current) => new Map(current).set(key, value));
+  const openDrawer = (key: string, value: StoryReference | 'new') => {
+    if (drawers.has(key)) {
+      useStore.getState().undockFloatingPanel(`references:${key}`);
+      useStore.getState().focusFloatingPanel(`references:${key}`);
+      return;
+    }
+    setDrawers((current) => new Map(current).set(key, value));
+  };
   const closeDrawer = (key: string) => setDrawers((current) => { const next = new Map(current); next.delete(key); return next; });
 ```
 
@@ -1739,7 +1779,7 @@ with:
 
 ```tsx
     {[...drawers.entries()].map(([key, value]) => (
-      <FloatingDrawer key={key} id={`references:${key}`} paneType="references" title={value === 'new' ? 'Pin reference' : `Revise ${value.title}`} onClose={() => closeDrawer(key)}>
+      <FloatingDrawer key={key} id={`references:${key}`} paneType="references" width={680} title={value === 'new' ? 'Pin reference' : `Revise ${value.title}`} onClose={() => closeDrawer(key)}>
         <ReferenceDrawer reference={value === 'new' ? undefined : value} options={options} onClose={() => closeDrawer(key)} />
       </FloatingDrawer>
     ))}
@@ -1813,7 +1853,7 @@ EOF
 
 **Files:**
 - Modify: `web/src/panes/GoalsPane.tsx`
-- Modify: `web/src/styles/app.css` (now safe to delete the shared `.story-drawer-backdrop` rule — Themes, References, and Goals were its only consumers and all three are migrated after this task)
+- Modify: `web/src/styles/story-tools.css` (now safe to delete the shared `.story-drawer-backdrop` rule and right-size `.story-drawer` — Themes, References, and Goals were its only consumers and all three are migrated after this task; correction: these rules live in `story-tools.css`, not `app.css`)
 - Test: `e2e/goals.spec.ts` (existing — verify/adjust selectors)
 
 - [ ] **Step 1: Change drawer state to a Map**
@@ -1822,7 +1862,14 @@ Replace line 126 (`const [drawer, setDrawer] = useState<GoalMilestone | 'new' | 
 
 ```ts
   const [drawers, setDrawers] = useState<Map<string, GoalMilestone | 'new'>>(new Map());
-  const openDrawer = (key: string, value: GoalMilestone | 'new') => setDrawers((current) => new Map(current).set(key, value));
+  const openDrawer = (key: string, value: GoalMilestone | 'new') => {
+    if (drawers.has(key)) {
+      useStore.getState().undockFloatingPanel(`goals:${key}`);
+      useStore.getState().focusFloatingPanel(`goals:${key}`);
+      return;
+    }
+    setDrawers((current) => new Map(current).set(key, value));
+  };
   const closeDrawer = (key: string) => setDrawers((current) => { const next = new Map(current); next.delete(key); return next; });
 ```
 
@@ -1849,7 +1896,7 @@ with:
 
 ```tsx
       {[...drawers.entries()].map(([key, value]) => (
-        <FloatingDrawer key={key} id={`goals:${key}`} paneType="goals" title={value === 'new' ? 'Add milestone' : `Revise ${value.title}`} onClose={() => closeDrawer(key)}>
+        <FloatingDrawer key={key} id={`goals:${key}`} paneType="goals" width={680} title={value === 'new' ? 'Add milestone' : `Revise ${value.title}`} onClose={() => closeDrawer(key)}>
           <MilestoneDrawer milestone={value === 'new' ? undefined : value} onClose={() => closeDrawer(key)} onSave={(draft) => saveMilestone(draft, value === 'new' ? undefined : value)} />
         </FloatingDrawer>
       ))}
@@ -1906,13 +1953,40 @@ to:
   );
 ```
 
-- [ ] **Step 5: Delete the now-fully-dead shared backdrop CSS**
+- [ ] **Step 5: Delete the now-fully-dead shared backdrop CSS and right-size `.story-drawer`**
 
-In `web/src/styles/app.css`, search for every rule keyed on `.story-drawer-backdrop` (there should be exactly the base rule plus pane-specific combinators like `.theme-drawer-backdrop`, `.goal-drawer-backdrop`). Confirm with:
+In `web/src/styles/story-tools.css`, delete the `.story-drawer-backdrop` rule and the `story-drawer-in` keyframe (lines 28-30 and 35):
 
-Run: `grep -n "story-drawer-backdrop\|goal-drawer-backdrop" web/src/styles/app.css`
+```css
+.story-drawer-backdrop {
+  position: absolute; inset: 0; z-index: 75; display: flex; justify-content: flex-end; background: rgba(47,59,68,.25);
+}
+```
 
-Delete every matched rule. Also check each of `.story-drawer`, `.theme-drawer`, `.goal-drawer`, `.reference-drawer` for a `height: 100%` + backdrop-relative sizing that assumed full-viewport-height docking — change any `height: 100%` on these to remain `height: 100%` (they should still fill the `FloatingDrawer`'s body, which is fine) but remove any leftover `animation: drawer-in` declarations on the backdrop-adjacent rule (the animation now lives on `.floating-drawer` from Task 4) if present.
+and:
+
+```css
+@keyframes story-drawer-in { from { transform: translateX(28px); opacity: .5; } }
+```
+
+Then replace the `.story-drawer` rule (lines 31-34) — it previously sized and animated itself for full-viewport-height right-docking, which `.floating-drawer` (Task 4) now owns:
+
+```css
+.story-drawer {
+  width: min(680px,96%); height: 100%; display: flex; flex-direction: column; background: var(--paper-raised);
+  box-shadow: -14px 0 42px rgba(47,59,68,.18); animation: story-drawer-in .2s ease-out;
+}
+```
+
+with:
+
+```css
+.story-drawer {
+  height: 100%; display: flex; flex-direction: column; background: var(--paper-raised);
+}
+```
+
+Confirm no standalone rule exists for `.theme-drawer-backdrop` or `.goal-drawer-backdrop` (`grep -n "theme-drawer-backdrop\|goal-drawer-backdrop" web/src/styles/story-tools.css` — expect no matches; they were only extra unstyled class names on the removed backdrop divs). Leave the `.story-drawer { width: 100%; }` override inside `@container references (max-width: 650px)` (around line 275) and the `.story-drawer` mention in the reduced-motion rule (around line 340) as-is — both are now harmless no-ops, not worth the risk of an unnecessary edit.
 
 - [ ] **Step 6: Verify build**
 
@@ -1936,7 +2010,7 @@ Run `npm run dev`, open Goals, add a milestone, edit two existing milestones con
 - [ ] **Step 10: Commit**
 
 ```bash
-git add web/src/panes/GoalsPane.tsx web/src/styles/app.css
+git add web/src/panes/GoalsPane.tsx web/src/styles/story-tools.css
 git commit -m "$(cat <<'EOF'
 feat: migrate Goals drawer to FloatingDrawer, remove dead shared backdrop CSS
 
