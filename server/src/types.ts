@@ -110,6 +110,13 @@ export interface GoalStore {
 
 export type CharacterReferenceImage = StoryImage;
 
+export interface WorldMap {
+  version: 1;
+  image: StoryImage | null;
+  opacity: number;
+  visible: boolean;
+}
+
 export interface CharacterProfile {
   categories: string[];
   attributes: {

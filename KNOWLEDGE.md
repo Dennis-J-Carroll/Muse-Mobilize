@@ -1,6 +1,100 @@
 # Muse-Mobilize Knowledge & Continuation Log
 
-Last updated: 2026-09-04 by Claude (Sonnet 5), continuing Codex/Opus 5 work.
+Last updated: 2026-09-05, adding the world map atlas background.
+
+## Atlas background for the World map — 2026-09-05
+
+Continuation of a plan handed off mid-implementation: `server/src/world-map.ts`
+and its store test already existed (a per-project singleton, same shape as
+`goals.ts`/`settings.ts`) but had no routes, no GC integration, and no UI.
+
+- **Routes**: `GET`/`PUT /api/projects/:id/world-map`, mirroring the goals
+  route pair. `PUT` diffs the previous image against the new one and GCs the
+  displaced file — the write side of image cleanup that reference deletion
+  already had.
+- **GC fix (the actual insight from the handoff)**: `imageGc.ts`'s
+  `collectManagedImageFileNames` didn't know the map store existed, so
+  deleting an unrelated reference that happened to share a file with a
+  *hidden* map background would have deleted the atlas image too. Added
+  `readWorldMap` to the collector; regression test in
+  `imageGc.test.ts` plants an image used by both a reference and a hidden map,
+  deletes the reference, and asserts the file survives.
+- **Input validation**: `world-map.ts` now clamps `opacity` to `[0,1]`,
+  coerces `visible` to boolean, and validates `image` the same way
+  `references.ts` does (managed project asset or http(s) URL only).
+- **UI** (`WorldPane.tsx`): the map image renders inside `.world-space`,
+  before the links/nodes SVG, so it pans and zooms with landmarks using the
+  same transform — no separate camera state. A collapsible "Atlas background"
+  panel (toggled from the canvas nav) has upload/replace, an opacity slider,
+  a show/hide checkbox, and a "Fit to canvas" button.
+- **Fit-to-canvas is camera-only, not a persisted placement.** The map has no
+  stored `{x,y,width,height}` — it renders at its natural pixel size, anchored
+  at world-space origin `(0,0)`, same coordinate system landmark positions
+  already use. `fitWorld` unions the image's natural bounds with landmark
+  points, so "Fit landmarks" and "Fit to canvas" never disagree. Consequence:
+  a user who has already placed landmarks can't slide the map underneath them
+  to align it — only pan/zoom together. If that's needed later, it's a schema
+  change (a stored map rect), not a UI tweak.
+- Found and fixed one more real bug while writing the e2e test: the canvas's
+  pointerdown handler captures the pointer for panning unless the click
+  target is inside `.world-node, .world-inspector, .world-nav` — the new
+  `.world-map-panel` wasn't in that exclusion list, so every click on its
+  controls (checkbox, buttons) got hijacked into a pan-capture instead of
+  reaching the control. Added `.world-map-panel` to both the pointerdown and
+  double-click exclusion lists.
+- Opacity slider commits on `pointerup`/`blur`, not on every `onChange` step.
+  A naive per-step PUT would fire ~9 read-modify-write requests for one drag
+  and, since `writeWorldMap` has no request serialization, an out-of-order
+  response could silently overwrite the last value the user actually set.
+  The slider still updates instantly (local `displayOpacity` state drives
+  both the input and the `<img>` layer directly, independent of the network
+  round trip); only the commit is deferred and coalesced to one request.
+- "Fit to canvas" is disabled until the background image's natural size has
+  loaded (`mapNatural`), so clicking it immediately after upload can't
+  silently fit landmarks only while ignoring the map.
+- The background panel auto-opens when a project loads with an image set but
+  `visible: false` — otherwise a user who hid the map, then reloaded, would
+  have no visible way back to the `▤` nav toggle that reveals it again.
+
+### Verification
+
+- `npm test`: 57 server tests pass, including the new GC regression
+  (`imageGc.test.ts`) and the pre-existing store test.
+- `npx tsc -p server/tsconfig.json`, `-p web/tsconfig.json`, `-p e2e/tsconfig.json`:
+  all pass.
+- `npm run build`: passes.
+- `npx playwright test`: 19/19 pass (Chromium), including two specs in
+  `e2e/world-map.spec.ts` — upload/opacity-commit/show-hide/reload
+  persistence, and the reference-deletion-while-map-hidden GC scenario
+  end-to-end (not just the unit test).
+- `git diff --check`: passes.
+- Verification here is scripted (server tests + Playwright/Chromium), not
+  hands-on interaction with the running app in a browser.
+
+## Etched-glass UI and phone acceptance — 2026-09-05
+
+Dennis requested the same palette in a neo-minimalist skeuomorphic style:
+frosted etched glass, subtle inset weight, and thin Inter/SF-style typography.
+Shared material tokens and `web/src/styles/materials.css` apply that direction;
+Inter Variable is bundled locally. Display weight is 300, manuscript 400, and
+control labels 450. Secondary text contrast is stronger than the previous skin.
+
+Two new red-green browser regressions caught phone-specific layout failures:
+the fixed sidebar left only 92px for the workspace, and desktop split sizing
+then left only 44px for the manuscript. At <=700px, a horizontal tool rail and
+stacked drafting panes now preserve usable writing space without changing saved
+desktop arrangements. Pane stacking uses a <=650px workspace container query so
+900px tablets also retain a readable manuscript. Upload/save/reload and
+project-menu reachability are tested at 390px; drafting is tested at 390/900px.
+Desktop collapse/focus controls remain separate work.
+
+Full gate: 17 browser scenarios, 12 server test files, upload helpers, frontend
+build, server/e2e typechecks, and diff check passed. Visual checks covered desktop,
+390px phone, and 700px tablet layouts. See `docs/design-2026-09-05.md` for details,
+limitations, and current next steps. Previous acceptance report is historical;
+its references to missing GC and revision bodies predate committed fixes below.
+
+No commit created for this UI pass. Pre-existing untracked `notes/` was untouched.
 
 ## Unresolved revision persistence — implemented — 2026-09-04
 

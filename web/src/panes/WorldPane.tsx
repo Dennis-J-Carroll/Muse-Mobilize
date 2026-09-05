@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { ImageGalleryEditor, StoryImageStrip } from '../components/ImageGalleryEditor';
+import { preflightImageFiles } from '../components/ImageGalleryEditor';
 import type { CanonEntity, CanonEntityType, CanonFact, Pane, StoryImage, WorldProfile } from '../types';
 
 type Point = { x: number; y: number };
@@ -165,6 +166,7 @@ function WorldDrawer({
 export function WorldPane({ pane }: { pane: Pane }) {
   const canon = useStore((s) => s.canon);
   const plot = useStore((s) => s.plot);
+  const worldMap = useStore((s) => s.worldMap);
   const focusEntityId = useStore((s) => s.worldFocusEntityId);
   const documents = useStore((s) => s.project?.documents ?? []);
   const [mode, setMode] = useState<WorldMode>('canvas');
@@ -176,12 +178,62 @@ export function WorldPane({ pane }: { pane: Pane }) {
   const [relationship, setRelationship] = useState('');
   const [targetId, setTargetId] = useState('');
   const [panning, setPanning] = useState(false);
+  const [mapPanelOpen, setMapPanelOpen] = useState(false);
+  const [mapNatural, setMapNatural] = useState<{ width: number; height: number } | null>(null);
+  const [mapUploading, setMapUploading] = useState(false);
+  const [localOpacity, setLocalOpacity] = useState<number | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const mapFileRef = useRef<HTMLInputElement>(null);
   const panRef = useRef<{ pointerId: number; clientX: number; clientY: number; origin: View } | null>(null);
   const dragRef = useRef<{ id: string; clientX: number; clientY: number; origin: Point; scale: number } | null>(null);
   const initializedSelection = useRef(false);
 
-  useEffect(() => { void Promise.all([useStore.getState().loadCanon(), useStore.getState().loadPlot()]); }, []);
+  useEffect(() => {
+    void Promise.all([useStore.getState().loadCanon(), useStore.getState().loadPlot(), useStore.getState().loadWorldMap()]);
+  }, []);
+
+  useEffect(() => {
+    const src = worldMap?.image?.src;
+    if (!src) { setMapNatural(null); return; }
+    let cancelled = false;
+    const probe = new Image();
+    probe.onload = () => { if (!cancelled) setMapNatural({ width: probe.naturalWidth, height: probe.naturalHeight }); };
+    probe.src = src;
+    return () => { cancelled = true; };
+  }, [worldMap?.image?.src]);
+
+  useEffect(() => {
+    if (worldMap?.image && !worldMap.visible) setMapPanelOpen(true);
+  }, [worldMap?.image?.src, worldMap?.visible]);
+
+  useEffect(() => {
+    if (localOpacity !== null && worldMap?.opacity === localOpacity) setLocalOpacity(null);
+  }, [worldMap?.opacity, localOpacity]);
+
+  const displayOpacity = localOpacity ?? worldMap?.opacity ?? .55;
+  const commitOpacity = () => {
+    if (localOpacity !== null) void useStore.getState().updateWorldMap({ opacity: localOpacity });
+  };
+
+  const mapBounds = worldMap?.visible && worldMap.image && mapNatural
+    ? [{ x: 0, y: 0 }, { x: mapNatural.width, y: mapNatural.height }]
+    : [];
+
+  const uploadMapImage = async (file: File) => {
+    const { accepted, issues } = preflightImageFiles([file]);
+    if (issues.length) { useStore.setState({ error: `${file.name}: ${issues[0].reason}` }); return; }
+    if (!accepted.length) return;
+    setMapUploading(true);
+    try {
+      const image = await useStore.getState().uploadStoryImage(accepted[0]);
+      await useStore.getState().updateWorldMap({ image, visible: true });
+    } catch (err: any) {
+      useStore.setState({ error: err.message });
+    } finally {
+      setMapUploading(false);
+      if (mapFileRef.current) mapFileRef.current.value = '';
+    }
+  };
 
   const worldEntities = useMemo(
     () => (canon?.entities ?? []).filter((entity) => entity.type !== 'character'),
@@ -306,7 +358,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
 
   const fitWorld = () => {
     const rect = viewportRef.current?.getBoundingClientRect();
-    const points = visible.map((entity) => positions[entity.id]).filter(Boolean);
+    const points = [...visible.map((entity) => positions[entity.id]).filter(Boolean), ...mapBounds];
     if (!rect || !points.length) {
       setView({ x: 85, y: 82, scale: 1 });
       return;
@@ -379,7 +431,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
           className={`world-viewport ${panning ? 'is-panning' : ''}`}
           style={{ backgroundPosition: `${view.x}px ${view.y}px`, backgroundSize: `${34 * view.scale}px ${34 * view.scale}px` }}
           onPointerDown={(event) => {
-            if (event.button !== 0 || (event.target as Element).closest('.world-node, .world-inspector, .world-nav')) return;
+            if (event.button !== 0 || (event.target as Element).closest('.world-node, .world-inspector, .world-nav, .world-map-panel')) return;
             panRef.current = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, origin: view };
             event.currentTarget.setPointerCapture(event.pointerId);
             setPanning(true);
@@ -406,11 +458,20 @@ export function WorldPane({ pane }: { pane: Pane }) {
             setView({ scale: nextScale, x: mouseX - worldX * nextScale, y: mouseY - worldY * nextScale });
           }}
           onDoubleClick={(event) => {
-            if ((event.target as Element).closest('.world-node, .world-inspector, .world-nav')) return;
+            if ((event.target as Element).closest('.world-node, .world-inspector, .world-nav, .world-map-panel')) return;
             setDrawer({ point: placePoint(event.clientX, event.clientY) });
           }}
         >
           <div className="world-space" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}>
+            {worldMap?.visible && worldMap.image && (
+              <img
+                className="world-map-layer"
+                src={worldMap.image.src}
+                alt=""
+                draggable={false}
+                style={{ opacity: displayOpacity }}
+              />
+            )}
             <svg className="world-links" width="1" height="1" aria-hidden>
               <defs><marker id="world-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" /></marker></defs>
               {links.filter((link) => visibleIds.has(link.source.id) && visibleIds.has(link.target.id)).map((link) => {
@@ -456,9 +517,60 @@ export function WorldPane({ pane }: { pane: Pane }) {
             <button onClick={() => zoom(1.15)} aria-label="Zoom in">+</button>
             <button onClick={() => zoom(.87)} aria-label="Zoom out">−</button>
             <button onClick={fitWorld} aria-label="Fit landmarks">◎</button>
+            <button className={mapPanelOpen ? 'is-on' : ''} aria-pressed={mapPanelOpen} onClick={() => setMapPanelOpen((open) => !open)} aria-label="Atlas background controls">▤</button>
             <span>{Math.round(view.scale * 100)}%</span>
           </nav>
           <div className="world-compass" aria-hidden><b>N</b><i /><span /></div>
+
+          {mapPanelOpen && (
+            <aside className="world-map-panel">
+              <header><span>Atlas background</span><button onClick={() => setMapPanelOpen(false)} aria-label="Collapse atlas background controls">×</button></header>
+              <div className="world-map-panel-body">
+                {worldMap?.image
+                  ? <StoryImageStrip images={[worldMap.image]} label="Atlas background preview" />
+                  : <p className="world-map-empty">No background image set. Upload one to trace landmarks over it.</p>}
+                <label className="btn world-map-choose">
+                  {mapUploading ? 'Uploading…' : worldMap?.image ? 'Replace image' : 'Upload image'}
+                  <input
+                    ref={mapFileRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+                    disabled={mapUploading}
+                    onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadMapImage(file); }}
+                  />
+                </label>
+                {worldMap?.image && (
+                  <>
+                    <label className="world-map-opacity">
+                      Opacity
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={.05}
+                        value={displayOpacity}
+                        onChange={(event) => setLocalOpacity(Number(event.target.value))}
+                        onPointerUp={commitOpacity}
+                        onBlur={commitOpacity}
+                      />
+                    </label>
+                    <label className="world-map-visible">
+                      <input
+                        type="checkbox"
+                        checked={worldMap.visible}
+                        onChange={(event) => void useStore.getState().updateWorldMap({ visible: event.target.checked })}
+                      />
+                      Show on canvas
+                    </label>
+                    <div className="world-map-panel-actions">
+                      <button className="btn" onClick={fitWorld} disabled={!mapNatural}>Fit to canvas</button>
+                      <button className="linkish" onClick={() => void useStore.getState().updateWorldMap({ image: null })}>Remove background</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </aside>
+          )}
 
           {selected && (
             <aside className="world-inspector">

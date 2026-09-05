@@ -5,7 +5,7 @@ import type {
   GoalStore, ProgressProjection, ReferenceStore, StoryReference,
   LocalModelInstallResult, LocalModelProgress, MuseEvent, Pane, PaneType, Patch, ProjectManifest,
   PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
-  ProviderCheckResult, ProviderStatus, Region, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, StoryImage, WorkspaceDef, WorldProfile,
+  ProviderCheckResult, ProviderStatus, Region, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, StoryImage, WorkspaceDef, WorldMap, WorldProfile,
 } from './types';
 
 interface DocState {
@@ -41,6 +41,7 @@ interface State {
   references: ReferenceStore | null;
   goals: GoalStore | null;
   progress: ProgressProjection | null;
+  worldMap: WorldMap | null;
   worldFocusEntityId: string | null;
   plotFocusNodeId: string | null;
   sceneFocusId: string | null;
@@ -101,6 +102,8 @@ interface State {
   deleteReference: (referenceId: string) => Promise<boolean>;
   loadGoals: () => Promise<void>;
   updateGoals: (patch: Partial<Pick<GoalStore, 'sessionTarget' | 'milestones'>>) => Promise<GoalStore | null>;
+  loadWorldMap: () => Promise<void>;
+  updateWorldMap: (patch: Partial<Omit<WorldMap, 'version'>>) => Promise<WorldMap | null>;
   loadProgress: () => Promise<void>;
 
   refreshEvents: () => Promise<void>;
@@ -153,6 +156,7 @@ export const useStore = create<State>((set, get) => ({
   sceneBoard: null,
   references: null,
   goals: null,
+  worldMap: null,
   progress: null,
   worldFocusEntityId: null,
   plotFocusNodeId: null,
@@ -185,7 +189,7 @@ export const useStore = create<State>((set, get) => ({
     try {
       const { project, agents, workspaces } = await api.openProject(id);
       localStorage.setItem('muse:lastProject', id);
-      set({ project, agents, workspaces, docs: {}, panes: [], runs: {}, events: [], canon: null, plot: null, sceneBoard: null, references: null, goals: null, progress: null, worldFocusEntityId: null, plotFocusNodeId: null, sceneFocusId: null, selection: null, error: null });
+      set({ project, agents, workspaces, docs: {}, panes: [], runs: {}, events: [], canon: null, plot: null, sceneBoard: null, references: null, goals: null, progress: null, worldMap: null, worldFocusEntityId: null, plotFocusNodeId: null, sceneFocusId: null, selection: null, error: null });
       const drafting = workspaces.find((w) => w.id === 'drafting') ?? workspaces[0];
       if (drafting) await get().applyWorkspace(drafting.id);
       else {
@@ -675,6 +679,31 @@ export const useStore = create<State>((set, get) => ({
       set({ goals, notice: 'Writing goals updated.' });
       await get().refreshEvents();
       return goals;
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
+    }
+  },
+
+  async loadWorldMap() {
+    const s = get();
+    if (!s.project) return;
+    try {
+      const { worldMap } = await api.worldMap(s.project.id);
+      set({ worldMap });
+    } catch (err: any) {
+      set({ error: `Could not load world map: ${err.message}` });
+    }
+  },
+
+  async updateWorldMap(patch) {
+    const s = get();
+    if (!s.project) return null;
+    try {
+      const { worldMap } = await api.updateWorldMap(s.project.id, patch);
+      set({ worldMap });
+      await get().refreshEvents();
+      return worldMap;
     } catch (err: any) {
       set({ error: err.message });
       return null;

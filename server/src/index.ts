@@ -19,6 +19,7 @@ import { createReference, deleteReference, readReferences, updateReference } fro
 import { deleteOrphanedImages } from './imageGc.js';
 import { readGoals, writeGoals } from './goals.js';
 import { readProgress } from './progress.js';
+import { readWorldMap, writeWorldMap } from './world-map.js';
 
 const app = express();
 app.use(express.json({ limit: '8mb' }));
@@ -296,6 +297,24 @@ app.put('/api/projects/:id/goals', wrap(async (req, res) => {
     milestones: goals.milestones.length,
   });
   res.json({ goals });
+}));
+
+/* --------------------------------------------------------------- world-map */
+
+app.get('/api/projects/:id/world-map', wrap(async (req, res) => {
+  res.json({ worldMap: await readWorldMap(await projectDir(req.params.id)) });
+}));
+
+app.put('/api/projects/:id/world-map', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const previous = await readWorldMap(dir);
+  const worldMap = await writeWorldMap(dir, req.body ?? {});
+  if (previous.image && previous.image.src !== worldMap.image?.src) {
+    const fileName = managedImageFileName(previous.image.src);
+    if (fileName) await deleteOrphanedImages(dir, [fileName]);
+  }
+  await emit(dir, 'world-map.updated', { hasImage: Boolean(worldMap.image), visible: worldMap.visible });
+  res.json({ worldMap });
 }));
 
 /* ---------------------------------------------------------------- progress */

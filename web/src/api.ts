@@ -3,7 +3,7 @@ import type {
   DocumentMeta, MuseEvent, Patch, ProjectManifest,
   GoalStore, ProgressProjection, ReferenceStore, StoryReference,
   LocalModelInstallResult, LocalModelProgress, PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
-  ProviderCheckResult, ProviderStatus, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, StoryImage, WorkspaceDef, WorldProfile,
+  ProviderCheckResult, ProviderStatus, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, StoryImage, WorkspaceDef, WorldMap, WorldProfile,
 } from './types';
 
 function imagePayload(file: File): Promise<{ name: string; mimeType: string; data: string }> {
@@ -118,6 +118,9 @@ export const api = {
   goals: (id: string) => req<{ goals: GoalStore }>(`/api/projects/${id}/goals`),
   updateGoals: (id: string, patch: Partial<Pick<GoalStore, 'sessionTarget' | 'milestones'>>) =>
     req<{ goals: GoalStore }>(`/api/projects/${id}/goals`, { method: 'PUT', body: JSON.stringify(patch) }),
+  worldMap: (id: string) => req<{ worldMap: WorldMap }>(`/api/projects/${id}/world-map`),
+  updateWorldMap: (id: string, patch: Partial<Omit<WorldMap, 'version'>>) =>
+    req<{ worldMap: WorldMap }>(`/api/projects/${id}/world-map`, { method: 'PUT', body: JSON.stringify(patch) }),
   progress: (id: string) => req<{ progress: ProgressProjection }>(`/api/projects/${id}/progress`),
 
   setAgentState: (id: string, agentId: string, mode: string) =>

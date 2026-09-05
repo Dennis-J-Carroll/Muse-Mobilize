@@ -6,6 +6,7 @@ import path from 'node:path';
 import { imageAssetPath } from '../src/assets.js';
 import { createCanonEntity } from '../src/canon.js';
 import { createReference, deleteReference } from '../src/references.js';
+import { writeWorldMap } from '../src/world-map.js';
 import { deleteOrphanedImages } from '../src/imageGc.js';
 
 async function plantManagedImage(projectDir: string, fileName: string): Promise<string> {
@@ -70,6 +71,22 @@ test('image still used by a character survives garbage collection after its refe
       references: { images: [shared] },
     },
   });
+
+  await deleteReference(projectDir, reference.id);
+  await deleteOrphanedImages(projectDir, [fileName]);
+
+  await assert.doesNotReject(fs.access(filePath));
+});
+
+test('image used as the hidden world-map background survives garbage collection after its reference is deleted', async (t) => {
+  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-imagegc-'));
+  t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
+  const fileName = 'dddddddd-dddd-dddd-dddd-dddddddddddd.png';
+  const filePath = await plantManagedImage(projectDir, fileName);
+  const shared = { id: 'img', src: `/api/projects/story/assets/images/${fileName}`, caption: '', tags: [] };
+
+  const reference = await createReference(projectDir, { kind: 'image', title: 'Atlas source', images: [shared] });
+  await writeWorldMap(projectDir, { image: shared, visible: false });
 
   await deleteReference(projectDir, reference.id);
   await deleteOrphanedImages(projectDir, [fileName]);
