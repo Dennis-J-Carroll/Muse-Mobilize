@@ -2,6 +2,30 @@
 
 Last updated: 2026-09-04 by Claude (Sonnet 5), continuing Codex/Opus 5 work.
 
+## Handoff for next session — 2026-09-04
+
+**Task: build durable unresolved-revision persistence (item #4).** Read
+"Unresolved revision persistence — design and confirmed findings" below in
+full before doing anything else — it has the exact file/line grounding, the
+two things already verified (not hypotheses), and the open wiring decisions.
+
+Before writing code: run an `advisor()` consult (this project's convention —
+see the two prior "Reviewed by advisor" commits in git log) at high effort to
+settle the open wiring decisions listed at the end of that section — mainly
+where a recovered patch renders (ReviewPane vs. Progress pane) and what
+placeholder `agentId`/`agentName` a recovered patch should carry through the
+existing `PatchCard` component. Then implement with TDD (write the failing
+test first — server test for the event-payload body persisting through
+`readEvents`/`projectUnresolvedRevisions`, then a web test or e2e test for
+the recovery-and-act path), following `superpowers:test-driven-development`.
+
+Verify with the full gate before calling it done: `npm test`,
+`npx tsc -p server/tsconfig.json --noEmit`, `npm run build`,
+`node --import tsx --test web/test/*.test.ts`, `npx playwright test`,
+`git diff --check`. Commit only after everything is green — see the two most
+recent commits for this repo's commit-message conventions (why, not what;
+advisor findings called out explicitly when they changed the outcome).
+
 ## Current goal
 
 Characters, World Building, Plot Outline, Scenes, Dialogue, Themes, References, Goals, Progress, managed story images, hosted provider fast lane, and one-click local model setup are implemented. Automated acceptance now covers uploads and all four new story-system surfaces. Reference deletion with cross-store managed-image garbage collection now exists. Current goal: persist full unresolved revision bodies so a server restart doesn't strand an undecided patch (design consulted, not yet implemented — see below). Sidebar collapse and focus modes remain open.
@@ -123,7 +147,7 @@ survives; shared with a character survives) and `e2e/references.spec.ts`
 ("removing a reference…", verifies the file is actually gone on disk, not just
 absent from the UI).
 
-## Unresolved revision persistence — design (not yet implemented) — 2026-09-04
+## Unresolved revision persistence — design and confirmed findings — 2026-09-04
 
 Today, `patch.proposed` events in the append-only log carry only
 `{patchId, documentId, anchored, reason}` — never the patch body
@@ -131,27 +155,75 @@ Today, `patch.proposed` events in the append-only log carry only
 browser's in-memory run state. After a page refresh or server restart, the
 Progress pane's "unresolved revisions" list still shows the patch (projected
 from the event log), but there is no way to view, accept, or reject it — the
-bytes needed to act on it are gone. This is a stuck-state bug, not just a
-missing feature.
+bytes needed to act on it are gone.
 
-Recommended fix (not yet built): append `beforeText`, `afterText`, and `reason`
-into the `patch.proposed` event payload itself — `progress.ts` is already a
-pure projection over the event log via `projectUnresolvedRevisions`, so this
-needs no new storage or second source of truth. Patch bodies are bounded by
-design (agents are instructed to keep patches to "one to three sentences"), so
+**Confirmed, not hypothetical: there is no dismiss/reject action reachable
+once this happens.** `ReviewPane.tsx` renders exclusively from
+`useStore((s) => s.runs)` (`web/src/panes/ReviewPane.tsx:6-10`). `runs` is
+reset to `{}` every time a project is opened (`web/src/store.ts:188`, inside
+whatever function loads a project — grep `runs: {}`) and nothing ever
+rehydrates it from the server. So after a refresh, restart, or reopening the
+project, `runs` is empty, `ReviewPane` shows "No revisions waiting on you.",
+and the `PatchCard` accept/reject buttons that would call
+`POST /patches/apply` or `POST /patches/reject` never render at all — even
+though `POST /patches/reject` itself only needs `{patchId}`
+(`web/src/api.ts:137-138`) and would happily clear it. The Progress pane's
+counter (`progress.unresolvedRevisions.length`) can therefore go permanently
+stuck with zero user recourse. This is a real stuck-state bug, confirmed by
+reading the code paths end to end — not a "maybe skip this" case.
+
+**Also confirmed: recovered patches can reuse the existing accept/reject code
+almost unchanged.** `acceptPatch` (`web/src/store.ts:352-370`) takes a `Patch`
+and an optional text override — it never reads `agentId` at all. `rejectPatch`
+(`web/src/store.ts:372`) takes `(_agentId, patch)` — the leading underscore
+means the parameter is already unused. `markPatch` (`web/src/store.ts:743-752`)
+walks `runs` looking for a matching `patch.id` and safely no-ops if it isn't
+found (returns `runs` restructured but unchanged) — so calling it for a patch
+that was never in `runs` is harmless, not a crash risk. Net: a `Patch` object
+reconstructed from a persisted event can be run through
+`useStore.getState().acceptPatch(patch, ...)` /
+`useStore.getState().rejectPatch(anything, patch)` today, with no changes to
+either function. `PatchCard` (`web/src/components/PatchCard.tsx`) itself only
+needs `{ patch: Patch; agentId: string }` as props — `agentId` is passed
+through to the unused `rejectPatch` param and otherwise unread by the
+component, so any placeholder string works.
+
+**Recommended fix:** append `beforeText`, `afterText`, and `reason` into the
+`patch.proposed` event payload itself (`server/src/agents.ts:227-233`) —
+`progress.ts` is already a pure projection over the event log via
+`projectUnresolvedRevisions`, so this needs no new storage or second source of
+truth; `UnresolvedRevision` (`server/src/types.ts`) gains optional
+`beforeText`/`afterText`. Patch bodies are bounded by design (agents are
+instructed to keep patches to "one to three sentences" — `agents.ts:33`), so
 event-log growth is not a real cost. Treat stored `start`/`end` offsets as a
-discardable hint, not a source of truth — `applyPatch` (`protocol.ts`) already
-falls back from the offset check to a unique `indexOf(beforeText)` search and
-refuses as stale if the document moved, so recovery should re-anchor via
-`beforeText` rather than trust old offsets. Patches proposed before this
-change will have no body in the log; render those as dismiss-only rather than
-backfilling.
+discardable hint, not a source of truth — `applyPatch` (`protocol.ts:135-153`)
+already falls back from the offset check to a unique `indexOf(beforeText)`
+search and refuses as stale if the document moved, so recovery should
+re-anchor via `beforeText` rather than trust old offsets carried in the event.
+Patches proposed before this change ships will have no body in the log;
+render those dismiss-only (a bare "Reject" affordance keyed on `patchId`,
+no `PatchCard`) rather than trying to backfill them.
 
-Before building this: confirm what UI action a stranded unresolved revision
-actually needs. If the only real requirement is an unstick/dismiss action
-(`POST /patches/reject` already accepts a bare `patchId`), the fix may be much
-smaller than full body persistence — check whether that alone resolves the
-stuck-counter problem before building the larger persistence path.
+**Open wiring decisions for the next session (good advisor material, not yet
+settled):**
+1. Where does a recovered patch render? Options: (a) teach `ReviewPane` to also
+   read `progress.unresolvedRevisions` and synthesize a minimal `AgentRun`-free
+   entry per item that has a body, alongside the live `runs`-backed ones; or
+   (b) render recovered patches directly in `ProgressPane`'s existing revision
+   queue list, next to the "Open current review queue" button, since that pane
+   already has the data. (b) is less invasive — it doesn't touch `ReviewPane`'s
+   `runs`-shaped assumptions at all — but (a) keeps all patch decisions in one
+   place for the writer. Pick one; don't build both.
+2. What placeholder `agentId`/label does a recovered patch carry into
+   `PatchCard`/the review list? The event already has `actor` on `MuseEvent`
+   (optional) — likely enough for a label; no real `agentId` string is needed
+   since neither `acceptPatch` nor `rejectPatch` reads it.
+3. Should `readProgress` fetch full events unconditionally (it already does via
+   `readEvents(projectDir, Number.MAX_SAFE_INTEGER)`, so no change needed there)
+   or should the heavier body-carrying payload change that math for large
+   projects? Given the "one to three sentences" bound above, almost certainly
+   not — confirm rather than assume if `readEvents` performance ever becomes a
+   question.
 
 ## Browser acceptance and regression repair — 2026-09-04
 
