@@ -169,6 +169,48 @@ For each of `ScenesPane`, `CharactersPane`, `WorldPane`, `PlotPane`,
 - `.scene-resource-rail.is-collapsed` for the rail collapse.
 - `.pane-resize-handle` for the new corner drag affordance.
 
+## Addendum (2026-09-05): same-type multi-instance
+
+Confirmed with Dennis: concurrency must work **within** a pane type too —
+editing Character A and Character B at the same time, each independently
+dockable/recallable — not just across pane types (a scene drawer + a
+character drawer). This supersedes the earlier assumption that migration
+is chrome-only.
+
+Each of the 7 panes currently tracks its drawer in a single-value
+`useState`, e.g. `const [drawer, setDrawer] = useState<Scene | 'new' |
+null>(null)` (`ScenesPane.tsx:91`), `useState<CanonEntity | null |
+undefined>` (`CharactersPane.tsx:248`), or `useState<{ entity?: CanonEntity;
+point: Point } | null>` (`WorldPane.tsx:177`, `PlotPane.tsx:144`). Opening
+a second item today replaces the first, unmounting its form.
+
+**Change:** each pane's drawer state becomes a `Map<string, T>` keyed by a
+stable id (`'new'` for the create-flow, or the entity/item id for edits):
+
+```ts
+const [drawers, setDrawers] = useState<Map<string, Scene | 'new'>>(new Map());
+const openDrawer = (key: string, value: Scene | 'new') =>
+  setDrawers((current) => new Map(current).set(key, value));
+const closeDrawer = (key: string) =>
+  setDrawers((current) => { const next = new Map(current); next.delete(key); return next; });
+```
+
+Opening the same key twice (e.g. clicking "Edit" on the same character
+that's already open) just replaces that one entry — it doesn't duplicate a
+window, matching the existing "re-focus, don't duplicate" rule for the
+`FloatingDrawer` `id` prop. The render site changes from a single
+conditional (`{drawer && <X .../>}`) to a `.map()` over `drawers.entries()`,
+one `<FloatingDrawer>` per entry, each with its own `id`, e.g.
+`` `characters:${key}` ``.
+
+This does **not** change any save/validation/business logic (the `save`,
+`onSaved`, field-parsing functions are unchanged) — it changes how many
+drawer instances a pane can have mounted at once and how each is closed
+(by key, not globally). The "Non-goals" bullet above ("only the chrome
+around existing drawer content") is narrowed to: *no change to save,
+validation, or data-shape logic* — the open/close state-tracking mechanism
+is explicitly in scope.
+
 ## Testing
 
 - Existing pane e2e tests that open/fill/save a drawer (scenes, characters,
