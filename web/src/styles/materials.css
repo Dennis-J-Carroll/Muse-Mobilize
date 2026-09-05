@@ -1,0 +1,193 @@
+/* Shared material layer. Domain styles own layout and semantic status colors;
+   this layer owns glass, type hierarchy, and tactile control surfaces. */
+
+.workspace :is(h1, h2), .modal h2, .boot h1 {
+  font-weight: var(--weight-display);
+  letter-spacing: -.04em;
+}
+.story-drawer > header h2, .scene-drawer > header h2, .plot-folio > header h1 {
+  font-weight: var(--weight-display);
+}
+.workspace :is(h3, h4) { font-weight: 400; letter-spacing: -.025em; }
+.workspace-head > div:first-child { min-width: 0; }
+.workspace { container: writing-space / inline-size; }
+.ws-switch { flex: 0 0 auto; }
+.workspace-head p { line-height: 1.5; }
+
+/* Blur only layered surfaces, never each cell or card in a scrolling board. */
+.workspace, .launcher, .modal, .story-drawer, .character-drawer,
+.world-drawer, .plot-drawer, .scene-drawer, .world-inspector, .plot-folio {
+  -webkit-backdrop-filter: blur(18px) saturate(110%);
+  backdrop-filter: blur(18px) saturate(110%);
+}
+.launcher, .modal, .story-drawer, .character-drawer,
+.world-drawer, .plot-drawer, .scene-drawer, .world-inspector, .plot-folio {
+  background: var(--glass-sheen), var(--glass-overlay);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--shadow-float);
+}
+.story-drawer, .character-drawer, .world-drawer, .plot-drawer, .scene-drawer {
+  border-radius: var(--r-lg) 0 0 var(--r-lg);
+}
+.character-drawer > footer { background: transparent; }
+.launcher-head { text-transform: none; letter-spacing: 0; font-size: 12px; }
+.launcher-item.is-current { font-weight: 500; }
+
+.story-toolbar, .scene-toolbar, .dialogue-toolbar, .world-toolbar, .plot-toolbar {
+  background: var(--glass-face);
+  box-shadow: var(--shadow-inset);
+}
+.story-toolbar h2 { line-height: 1.25; }
+.story-toolbar .btn { flex-shrink: 0; }
+.story-toolbar, .reference-toolbar, .theme-toolbar, .goal-toolbar, .progress-toolbar {
+  border-top-width: 2px;
+}
+
+.progress-score, .progress-flow-panel, .progress-now, .scene-progress-panel,
+.manuscript-timeline, .revision-queue, .session-target-card, .goal-card,
+.reference-card, .scene-lane, .scene-beat-card {
+  border-radius: var(--r-md);
+  background-image: var(--glass-sheen);
+  box-shadow: var(--shadow-card);
+}
+.progress-score { overflow: hidden; }
+.progress-score strong {
+  font-family: var(--font-ui);
+  font-weight: var(--weight-display);
+  font-size: 30px;
+  font-variant-numeric: tabular-nums;
+}
+.progress-score .needs-attention { box-shadow: inset 0 -2px var(--warn); }
+.reference-card { border-top-width: 2px; }
+.reference-card-open { border-radius: inherit; }
+.reference-visual { border-radius: 10px 10px 0 0; box-shadow: var(--shadow-inset); }
+.reference-card-copy h3, .theme-identity strong { font-weight: var(--weight-label); }
+.reference-card-copy .reference-by { font-style: normal; }
+.reference-visual > blockquote { font-weight: var(--weight-display); }
+.theme-corner, .theme-identity, .theme-scene-head { box-shadow: var(--shadow-inset); }
+.theme-corner, .theme-identity { background: #eae5dc; }
+.theme-scene-head { background: #f1eee7; }
+.theme-identity span { font-style: normal; font-size: 11px; }
+.theme-identity strong { letter-spacing: -.02em; }
+.theme-scene-head span { max-height: none; font-size: 12px; }
+.theme-map-intro p { line-height: 1.5; }
+.session-target-card { border-left-width: 2px; }
+.goal-card { border-top-width: 2px; }
+.goal-route-marker { box-shadow: var(--shadow-inset), 0 3px 8px rgba(47,59,68,.07); }
+.goal-route-controls button { border-radius: 6px; box-shadow: var(--shadow-well); }
+.theme-empty, .goal-empty { min-width: 0; padding: 24px; }
+
+/* Recessed inputs contrast with the lightly raised glass controls. */
+.story-form-grid :is(input, select, textarea), .reference-link-add select,
+.drawer-grid :is(input, select, textarea), .scene-form-grid :is(input, select, textarea),
+.session-target-form input, .field input, .agent-compose textarea {
+  background: rgba(244, 247, 246, .72);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  padding: 9px 10px;
+  box-shadow: var(--shadow-well);
+  font-weight: 400;
+}
+.story-form-grid :is(input, select, textarea) { font-size: 13px; }
+.story-form-grid label, .story-drawer-scroll section > p { font-size: 12px; }
+.story-drawer-scroll h3 { font-weight: 500; }
+.session-target-form input { padding: 7px 9px; }
+.btn, .ws-btn, .chip, .state-chip {
+  background-image: var(--glass-sheen);
+  box-shadow: var(--shadow-inset), 0 2px 4px rgba(47,59,68,.04);
+  font-weight: var(--weight-label);
+}
+.btn, .ws-btn { min-height: 34px; }
+.btn:active:not(:disabled), .ws-btn:active:not(:disabled) { box-shadow: var(--shadow-well); }
+.btn-primary, .ws-btn.is-on, .tone-deep {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.25), inset 0 -1px 2px rgba(24,43,60,.24), 0 4px 10px rgba(47,59,68,.12);
+}
+.image-drop { background: rgba(198,216,222,.18); box-shadow: var(--shadow-well); }
+.image-drop-mark { transform: none; border-radius: 7px; }
+.image-contact-sheet figure > div { box-shadow: var(--shadow-inset); }
+.statusbar b { font-weight: var(--weight-label); }
+.draft:focus-visible { outline-offset: -3px; }
+
+/* Small screens keep the same tools, arranged as a horizontal glass rail.
+   Menus escape the scroll rail so keyboard/project actions stay reachable. */
+@media (max-width: 700px) {
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px;
+  }
+  .sidebar { min-width: 0; overflow: visible; padding: 0; }
+  .brand-row { gap: 9px; margin-bottom: 8px; }
+  .brand-dot { width: 32px; height: 32px; }
+  .brand-text { flex-direction: row; align-items: baseline; gap: 5px; }
+  .brand-text strong { font-size: 18px; }
+  .cards {
+    grid-auto-flow: column;
+    grid-auto-columns: 116px;
+    grid-template-columns: none;
+    gap: 8px;
+    overflow-x: auto;
+    margin: -3px;
+    padding: 3px 3px 7px;
+    scrollbar-width: thin;
+  }
+  .card-slot.wide { grid-column: auto; }
+  .card, .card-slot.wide .card { min-height: 76px; height: 100%; padding: 10px; gap: 6px; border-radius: var(--r-md); }
+  .card-icon { margin: 0; line-height: 1; }
+  .card-icon svg { width: 18px; height: 18px; }
+  .card-title { font-size: 12px; }
+  .card-blurb { display: none; }
+  .launcher { position: fixed; top: 134px; left: 10px; right: 10px; min-width: 0; max-height: calc(100dvh - 154px); overflow-y: auto; }
+  .project-menu { top: 49px; }
+  .workspace-head { flex-direction: column; gap: 10px; padding: 15px 16px 13px; }
+  .workspace-head h1 { font-size: 22px; }
+  .workspace-head p { margin-top: 3px; font-size: 11px; }
+  .ws-switch { width: 100%; gap: 5px; }
+  .ws-btn { padding: 6px 11px; font-size: 11.5px; }
+  .ws-btn.ghost { margin-left: auto; }
+  .canvas, .canvas-single { padding: 0 7px 4px; }
+  .statusbar { flex-wrap: wrap; gap: 7px 16px; padding: 9px 14px; font-size: 10px; }
+  .statusbar span { gap: 4px; }
+  .story-toolbar { padding-right: 12px; padding-left: 12px; }
+  .story-drawer { border-radius: 0; }
+  .story-drawer > header { padding: 16px; }
+  .story-drawer-scroll { padding: 16px 16px 28px; }
+  .story-drawer > footer { padding: 11px 16px; flex-wrap: wrap; }
+  .story-drawer > footer > span { flex-basis: 100%; }
+  .draft { padding: 20px 22px 30px; }
+}
+
+/* The sidebar can remain on a tablet; stack based on the space the writer
+   actually has, independently of the screen's navigation breakpoint. */
+@container writing-space (max-width: 650px) {
+  .canvas:not(.canvas-single):not(.canvas-empty) {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    gap: 10px;
+  }
+  .canvas > .region { flex: 0 0 auto; flex-direction: column; }
+  .canvas > .region:empty { display: none; }
+  .region .pane:not(.is-min) { flex: 0 0 400px; }
+  .split { display: none; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glass-face: #f4f7f7; --glass-overlay: #f8faf9; --glass-sheen: none; }
+  .workspace, .launcher, .modal, .story-drawer, .character-drawer,
+  .world-drawer, .plot-drawer, .scene-drawer, .world-inspector, .plot-folio {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+@media (forced-colors: active) {
+  .card, .pane, .reference-card, .goal-card, .progress-score { border: 1px solid CanvasText; }
+}

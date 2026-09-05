@@ -31,6 +31,17 @@ No API key is needed to try it. The default provider is **Mock (offline)**,
 which walks the whole path — it comments on your real selection, raises a real
 consultation with another agent, and proposes a real patch anchored to your text.
 
+## Writing surface
+
+The original blue, mist, sage, and sand palette now has an etched-glass treatment:
+subtle inset edges, frosted drawers, recessed fields, and locally bundled Inter
+Variable. Headings are light; manuscript text keeps a readable regular weight.
+At 700px and below, tools form a horizontal rail. Drafting panes stack when the
+workspace is narrow without changing the saved desktop arrangement.
+Reduced-motion and transparency preferences have explicit CSS fallbacks.
+
+See [design and responsive verification](docs/design-2026-09-05.md).
+
 ## The golden path
 
 1. A project is created for you on first run, seeded with a short chapter.
@@ -270,7 +281,8 @@ npm run test:browser
 The runner owns ports 5277/5278 and removes its temporary project directory when
 it exits. Keep those ports free; normal development remains on 5177/5178. Tests
 cover uploads, Themes, References, Goals, and Progress, including save/reload,
-failed-save retry, overlapping uploads, and milestone ordering. Failure traces
+failed-save retry, overlapping uploads, milestone ordering, revision recovery,
+and phone-sized upload/drafting layouts. Failure traces
 and screenshots appear in `test-results/`; HTML report is in `playwright-report/`.
 
 See [acceptance results](docs/acceptance-2026-09-04.md) for tested behavior,

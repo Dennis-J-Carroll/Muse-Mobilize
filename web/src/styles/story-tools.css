@@ -72,9 +72,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .reference-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(218px,1fr)); gap: 18px; align-items: start; }
 .reference-card {
   position: relative; min-width: 0; border: 1px solid rgba(98,73,43,.16); border-top: 3px solid var(--reference-gold);
-  background: #fffdfa; box-shadow: 2px 4px 0 rgba(105,79,47,.05), 0 8px 22px rgba(71,58,44,.06);
+  background: rgba(255,253,250,.76);
 }
-.reference-card:nth-child(3n + 2) { transform: translateY(8px); }
 .reference-card-open { width: 100%; padding: 0; border: 0; background: transparent; text-align: left; }
 .reference-visual { min-height: 114px; display: grid; place-items: center; overflow: hidden; background: #e8e2d7; }
 .reference-visual img { width: 100%; max-height: 270px; display: block; object-fit: cover; }
