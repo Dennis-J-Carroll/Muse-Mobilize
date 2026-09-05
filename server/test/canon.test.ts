@@ -73,7 +73,7 @@ test('character profile and sensory subtags persist through updates', async (t) 
       attributes: { role: 'envoy', pronouns: 'she/her', age: '', goals: ['Find her brother'], fears: [] },
       physical: { description: 'Council-worn travel clothes.', distinguishingFeatures: [], clothing: ['grey cloak'] },
       senses: {
-        vision: { summary: 'Reads rooms quickly.', subtags: [{ id: 'low-light', label: 'Low light', value: 'poor', indicator: 'limitation', status: 'canonical', evidence: ['chapter-01'] }] },
+        vision: { summary: 'Reads rooms quickly.', subtags: [{ id: 'low-light', label: 'Low light', value: 'poor', indicator: 'limitation' }] },
         audio: { summary: '', subtags: [] },
         proximity: { summary: '', subtags: [] },
       },
@@ -87,6 +87,31 @@ test('character profile and sensory subtags persist through updates', async (t) 
   const reopened = await readCanon(projectDir);
   assert.deepEqual(reopened.entities[0].character?.categories, ['protagonist', 'active cast', 'council']);
   assert.equal(reopened.entities[0].character?.senses.vision.subtags[0].indicator, 'limitation');
+});
+
+test('sensory subtags are decorative and carry no status or evidence field', async (t) => {
+  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-canon-'));
+  t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
+
+  await createCanonEntity(projectDir, {
+    type: 'character',
+    name: 'Kiala',
+    character: {
+      categories: [],
+      attributes: { role: '', pronouns: '', age: '', goals: [], fears: [] },
+      physical: { description: '', distinguishingFeatures: [], clothing: [] },
+      senses: {
+        vision: { summary: '', subtags: [{ id: 'low-light', label: 'Low light', value: 'poor', indicator: 'limitation' }] },
+        audio: { summary: '', subtags: [] },
+        proximity: { summary: '', subtags: [] },
+      },
+      references: { images: [] },
+    },
+  });
+
+  const reopened = await readCanon(projectDir);
+  const [subtag] = reopened.entities[0].character!.senses.vision.subtags;
+  assert.deepEqual(subtag, { id: 'low-light', label: 'Low light', value: 'poor', indicator: 'limitation' });
 });
 
 test('world profile and canvas position persist without losing atlas details', async (t) => {

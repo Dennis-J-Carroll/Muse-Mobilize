@@ -64,7 +64,7 @@ const INDICATORS: Record<string, SenseIndicator> = {
   '~': 'preference',
 };
 
-function parseTags(raw: string, existing: CharacterSenseSubtag[] = []): CharacterSenseSubtag[] {
+export function parseTags(raw: string): CharacterSenseSubtag[] {
   const tags: CharacterSenseSubtag[] = [];
   raw.split(',').forEach((part, index) => {
     const clean = part.trim();
@@ -74,14 +74,11 @@ function parseTags(raw: string, existing: CharacterSenseSubtag[] = []): Characte
     const [label, ...rest] = body.split(':');
     const normalizedLabel = label.trim();
     if (!normalizedLabel) return;
-    const prior = existing.find((tag) => tag.label.toLowerCase() === normalizedLabel.toLowerCase());
     tags.push({
-      id: prior?.id ?? `${normalizedLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${index}`,
+      id: `${normalizedLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${index}`,
       label: normalizedLabel,
       value: rest.join(':').trim(),
       indicator,
-      status: prior?.status ?? 'proposed',
-      evidence: prior?.evidence ?? [],
     });
   });
   return tags;
@@ -118,7 +115,7 @@ function draftFrom(entity?: CanonEntity): CharacterDraft {
   };
 }
 
-function profileFrom(draft: CharacterDraft, existing?: CharacterProfile): CharacterProfile {
+function profileFrom(draft: CharacterDraft): CharacterProfile {
   return {
     categories: list(draft.categories),
     attributes: {
@@ -129,9 +126,9 @@ function profileFrom(draft: CharacterDraft, existing?: CharacterProfile): Charac
       description: draft.physical.trim(), distinguishingFeatures: list(draft.features), clothing: list(draft.clothing),
     },
     senses: {
-      vision: { summary: draft.visionSummary.trim(), subtags: parseTags(draft.visionTags, existing?.senses.vision.subtags) },
-      audio: { summary: draft.audioSummary.trim(), subtags: parseTags(draft.audioTags, existing?.senses.audio.subtags) },
-      proximity: { summary: draft.proximitySummary.trim(), subtags: parseTags(draft.proximityTags, existing?.senses.proximity.subtags) },
+      vision: { summary: draft.visionSummary.trim(), subtags: parseTags(draft.visionTags) },
+      audio: { summary: draft.audioSummary.trim(), subtags: parseTags(draft.audioTags) },
+      proximity: { summary: draft.proximitySummary.trim(), subtags: parseTags(draft.proximityTags) },
     },
     references: {
       images: draft.images,
@@ -146,7 +143,7 @@ function SenseBand({ name, sense, glyph }: { name: string; sense: CharacterSense
       <p>{sense.summary || 'No sensory baseline recorded.'}</p>
       <div className="sense-subtags">
         {sense.subtags.map((tag) => (
-          <span key={tag.id} className={`sense-tag indicator-${tag.indicator}`} title={`${tag.status}${tag.evidence.length ? ` · ${tag.evidence.join(', ')}` : ''}`}>
+          <span key={tag.id} className={`sense-tag indicator-${tag.indicator}`}>
             <b>{tag.label}</b>{tag.value && <em>{tag.value}</em>}
           </span>
         ))}
@@ -165,6 +162,8 @@ function Drawer({ entity, draft, setDraft, onClose, onSave }: {
 }) {
   const first = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const close = () => { if (!saving && !uploadingImages) onClose(); };
   const field = (key: CharacterTextField) => ({
     value: draft[key],
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setDraft((current) => ({ ...current, [key]: e.target.value })),
@@ -175,24 +174,24 @@ function Drawer({ entity, draft, setDraft, onClose, onSave }: {
   }, []);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [saving, uploadingImages, onClose]);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!draft.name.trim() || saving) return;
+    if (!draft.name.trim() || saving || uploadingImages) return;
     setSaving(true);
     try { await onSave(); } finally { setSaving(false); }
   };
 
   return (
-    <div className="character-drawer-backdrop" onMouseDown={(e) => { if (e.currentTarget === e.target) onClose(); }}>
+    <div className="character-drawer-backdrop" onMouseDown={(e) => { if (e.currentTarget === e.target) close(); }}>
       <form className="character-drawer" onSubmit={save}>
         <header>
           <div><span>{entity ? 'Revise dossier' : 'Bring someone into the story'}</span><h2>{entity?.name ?? 'New character'}</h2></div>
-          <button type="button" className="drawer-close" onClick={onClose} aria-label="Close">×</button>
+          <button type="button" className="drawer-close" onClick={close} aria-label="Close" disabled={saving || uploadingImages}>×</button>
         </header>
         <div className="drawer-scroll">
           <section className="drawer-section">
@@ -232,10 +231,10 @@ function Drawer({ entity, draft, setDraft, onClose, onSave }: {
           </section>
           <section className="drawer-section">
             <h3>Visual references</h3>
-            <ImageGalleryEditor images={draft.images} onChange={(images) => setDraft((current) => ({ ...current, images }))} noun="character" />
+            <ImageGalleryEditor images={draft.images} onChange={(images) => setDraft((current) => ({ ...current, images }))} noun="character" onBusyChange={setUploadingImages} />
           </section>
         </div>
-        <footer><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={!draft.name.trim() || saving}>{saving ? 'Saving…' : entity ? 'Save changes' : 'Add to cast'}</button></footer>
+        <footer><button type="button" className="btn" onClick={close} disabled={saving || uploadingImages}>Cancel</button><button className="btn btn-primary" disabled={!draft.name.trim() || saving || uploadingImages}>{uploadingImages ? 'Adding images…' : saving ? 'Saving…' : entity ? 'Save changes' : 'Add to cast'}</button></footer>
       </form>
     </div>
   );
@@ -271,7 +270,7 @@ export function CharactersPane({ pane }: { pane: Pane }) {
   };
   const closeDrawer = () => setDrawerEntity(undefined);
   const save = async () => {
-    const profile = profileFrom(draft, drawerEntity?.character);
+    const profile = profileFrom(draft);
     if (drawerEntity) {
       const updated = await useStore.getState().updateCanonEntity(drawerEntity.id, {
         name: draft.name.trim(), aliases: list(draft.aliases), summary: draft.summary.trim(), character: profile,

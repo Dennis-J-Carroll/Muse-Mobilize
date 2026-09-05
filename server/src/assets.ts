@@ -41,12 +41,48 @@ export function cleanStoryImages(value: unknown): StoryImage[] {
 }
 
 function matchesImageSignature(bytes: Buffer, mimeType: string): boolean {
-  if (mimeType === 'image/png') return bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
-  if (mimeType === 'image/jpeg') return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
-  if (mimeType === 'image/gif') return ['GIF87a', 'GIF89a'].includes(bytes.subarray(0, 6).toString('ascii'));
-  if (mimeType === 'image/webp') return bytes.subarray(0, 4).toString('ascii') === 'RIFF' && bytes.subarray(8, 12).toString('ascii') === 'WEBP';
-  if (mimeType === 'image/avif') return bytes.subarray(4, 12).toString('ascii').startsWith('ftypavi');
+  if (mimeType === 'image/png') {
+    return bytes.length >= 45
+      && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      && bytes.readUInt32BE(8) === 13
+      && bytes.subarray(12, 16).toString('ascii') === 'IHDR'
+      && bytes.readUInt32BE(16) > 0
+      && bytes.readUInt32BE(20) > 0
+      && bytes.subarray(bytes.length - 8, bytes.length - 4).toString('ascii') === 'IEND';
+  }
+  if (mimeType === 'image/jpeg') {
+    return bytes.length >= 4
+      && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+      && bytes[bytes.length - 2] === 0xff && bytes[bytes.length - 1] === 0xd9;
+  }
+  if (mimeType === 'image/gif') {
+    return bytes.length >= 14
+      && ['GIF87a', 'GIF89a'].includes(bytes.subarray(0, 6).toString('ascii'))
+      && bytes.readUInt16LE(6) > 0 && bytes.readUInt16LE(8) > 0
+      && bytes[bytes.length - 1] === 0x3b;
+  }
+  if (mimeType === 'image/webp') {
+    return bytes.length >= 20
+      && bytes.subarray(0, 4).toString('ascii') === 'RIFF'
+      && bytes.readUInt32LE(4) + 8 === bytes.length
+      && bytes.subarray(8, 12).toString('ascii') === 'WEBP'
+      && ['VP8 ', 'VP8L', 'VP8X'].includes(bytes.subarray(12, 16).toString('ascii'));
+  }
+  if (mimeType === 'image/avif') {
+    return bytes.length >= 16
+      && bytes.readUInt32BE(0) >= 16
+      && bytes.readUInt32BE(0) <= bytes.length
+      && bytes.subarray(4, 8).toString('ascii') === 'ftyp'
+      && ['avif', 'avis'].includes(bytes.subarray(8, 12).toString('ascii'));
+  }
   return false;
+}
+
+const MANAGED_IMAGE_PATH = /\/assets\/images\/([^/?#]+\.(?:png|jpe?g|webp|gif|avif))$/i;
+
+export function managedImageFileName(src: string): string | null {
+  const match = MANAGED_IMAGE_PATH.exec(String(src ?? ''));
+  return match ? match[1] : null;
 }
 
 export function imageAssetPath(projectDir: string, fileName: string): string {

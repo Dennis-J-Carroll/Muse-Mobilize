@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { api } from './api';
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
+  GoalStore, ProgressProjection, ReferenceStore, StoryReference,
   LocalModelInstallResult, LocalModelProgress, MuseEvent, Pane, PaneType, Patch, ProjectManifest,
   PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
   ProviderCheckResult, ProviderStatus, Region, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, StoryImage, WorkspaceDef, WorldProfile,
@@ -37,6 +38,9 @@ interface State {
   canon: CanonStore | null;
   plot: PlotGraph | null;
   sceneBoard: SceneBoard | null;
+  references: ReferenceStore | null;
+  goals: GoalStore | null;
+  progress: ProgressProjection | null;
   worldFocusEntityId: string | null;
   plotFocusNodeId: string | null;
   sceneFocusId: string | null;
@@ -47,7 +51,7 @@ interface State {
   bootstrap: () => Promise<void>;
   newProject: (name: string) => Promise<void>;
   openProject: (id: string) => Promise<void>;
-  uploadStoryImage: (file: File) => Promise<StoryImage | null>;
+  uploadStoryImage: (file: File) => Promise<StoryImage>;
 
   loadDoc: (docId: string) => Promise<void>;
   editDoc: (docId: string, content: string) => void;
@@ -84,11 +88,20 @@ interface State {
 
   loadScenes: () => Promise<void>;
   createSceneTheme: (input: { name: string; description?: string }) => Promise<SceneTheme | null>;
+  updateSceneTheme: (themeId: string, patch: Partial<Pick<SceneTheme, 'name' | 'description' | 'question' | 'motif'>>) => Promise<SceneTheme | null>;
   createScene: (input: {
     title: string; summary?: string; section?: string; purpose?: string; status?: SceneStatus; order?: number;
     documentId?: string; assets?: Scene['assets']; beats?: Scene['beats']; dialogue?: Scene['dialogue'];
   }) => Promise<Scene | null>;
   updateScene: (sceneId: string, patch: Partial<Pick<Scene, 'title' | 'summary' | 'section' | 'purpose' | 'status' | 'order' | 'documentId' | 'assets' | 'beats' | 'dialogue'>>) => Promise<Scene | null>;
+
+  loadReferences: () => Promise<void>;
+  createReference: (input: Omit<StoryReference, 'id' | 'createdAt' | 'updatedAt'>) => Promise<StoryReference | null>;
+  updateReference: (referenceId: string, patch: Partial<Omit<StoryReference, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<StoryReference | null>;
+  deleteReference: (referenceId: string) => Promise<boolean>;
+  loadGoals: () => Promise<void>;
+  updateGoals: (patch: Partial<Pick<GoalStore, 'sessionTarget' | 'milestones'>>) => Promise<GoalStore | null>;
+  loadProgress: () => Promise<void>;
 
   refreshEvents: () => Promise<void>;
   loadSettings: () => Promise<void>;
@@ -111,6 +124,10 @@ const titleFor = (type: PaneType, s: State, bindingId?: string): string => {
   if (type === 'plot') return 'Plot Through-line';
   if (type === 'scenes') return 'Scene Board';
   if (type === 'dialogue') return 'Dialogue Table';
+  if (type === 'themes') return 'Theme Threads';
+  if (type === 'references') return 'Reference Board';
+  if (type === 'goals') return 'Writing Goals';
+  if (type === 'progress') return 'Manuscript Progress';
   return s.docs[bindingId ?? '']?.title ?? s.project?.documents.find((d) => d.id === bindingId)?.title ?? 'Document';
 };
 
@@ -134,6 +151,9 @@ export const useStore = create<State>((set, get) => ({
   canon: null,
   plot: null,
   sceneBoard: null,
+  references: null,
+  goals: null,
+  progress: null,
   worldFocusEntityId: null,
   plotFocusNodeId: null,
   sceneFocusId: null,
@@ -165,7 +185,7 @@ export const useStore = create<State>((set, get) => ({
     try {
       const { project, agents, workspaces } = await api.openProject(id);
       localStorage.setItem('muse:lastProject', id);
-      set({ project, agents, workspaces, docs: {}, panes: [], runs: {}, events: [], canon: null, plot: null, sceneBoard: null, worldFocusEntityId: null, plotFocusNodeId: null, sceneFocusId: null, selection: null, error: null });
+      set({ project, agents, workspaces, docs: {}, panes: [], runs: {}, events: [], canon: null, plot: null, sceneBoard: null, references: null, goals: null, progress: null, worldFocusEntityId: null, plotFocusNodeId: null, sceneFocusId: null, selection: null, error: null });
       const drafting = workspaces.find((w) => w.id === 'drafting') ?? workspaces[0];
       if (drafting) await get().applyWorkspace(drafting.id);
       else {
@@ -180,15 +200,9 @@ export const useStore = create<State>((set, get) => ({
 
   async uploadStoryImage(file) {
     const project = get().project;
-    if (!project) return null;
-    try {
-      const { image } = await api.uploadImage(project.id, file);
-      set({ notice: `${file.name} added to project images.`, error: null });
-      return image;
-    } catch (err: any) {
-      set({ error: `Could not upload image: ${err.message}` });
-      return null;
-    }
+    if (!project) throw new Error('Open a project before uploading images');
+    const { image } = await api.uploadImage(project.id, file);
+    return image;
   },
 
   async loadDoc(docId) {
@@ -232,7 +246,7 @@ export const useStore = create<State>((set, get) => ({
       set({ panes: s.panes.map((p) => (p.id === existing.id ? { ...p, sizeMode: opts.focus ? 'maximized' : 'normal' } : opts.focus && p.sizeMode === 'maximized' ? { ...p, sizeMode: 'normal' } : p)) });
       return;
     }
-    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' || type === 'world' || type === 'plot' || type === 'scenes' || type === 'dialogue' ? 'main' : 'bottom');
+    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' || type === 'world' || type === 'plot' || type === 'scenes' || type === 'dialogue' || type === 'themes' || type === 'references' || type === 'goals' || type === 'progress' ? 'main' : 'bottom');
     const pane: Pane = {
       id: `pane-${++paneSeq}-${type}-${bindingId ?? ''}`,
       type,
@@ -541,6 +555,21 @@ export const useStore = create<State>((set, get) => ({
     }
   },
 
+  async updateSceneTheme(themeId, patch) {
+    const s = get();
+    if (!s.project) return null;
+    try {
+      const { theme } = await api.updateSceneTheme(s.project.id, themeId, patch);
+      const board = get().sceneBoard;
+      if (board) set({ sceneBoard: { ...board, themes: board.themes.map((item) => (item.id === themeId ? theme : item)) }, notice: `${theme.name} updated.` });
+      await get().refreshEvents();
+      return theme;
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
+    }
+  },
+
   async createScene(input) {
     const s = get();
     if (!s.project) return null;
@@ -568,6 +597,98 @@ export const useStore = create<State>((set, get) => ({
     } catch (err: any) {
       set({ error: err.message });
       return null;
+    }
+  },
+
+  async loadReferences() {
+    const s = get();
+    if (!s.project) return;
+    try {
+      const { references } = await api.references(s.project.id);
+      set({ references });
+    } catch (err: any) {
+      set({ error: `Could not load references: ${err.message}` });
+    }
+  },
+
+  async createReference(input) {
+    const s = get();
+    if (!s.project) return null;
+    try {
+      const { reference } = await api.createReference(s.project.id, input);
+      const references = get().references ?? { version: 1, items: [] };
+      set({ references: { ...references, items: [...references.items, reference] }, notice: `${reference.title} pinned to references.`, error: null });
+      await get().refreshEvents();
+      return reference;
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
+    }
+  },
+
+  async updateReference(referenceId, patch) {
+    const s = get();
+    if (!s.project) return null;
+    try {
+      const { reference } = await api.updateReference(s.project.id, referenceId, patch);
+      const references = get().references;
+      if (references) set({ references: { ...references, items: references.items.map((item) => (item.id === referenceId ? reference : item)) }, notice: `${reference.title} updated.`, error: null });
+      await get().refreshEvents();
+      return reference;
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
+    }
+  },
+
+  async deleteReference(referenceId) {
+    const s = get();
+    if (!s.project) return false;
+    try {
+      const { reference } = await api.deleteReference(s.project.id, referenceId);
+      const references = get().references;
+      if (references) set({ references: { ...references, items: references.items.filter((item) => item.id !== referenceId) }, notice: `${reference.title} removed from references.`, error: null });
+      await get().refreshEvents();
+      return true;
+    } catch (err: any) {
+      set({ error: err.message });
+      return false;
+    }
+  },
+
+  async loadGoals() {
+    const s = get();
+    if (!s.project) return;
+    try {
+      const { goals } = await api.goals(s.project.id);
+      set({ goals });
+    } catch (err: any) {
+      set({ error: `Could not load goals: ${err.message}` });
+    }
+  },
+
+  async updateGoals(patch) {
+    const s = get();
+    if (!s.project) return null;
+    try {
+      const { goals } = await api.updateGoals(s.project.id, patch);
+      set({ goals, notice: 'Writing goals updated.' });
+      await get().refreshEvents();
+      return goals;
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
+    }
+  },
+
+  async loadProgress() {
+    const s = get();
+    if (!s.project) return;
+    try {
+      const { progress } = await api.progress(s.project.id);
+      set({ progress });
+    } catch (err: any) {
+      set({ error: `Could not load progress: ${err.message}` });
     }
   },
 

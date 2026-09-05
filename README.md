@@ -198,6 +198,40 @@ Click **Dialogue** for script/table-read surface tied to selected scene:
 
 Scenes and Dialogue share portable contract at `schemas/scene-board.schema.json`.
 
+## Themes workspace
+
+Click **Themes** to follow motif movement through manuscript order:
+
+- Create a theme with motif, dramatic question, and working description.
+- Mark each scene as `appears`, `echoes`, `fades`, or `resolves`.
+- Read gaps and returns directly across scene columns instead of maintaining a
+  separate planning board.
+
+## References workspace
+
+Click **References** for story-linked research and visual memory:
+
+- Collect uploaded images, quotations, and web sources in one moodboard.
+- Keep captions, attribution, source URLs, and private working notes together.
+- Link each reference to stable Character, World, Plot, Scene, Theme, or Document
+  IDs so renamed story material keeps its connection.
+
+## Goals workspace
+
+Click **Goals** to set current-session intent and a manuscript milestone route:
+
+- Record one session focus plus optional word and minute targets.
+- Order milestones, assign status and due date, and track optional word targets.
+- Keep manual completion authoritative when a numeric target reaches its ceiling.
+
+## Progress workspace
+
+Click **Progress** for an editorial record derived from project truth:
+
+- Read current manuscript words and event-derived word flow.
+- See completed, active, and planned scenes without duplicating scene state.
+- Revisit unresolved revision metadata from the append-only project history.
+
 ## Canon and continuity
 
 Use **canon trail** inside Characters or World Building workspace. Plot Outline
@@ -219,10 +253,28 @@ npm test
 ```
 
 Covers canon persistence, character profiles and sensory metadata, world
-profiles and canvas coordinates, branching plot persistence, sparse World
-anchors, stable relationship edges, fact promotion, evidence-aware context,
-provider request/redaction contracts, validation, agent output parsing, patch
-anchoring, and stale-patch refusal.
+profiles and canvas coordinates, branching plot persistence, scene/theme
+occurrences, reference and goal stores, derived progress, managed image
+validation, sparse World anchors, stable relationship edges, fact promotion,
+evidence-aware context, provider request/redaction contracts, agent output
+parsing, patch anchoring, and stale-patch refusal.
+
+Browser acceptance tests use real Chromium, the frontend, and the API against a
+fresh temporary project store. They do not use your projects or provider settings.
+
+```bash
+npx playwright install chromium
+npm run test:browser
+```
+
+The runner owns ports 5277/5278 and removes its temporary project directory when
+it exits. Keep those ports free; normal development remains on 5177/5178. Tests
+cover uploads, Themes, References, Goals, and Progress, including save/reload,
+failed-save retry, overlapping uploads, and milestone ordering. Failure traces
+and screenshots appear in `test-results/`; HTML report is in `playwright-report/`.
+
+See [acceptance results](docs/acceptance-2026-09-04.md) for tested behavior,
+regressions fixed, and remaining coverage limits.
 
 ## What is not built yet
 

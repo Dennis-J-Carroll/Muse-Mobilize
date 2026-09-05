@@ -74,20 +74,22 @@ function WorldDrawer({
   const [significance, setSignificance] = useState(entity?.world?.attributes.significance ?? '');
   const [referenceDocumentId, setReferenceDocumentId] = useState(entity?.world?.referenceDocumentId ?? '');
   const [images, setImages] = useState<StoryImage[]>(entity?.world?.images ?? []);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
+  const close = () => { if (!uploadingImages) onClose(); };
 
   useEffect(() => {
     nameRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') close();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [uploadingImages, onClose]);
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || uploadingImages) return;
     const world: WorldProfile = {
       categories: splitList(categories),
       attributes: {
@@ -112,11 +114,11 @@ function WorldDrawer({
   const loreDocuments = documents.filter((document) => document.kind === 'canon' || document.kind === 'notes');
 
   return (
-    <div className="world-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="world-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
       <form className="world-drawer" onSubmit={save}>
         <header>
           <div><span>Atlas entry</span><h2>{entity ? `Edit ${entity.name}` : 'Place a landmark'}</h2></div>
-          <button type="button" className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
+          <button type="button" className="drawer-close" aria-label="Close" onClick={close} disabled={uploadingImages}>×</button>
         </header>
         <div className="drawer-scroll">
           <section className="drawer-section">
@@ -151,10 +153,10 @@ function WorldDrawer({
           </section>
           <section className="drawer-section">
             <h3>Visual references</h3>
-            <ImageGalleryEditor images={images} onChange={setImages} noun="world" />
+            <ImageGalleryEditor images={images} onChange={setImages} noun="world" onBusyChange={setUploadingImages} />
           </section>
         </div>
-        <footer><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={!name.trim()}>{entity ? 'Save landmark' : 'Place landmark'}</button></footer>
+        <footer><button type="button" className="btn" onClick={close} disabled={uploadingImages}>Cancel</button><button className="btn btn-primary" disabled={!name.trim() || uploadingImages}>{uploadingImages ? 'Adding images…' : entity ? 'Save landmark' : 'Place landmark'}</button></footer>
       </form>
     </div>
   );

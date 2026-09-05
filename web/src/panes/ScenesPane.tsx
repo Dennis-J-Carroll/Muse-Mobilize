@@ -12,7 +12,7 @@ type Resource = SceneAssetRef & { label: string; detail: string };
 function sceneResources(characters: CanonEntity[], locations: CanonEntity[], themes: SceneTheme[], nodes: PlotNode[]): Resource[] {
   return [
     ...characters.map((item) => ({ kind: 'character' as const, refId: item.id, role: 'present', label: item.name, detail: item.character?.attributes.role || item.summary || 'Character' })),
-    ...themes.map((item) => ({ kind: 'theme' as const, refId: item.id, role: 'pressure', label: item.name, detail: item.description || 'Theme' })),
+    ...themes.map((item) => ({ kind: 'theme' as const, refId: item.id, role: 'appears', label: item.name, detail: item.description || 'Theme' })),
     ...locations.map((item) => ({ kind: 'location' as const, refId: item.id, role: 'setting', label: item.name, detail: item.world?.attributes.atmosphere || item.summary || 'Location' })),
     ...nodes.map((item) => ({ kind: 'plot' as const, refId: item.id, role: 'dramatizes', label: item.title, detail: `${item.section || 'Unsectioned'} · ${item.kind}` })),
   ];

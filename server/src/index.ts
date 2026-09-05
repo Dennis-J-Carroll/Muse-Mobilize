@@ -13,8 +13,12 @@ import { providerStatus, testProvider } from './providers/index.js';
 import { createCanonEntity, createCanonFact, readCanon, updateCanonEntity, updateCanonFact } from './canon.js';
 import { createPlotEdge, createPlotNode, readPlot, updatePlotEdge, updatePlotNode } from './plot.js';
 import { localModelInstaller } from './providers/local-models.js';
-import { createScene, createSceneTheme, readScenes, updateScene } from './scenes.js';
-import { imageAssetPath, saveImageAsset } from './assets.js';
+import { createScene, createSceneTheme, readScenes, updateScene, updateSceneTheme } from './scenes.js';
+import { imageAssetPath, managedImageFileName, saveImageAsset } from './assets.js';
+import { createReference, deleteReference, readReferences, updateReference } from './references.js';
+import { deleteOrphanedImages } from './imageGc.js';
+import { readGoals, writeGoals } from './goals.js';
+import { readProgress } from './progress.js';
 
 const app = express();
 app.use(express.json({ limit: '8mb' }));
@@ -218,6 +222,13 @@ app.post('/api/projects/:id/scenes/themes', wrap(async (req, res) => {
   res.json({ theme });
 }));
 
+app.put('/api/projects/:id/scenes/themes/:themeId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const theme = await updateSceneTheme(dir, req.params.themeId, req.body ?? {});
+  await emit(dir, 'scene.theme.updated', { themeId: theme.id, name: theme.name });
+  res.json({ theme });
+}));
+
 app.post('/api/projects/:id/scenes', wrap(async (req, res) => {
   const dir = await projectDir(req.params.id);
   const scene = await createScene(dir, req.body ?? {});
@@ -236,6 +247,61 @@ app.put('/api/projects/:id/scenes/:sceneId', wrap(async (req, res) => {
     dialogueLines: scene.dialogue.length,
   });
   res.json({ scene });
+}));
+
+/* -------------------------------------------------------------- references */
+
+app.get('/api/projects/:id/references', wrap(async (req, res) => {
+  res.json({ references: await readReferences(await projectDir(req.params.id)) });
+}));
+
+app.post('/api/projects/:id/references', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const reference = await createReference(dir, req.body ?? {});
+  await emit(dir, 'reference.created', { referenceId: reference.id, kind: reference.kind, title: reference.title });
+  res.json({ reference });
+}));
+
+app.put('/api/projects/:id/references/:referenceId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const reference = await updateReference(dir, req.params.referenceId, req.body ?? {});
+  await emit(dir, 'reference.updated', { referenceId: reference.id, kind: reference.kind, title: reference.title });
+  res.json({ reference });
+}));
+
+app.delete('/api/projects/:id/references/:referenceId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const removed = await deleteReference(dir, req.params.referenceId);
+  const candidateFileNames = removed.images.flatMap((image) => {
+    const fileName = managedImageFileName(image.src);
+    return fileName ? [fileName] : [];
+  });
+  await deleteOrphanedImages(dir, candidateFileNames);
+  await emit(dir, 'reference.deleted', { referenceId: removed.id, kind: removed.kind, title: removed.title });
+  res.json({ reference: removed });
+}));
+
+/* ------------------------------------------------------------------- goals */
+
+app.get('/api/projects/:id/goals', wrap(async (req, res) => {
+  res.json({ goals: await readGoals(await projectDir(req.params.id)) });
+}));
+
+app.put('/api/projects/:id/goals', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const goals = await writeGoals(dir, req.body ?? {});
+  await emit(dir, 'goals.updated', {
+    wordTarget: goals.sessionTarget.wordTarget,
+    minutesTarget: goals.sessionTarget.minutesTarget,
+    milestones: goals.milestones.length,
+  });
+  res.json({ goals });
+}));
+
+/* ---------------------------------------------------------------- progress */
+
+app.get('/api/projects/:id/progress', wrap(async (req, res) => {
+  res.json({ progress: await readProgress(await projectDir(req.params.id)) });
 }));
 
 /* ------------------------------------------------------------------ agents */
@@ -277,6 +343,11 @@ app.post('/api/projects/:id/patches/apply', wrap(async (req, res) => {
   await snapshot(req.params.id, documentId, content, `before patch ${patch.id}`);
   await writeDocument(req.params.id, documentId, result.text);
   await emit(dir, 'patch.accepted', { patchId: patch.id, documentId, reason: patch.reason });
+  await emit(dir, 'document.saved', {
+    documentId,
+    words: result.text.split(/\s+/).filter(Boolean).length,
+    patchId: patch.id,
+  });
   res.json({ content: result.text });
 }));
 

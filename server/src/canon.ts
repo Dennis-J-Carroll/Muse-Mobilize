@@ -47,15 +47,12 @@ function cleanSense(value: any): CharacterSense {
     .map((item: any) => {
       const label = String(item?.label ?? '').trim();
       if (!label) return null;
-      const status = CANON_STATUSES.includes(item.status) ? item.status : 'proposed';
       const indicator = SENSE_INDICATORS.includes(item.indicator) ? item.indicator : 'neutral';
       return {
         id: String(item.id ?? '').trim() || slugify(label),
         label,
         value: String(item.value ?? '').trim(),
         indicator,
-        status,
-        evidence: strings(item.evidence),
       } as CharacterSenseSubtag;
     })
     .filter((item: CharacterSenseSubtag | null): item is CharacterSenseSubtag => Boolean(item));
@@ -287,7 +284,7 @@ export function renderCanonContext(canon: CanonStore): string {
     const senses = (['vision', 'audio', 'proximity'] as const)
       .map((key) => {
         const sense = character.senses[key];
-        const subtags = sense.subtags.map((tag) => `${tag.label}=${tag.value || tag.indicator} [${tag.status}]`).join(', ');
+        const subtags = sense.subtags.map((tag) => `${tag.label}=${tag.value || tag.indicator}`).join(', ');
         if (!sense.summary && !subtags) return '';
         return `\n  ${key}: ${[sense.summary, subtags].filter(Boolean).join('; ')}`;
       })

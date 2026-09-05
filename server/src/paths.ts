@@ -2,7 +2,7 @@ import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs/promises';
 
-export const CONFIG_DIR = path.join(os.homedir(), '.muse-mobilize');
+export const CONFIG_DIR = process.env.MUSE_CONFIG_DIR || path.join(os.homedir(), '.muse-mobilize');
 export const SETTINGS_FILE = path.join(CONFIG_DIR, 'settings.json');
 export const DEFAULT_WORKSPACE_ROOT = path.join(os.homedir(), 'MuseProjects');
 

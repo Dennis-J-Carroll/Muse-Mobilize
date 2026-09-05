@@ -35,6 +35,10 @@ const openWorld = () => useStore.getState().openPane('world', { title: 'World At
 const openPlot = () => useStore.getState().openPane('plot', { title: 'Plot Through-line', region: 'main', focus: true });
 const openScenes = () => useStore.getState().openPane('scenes', { title: 'Scene Board', region: 'main', focus: true });
 const openDialogue = () => useStore.getState().openPane('dialogue', { title: 'Dialogue Table', region: 'main', focus: true });
+const openThemes = () => useStore.getState().openPane('themes', { title: 'Theme Threads', region: 'main', focus: true });
+const openReferences = () => useStore.getState().openPane('references', { title: 'Reference Board', region: 'main', focus: true });
+const openGoals = () => useStore.getState().openPane('goals', { title: 'Writing Goals', region: 'main', focus: true });
+const openProgress = () => useStore.getState().openPane('progress', { title: 'Manuscript Progress', region: 'main', focus: true });
 
 const newDoc = (title: string, kind: 'manuscript' | 'notes' | 'canon' | 'outline'): Item => ({
   label: title,
@@ -109,7 +113,8 @@ const CARDS: Card[] = [
   {
     key: 'themes', title: 'Themes', blurb: 'Explore ideas and underlying messages.', tone: 'sand',
     icon: <Icon.Bulb />,
-    items: () => [newDoc('Theme notes', 'notes'), soon('Motif Tracker'), soon('Theme Critic')],
+    launch: openThemes,
+    items: () => [],
   },
   {
     key: 'notes', title: 'Notes', blurb: 'Jot down thoughts and observations.', tone: 'stone',
@@ -123,20 +128,20 @@ const CARDS: Card[] = [
   {
     key: 'references', title: 'References', blurb: 'Save useful links, quotes, and resources.', tone: 'sand',
     icon: <Icon.Bookmark />,
-    items: () => [newDoc('Research page', 'notes'), soon('Images'), soon('Web Sources')],
+    launch: openReferences,
+    items: () => [],
   },
   {
     key: 'goals', title: 'Goals', blurb: 'Set writing goals and track progress.', tone: 'sage',
     icon: <Icon.Target />,
-    items: () => [newDoc('Session goal', 'notes'), soon('Chapter Goal'), soon('Draft Milestones')],
+    launch: openGoals,
+    items: () => [],
   },
   {
     key: 'progress', title: 'Progress', blurb: 'Monitor your writing journey.', tone: 'blue',
     icon: <Icon.Bars />,
-    items: () => [
-      { label: 'Writing Sessions (activity log)', run: () => useStore.getState().openPane('events') },
-      { label: 'Pending revisions', run: () => useStore.getState().openPane('review') },
-    ],
+    launch: openProgress,
+    items: () => [],
   },
   {
     key: 'workspace', title: 'Workspace', blurb: 'Arrange the room around the page.', tone: 'deep', wide: true,

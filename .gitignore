@@ -4,3 +4,5 @@ dist/
 *.log
 .env
 .muse-local/
+test-results/
+playwright-report/

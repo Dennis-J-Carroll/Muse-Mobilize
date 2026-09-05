@@ -225,7 +225,12 @@ export async function runAgent(
       await emit(dir, 'agent.output.warning', { agentId: agent.id, warnings: parsed.warnings }, agent.id);
     }
     for (const p of run.patches) {
-      await emit(dir, 'patch.proposed', { patchId: p.id, documentId: p.documentId, anchored: p.anchored }, agent.id);
+      await emit(dir, 'patch.proposed', {
+        patchId: p.id,
+        documentId: p.documentId,
+        anchored: p.anchored,
+        reason: p.reason,
+      }, agent.id);
     }
     await emit(dir, 'agent.request.completed', { agentId: agent.id, consultations: run.consultations.length, patches: run.patches.length }, agent.id);
   } catch (err: any) {

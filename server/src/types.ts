@@ -40,8 +40,6 @@ export interface CharacterSenseSubtag {
   label: string;
   value: string;
   indicator: SenseIndicator;
-  status: CanonStatus;
-  evidence: string[];
 }
 
 export interface CharacterSense {
@@ -54,6 +52,60 @@ export interface StoryImage {
   src: string;
   caption: string;
   tags: string[];
+}
+
+export type StoryReferenceKind = 'image' | 'quote' | 'link';
+export type StoryEntityKind = 'canon' | 'plot' | 'scene' | 'theme' | 'document';
+
+export interface StoryEntityRef {
+  kind: StoryEntityKind;
+  refId: string;
+}
+
+export interface StoryReference {
+  id: string;
+  kind: StoryReferenceKind;
+  title: string;
+  images: StoryImage[];
+  quote: string;
+  url: string;
+  attribution: string;
+  sourceUrl: string;
+  notes: string;
+  entityRefs: StoryEntityRef[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReferenceStore {
+  version: 1;
+  items: StoryReference[];
+}
+
+export interface SessionTarget {
+  wordTarget: number;
+  minutesTarget: number;
+  focus: string;
+}
+
+export type GoalMilestoneStatus = 'not_started' | 'in_progress' | 'completed';
+
+export interface GoalMilestone {
+  id: string;
+  title: string;
+  description: string;
+  status: GoalMilestoneStatus;
+  targetWords?: number;
+  dueDate?: string;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GoalStore {
+  version: 1;
+  sessionTarget: SessionTarget;
+  milestones: GoalMilestone[];
 }
 
 export type CharacterReferenceImage = StoryImage;
@@ -173,21 +225,32 @@ export interface PlotGraph {
 
 export type SceneStatus = 'planned' | 'drafting' | 'revised' | 'locked';
 export type SceneAssetKind = 'character' | 'theme' | 'location' | 'plot';
+export type ThemeOccurrence = 'appears' | 'echoes' | 'fades' | 'resolves';
 export type DialogueVoiceStatus = 'unchecked' | 'in_voice' | 'review';
 
 export interface SceneTheme {
   id: string;
   name: string;
   description: string;
+  question?: string;
+  motif?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface SceneAssetRef {
-  kind: SceneAssetKind;
+export interface SceneThemeAssetRef {
+  kind: 'theme';
+  refId: string;
+  role: ThemeOccurrence;
+}
+
+export interface SceneStoryAssetRef {
+  kind: Exclude<SceneAssetKind, 'theme'>;
   refId: string;
   role: string;
 }
+
+export type SceneAssetRef = SceneThemeAssetRef | SceneStoryAssetRef;
 
 export interface SceneBeat {
   id: string;
@@ -227,6 +290,33 @@ export interface SceneBoard {
   version: 1;
   themes: SceneTheme[];
   scenes: Scene[];
+}
+
+export interface ProgressWordPoint {
+  ts: string;
+  documentId: string;
+  words: number;
+  delta: number;
+  totalWords: number;
+}
+
+export interface UnresolvedRevision {
+  patchId: string;
+  documentId?: string;
+  reason?: string;
+  actor?: string;
+  proposedAt: string;
+}
+
+export interface ProgressProjection {
+  currentWords: number;
+  wordFlow: ProgressWordPoint[];
+  scenes: {
+    total: number;
+    completed: number;
+    byStatus: Record<SceneStatus, number>;
+  };
+  unresolvedRevisions: UnresolvedRevision[];
 }
 
 // Context scope tokens the ContextEngine understands (§11).

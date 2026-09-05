@@ -10,6 +10,10 @@ import { WorldPane } from '../panes/WorldPane';
 import { PlotPane } from '../panes/PlotPane';
 import { ScenesPane } from '../panes/ScenesPane';
 import { DialoguePane } from '../panes/DialoguePane';
+import { ThemesPane } from '../panes/ThemesPane';
+import { ReferencesPane } from '../panes/ReferencesPane';
+import { GoalsPane } from '../panes/GoalsPane';
+import { ProgressPane } from '../panes/ProgressPane';
 import type { Pane } from '../types';
 import * as Icon from './icons';
 
@@ -43,6 +47,14 @@ function PaneBody({ pane }: { pane: Pane }) {
       return <ScenesPane pane={pane} />;
     case 'dialogue':
       return <DialoguePane pane={pane} />;
+    case 'themes':
+      return <ThemesPane />;
+    case 'references':
+      return <ReferencesPane />;
+    case 'goals':
+      return <GoalsPane />;
+    case 'progress':
+      return <ProgressPane />;
     default:
       return <div className="pane-body">Unknown pane type.</div>;
   }

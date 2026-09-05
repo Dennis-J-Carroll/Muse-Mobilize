@@ -33,8 +33,6 @@ export interface CharacterSenseSubtag {
   label: string;
   value: string;
   indicator: SenseIndicator;
-  status: CanonStatus;
-  evidence: string[];
 }
 
 export interface CharacterSense {
@@ -161,11 +159,14 @@ export interface PlotGraph {
 export type SceneStatus = 'planned' | 'drafting' | 'revised' | 'locked';
 export type SceneAssetKind = 'character' | 'theme' | 'location' | 'plot';
 export type DialogueVoiceStatus = 'unchecked' | 'in_voice' | 'review';
+export type ThemeOccurrence = 'appears' | 'echoes' | 'fades' | 'resolves';
 
 export interface SceneTheme {
   id: string;
   name: string;
   description: string;
+  question?: string;
+  motif?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -214,6 +215,88 @@ export interface SceneBoard {
   version: 1;
   themes: SceneTheme[];
   scenes: Scene[];
+}
+
+export type StoryEntityKind = 'canon' | 'plot' | 'scene' | 'theme' | 'document';
+
+export interface StoryEntityRef {
+  kind: StoryEntityKind;
+  refId: string;
+}
+
+export type StoryReferenceKind = 'image' | 'quote' | 'link';
+
+export interface StoryReference {
+  id: string;
+  kind: StoryReferenceKind;
+  title: string;
+  images: StoryImage[];
+  quote: string;
+  url: string;
+  attribution: string;
+  sourceUrl: string;
+  notes: string;
+  entityRefs: StoryEntityRef[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReferenceStore {
+  version: 1;
+  items: StoryReference[];
+}
+
+export interface SessionTarget {
+  wordTarget: number;
+  minutesTarget: number;
+  focus: string;
+}
+
+export type GoalMilestoneStatus = 'not_started' | 'in_progress' | 'completed';
+
+export interface GoalMilestone {
+  id: string;
+  title: string;
+  description: string;
+  status: GoalMilestoneStatus;
+  targetWords?: number;
+  dueDate?: string;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GoalStore {
+  version: 1;
+  sessionTarget: SessionTarget;
+  milestones: GoalMilestone[];
+}
+
+export interface ProgressPoint {
+  ts: string;
+  documentId: string;
+  words: number;
+  delta: number;
+  totalWords: number;
+}
+
+export interface UnresolvedRevision {
+  patchId: string;
+  documentId?: string;
+  reason?: string;
+  actor?: string;
+  proposedAt: string;
+}
+
+export interface ProgressProjection {
+  currentWords: number;
+  wordFlow: ProgressPoint[];
+  scenes: {
+    total: number;
+    completed: number;
+    byStatus: Record<SceneStatus, number>;
+  };
+  unresolvedRevisions: UnresolvedRevision[];
 }
 
 export interface AgentDef {
@@ -284,7 +367,7 @@ export interface Selection {
   text: string;
 }
 
-export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline' | 'canon' | 'characters' | 'world' | 'plot' | 'scenes' | 'dialogue';
+export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline' | 'canon' | 'characters' | 'world' | 'plot' | 'scenes' | 'dialogue' | 'themes' | 'references' | 'goals' | 'progress';
 export type Region = 'main' | 'right' | 'bottom';
 
 export interface Pane {

@@ -1,6 +1,7 @@
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   DocumentMeta, MuseEvent, Patch, ProjectManifest,
+  GoalStore, ProgressProjection, ReferenceStore, StoryReference,
   LocalModelInstallResult, LocalModelProgress, PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
   ProviderCheckResult, ProviderStatus, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, StoryImage, WorkspaceDef, WorldProfile,
 } from './types';
@@ -97,12 +98,27 @@ export const api = {
   scenes: (id: string) => req<{ board: SceneBoard }>(`/api/projects/${id}/scenes`),
   createSceneTheme: (id: string, body: { name: string; description?: string }) =>
     req<{ theme: SceneTheme }>(`/api/projects/${id}/scenes/themes`, { method: 'POST', body: JSON.stringify(body) }),
+  updateSceneTheme: (id: string, themeId: string, patch: Partial<Pick<SceneTheme, 'name' | 'description' | 'question' | 'motif'>>) =>
+    req<{ theme: SceneTheme }>(`/api/projects/${id}/scenes/themes/${themeId}`, { method: 'PUT', body: JSON.stringify(patch) }),
   createScene: (id: string, body: {
     title: string; summary?: string; section?: string; purpose?: string; status?: SceneStatus; order?: number;
     documentId?: string; assets?: Scene['assets']; beats?: Scene['beats']; dialogue?: Scene['dialogue'];
   }) => req<{ scene: Scene }>(`/api/projects/${id}/scenes`, { method: 'POST', body: JSON.stringify(body) }),
   updateScene: (id: string, sceneId: string, patch: Partial<Pick<Scene, 'title' | 'summary' | 'section' | 'purpose' | 'status' | 'order' | 'documentId' | 'assets' | 'beats' | 'dialogue'>>) =>
     req<{ scene: Scene }>(`/api/projects/${id}/scenes/${sceneId}`, { method: 'PUT', body: JSON.stringify(patch) }),
+
+  references: (id: string) => req<{ references: ReferenceStore }>(`/api/projects/${id}/references`),
+  createReference: (id: string, body: Omit<StoryReference, 'id' | 'createdAt' | 'updatedAt'>) =>
+    req<{ reference: StoryReference }>(`/api/projects/${id}/references`, { method: 'POST', body: JSON.stringify(body) }),
+  updateReference: (id: string, referenceId: string, patch: Partial<Omit<StoryReference, 'id' | 'createdAt' | 'updatedAt'>>) =>
+    req<{ reference: StoryReference }>(`/api/projects/${id}/references/${referenceId}`, { method: 'PUT', body: JSON.stringify(patch) }),
+  deleteReference: (id: string, referenceId: string) =>
+    req<{ reference: StoryReference }>(`/api/projects/${id}/references/${referenceId}`, { method: 'DELETE' }),
+
+  goals: (id: string) => req<{ goals: GoalStore }>(`/api/projects/${id}/goals`),
+  updateGoals: (id: string, patch: Partial<Pick<GoalStore, 'sessionTarget' | 'milestones'>>) =>
+    req<{ goals: GoalStore }>(`/api/projects/${id}/goals`, { method: 'PUT', body: JSON.stringify(patch) }),
+  progress: (id: string) => req<{ progress: ProgressProjection }>(`/api/projects/${id}/progress`),
 
   setAgentState: (id: string, agentId: string, mode: string) =>
     req<{ agent: AgentDef }>(`/api/projects/${id}/agents/${agentId}/state`, {

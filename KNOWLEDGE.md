@@ -1,10 +1,10 @@
 # Muse-Mobilize Knowledge & Continuation Log
 
-Last updated: 2026-09-03 by Codex, continuing Opus 5 work.
+Last updated: 2026-09-04 by Codex, continuing Opus 5 work.
 
 ## Current goal
 
-Characters, World Building, Plot Outline, Scenes, Dialogue, managed story images, hosted provider fast lane, and one-click local model setup are complete. Next distinct Mobilize surface: Themes or References. Sidebar collapse and focus modes remain open.
+Characters, World Building, Plot Outline, Scenes, Dialogue, Themes, References, Goals, Progress, managed story images, hosted provider fast lane, and one-click local model setup are implemented. Automated acceptance now covers uploads and all four new story-system surfaces. Current goal: incorporate Dennis's testing feedback and make full unresolved revisions durable. Sidebar collapse and focus modes remain open.
 
 ## Repository state
 
@@ -13,7 +13,7 @@ Characters, World Building, Plot Outline, Scenes, Dialogue, managed story images
 - Baseline commit: `ccbb660` (`chore: establish Muse-Mobilize baseline`).
 - Parent `creative` repository no longer determines project history.
 - Product/architecture source: `muse-mobilize-handoff/MUSE_MOBILIZE_HANDOFF.md`
-- Run commands: `npm run dev`, `npm test`, `npm run build`
+- Run commands: `npm run dev`, `npm test`, `npm run test:browser`, `npm run build`
 
 ## Project compass
 
@@ -69,7 +69,7 @@ This prevents rapid repeated clicks from issuing duplicate patch requests and in
 
 ## Known risks and open questions
 
-- No frontend interaction test harness currently protects patch-card single-flight behavior.
+- Browser harness now exists; patch-card single-flight behavior still needs its own browser regression.
 - Server patch-apply endpoint is safe against changed source text but not idempotent by patch ID; client guard handles normal UI double-submit, while retry-safe API behavior remains future hardening.
 - Canon writes use whole-file JSON replacement; concurrent writers could overwrite each other. Single-user MVP is safe, multi-user work is not.
 - Entity deletion and fact deletion are not exposed yet.
@@ -91,7 +91,79 @@ This prevents rapid repeated clicks from issuing duplicate patch requests and in
 
 ## Suggested next step
 
-Build Themes/Motif Tracker as structured story material, or implement collapsible sidebar and focus modes.
+Incorporate Dennis's acceptance findings, then persist full unresolved revision bodies. Follow with reference deletion, safe managed-image cleanup, and References/Goals JSON schemas. Current automated evidence is in `docs/acceptance-2026-09-04.md`.
+
+## Browser acceptance and regression repair — 2026-09-04
+
+- Added Playwright runner plus 11 Chromium scenarios for uploads, Themes,
+  References, Goals, and Progress. Real API and project files back save/reload
+  checks; injected network delays/failures make transaction regressions repeatable.
+- Test instance uses `MUSE_CONFIG_DIR` with a generated temporary settings file,
+  mock provider, and project directory. Runtime ports 5277/5278 are isolated from
+  development ports 5177/5178. Test fixtures are removed on runner shutdown.
+- Fixed numeric step constraints rejecting milestone targets such as 25000 and
+  session targets such as 125 words / 17 minutes.
+- Fixed milestone reorder reverting to old order, coordinated session/milestone
+  saves, and narrowed save payloads to the changed Goals section.
+- Locked reference submission and closing during save, kept failed drafts for
+  retry, and cleared stale error feedback after successful retry.
+- Accepted manuscript patches now emit `document.saved` with word count, keeping
+  future word-flow history aligned with manuscript changes.
+- Verified: 11 browser scenarios, 11 server test files, upload helper tests,
+  frontend build, server typecheck, browser-suite typecheck, and diff check pass.
+- Coverage and reproduction details: `docs/acceptance-2026-09-04.md`.
+
+## Story-system surfaces continuation — 2026-09-04
+
+### Implemented
+
+- Themes scene-thread map with typed `appears`, `echoes`, `fades`, and `resolves`
+  occurrences in manuscript order.
+- References moodboard with uploaded images, quotes, web sources, attribution,
+  notes, captions, and stable links to story entities.
+- Goals milestone path with session focus, word/minute targets, ordered milestones,
+  status, due date, and optional word target.
+- Progress workspace with current manuscript words, event-derived word flow,
+  scene completion, and unresolved revision history.
+- Hardened image intake: exact MIME allowlist, content-signature checks, 5 MiB
+  limit, 12-file batch cap, three concurrent uploads, partial-batch success, and
+  drawer locking while uploads are active.
+- Legacy Scene Theme role `pressure` normalizes to `appears` during save, keeping
+  pre-lifecycle projects editable while unknown roles still fail validation.
+- Direct sidebar launch and focused workspace routing for all four surfaces.
+
+### Verification
+
+- `npm test`: pass — 11 server test files, 0 failures.
+- `npm run build`: pass — frontend TypeScript check and Vite production build.
+- `npx tsc -p server/tsconfig.json --noEmit`: pass.
+- `node --import tsx --test web/test/image-upload.test.ts`: pass — 5 tests.
+- `jq empty schemas/*.json`: pass.
+- `git diff --check`: pass.
+- Browser smoke used isolated `Muse Mobilize QA 2026-09-04` project. Real PNG
+  upload previewed, saved, and survived reload. Reference entity link persisted.
+  Theme map rendered manuscript order plus `Appears` and `Resolves` states.
+- Scene compatibility regression confirms legacy `pressure` data survives an
+  unrelated scene edit as normalized `appears`.
+
+### Known next risks
+
+- Managed image bytes outlive cancelled or deleted references; no reference delete
+  route or asset garbage collection exists.
+- Accepted patches now emit saved-word events. Historical patch deltas from before
+  this fix are not backfilled.
+- Unresolved revision history preserves summary metadata, not full patch bodies,
+  across runtime restart.
+- New References and Goals JSON stores have runtime validation and tests but no
+  checked-in JSON schemas yet.
+- Chromium browser regressions now cover reference uploads. JPEG/WebP/GIF/AVIF
+  browser decoding and dedicated Character/World/Plot gallery scenarios remain
+  useful extensions beyond current PNG-centered acceptance path.
+- Theme occurrence model stores one lifecycle role per theme/scene; evidence quotes
+  and occurrence notes remain future work.
+- Goal progress policy lives in `web/src/goalProgress.ts`; default behavior caps
+  automatic word-target progress at 99% until manual completion. Product choice is
+  intentionally exposed for owner tuning.
 
 ## Local Fast Start continuation — 2026-09-02
 

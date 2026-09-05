@@ -296,6 +296,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .btn-primary { background: var(--card-deep); color: var(--ink-onDeep); border-color: transparent; }
 .btn-primary:hover:not(:disabled) { background: #35526e; color: var(--ink-onDeep); }
 .btn-accept { background: rgba(95,131,103,.16); border-color: rgba(95,131,103,.4); color: #40603f; }
+.btn-danger { background: transparent; border-color: rgba(163,91,82,.4); color: var(--danger); margin-right: auto; }
+.btn-danger:hover:not(:disabled) { background: rgba(163,91,82,.1); color: var(--danger); }
 
 /* ----------------------------------------------------------------- compose */
 

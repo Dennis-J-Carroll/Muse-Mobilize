@@ -54,24 +54,26 @@ function PlotDrawer({
   const [details, setDetails] = useState<PlotNode['details']>(node?.details ?? emptyDetails());
   const [documentId, setDocumentId] = useState(node?.documentId ?? '');
   const [images, setImages] = useState<StoryImage[]>(node?.images ?? []);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [anchors, setAnchors] = useState<Array<{ entityId: string; role: PlotWorldRole }>>(
     Array.from({ length: 3 }, (_, index) => node?.worldRefs[index] ?? { entityId: '', role: 'setting' }),
   );
   const titleRef = useRef<HTMLInputElement>(null);
+  const close = () => { if (!uploadingImages) onClose(); };
 
   useEffect(() => {
     titleRef.current?.focus();
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [uploadingImages, onClose]);
 
   const setDetail = (key: keyof PlotNode['details'], value: string) => setDetails((current) => ({ ...current, [key]: value }));
   const setAnchor = (index: number, patch: Partial<{ entityId: string; role: PlotWorldRole }>) => setAnchors((current) => current.map((anchor, i) => (i === index ? { ...anchor, ...patch } : anchor)));
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || uploadingImages) return;
     const worldRefs = anchors.filter((anchor) => anchor.entityId) as PlotWorldRef[];
     const input = {
       title: title.trim(), summary: summary.trim(), kind, section: section.trim(), position: node?.position ?? point,
@@ -84,9 +86,9 @@ function PlotDrawer({
   };
 
   return (
-    <div className="plot-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="plot-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
       <form className="plot-drawer" onSubmit={save}>
-        <header><div><span>Story folio</span><h2>{node ? `Revise ${node.title}` : 'Add plot beat'}</h2></div><button type="button" className="drawer-close" aria-label="Close" onClick={onClose}>×</button></header>
+        <header><div><span>Story folio</span><h2>{node ? `Revise ${node.title}` : 'Add plot beat'}</h2></div><button type="button" className="drawer-close" aria-label="Close" onClick={close} disabled={uploadingImages}>×</button></header>
         <div className="drawer-scroll">
           <section className="drawer-section">
             <h3>Place in story</h3>
@@ -113,7 +115,7 @@ function PlotDrawer({
           </section>
           <section className="drawer-section">
             <h3>Visual references</h3>
-            <ImageGalleryEditor images={images} onChange={setImages} noun="plot beat" />
+            <ImageGalleryEditor images={images} onChange={setImages} noun="plot beat" onBusyChange={setUploadingImages} />
           </section>
           <section className="drawer-section">
             <h3>World anchors · optional</h3>
@@ -123,7 +125,7 @@ function PlotDrawer({
             </div>
           </section>
         </div>
-        <footer><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={!title.trim()}>{node ? 'Save folio' : 'Add to through-line'}</button></footer>
+        <footer><button type="button" className="btn" onClick={close} disabled={uploadingImages}>Cancel</button><button className="btn btn-primary" disabled={!title.trim() || uploadingImages}>{uploadingImages ? 'Adding images…' : node ? 'Save folio' : 'Add to through-line'}</button></footer>
       </form>
     </div>
   );

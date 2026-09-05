@@ -91,11 +91,11 @@ export default function App() {
       </main>
 
       {error && (
-        <div className="toast toast-error" onClick={() => useStore.setState({ error: null })}>
+        <button className="toast toast-error" role="alert" aria-label={`${error}. Dismiss error`} onClick={() => useStore.setState({ error: null })}>
           {error}
-        </div>
+        </button>
       )}
-      {notice && <div className="toast">{notice}</div>}
+      {notice && <div className="toast" role="status" aria-live="polite">{notice}</div>}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </div>
   );

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createScene, createSceneTheme, readScenes, updateScene } from '../src/scenes.js';
+import { createScene, createSceneTheme, readScenes, updateScene, updateSceneTheme } from '../src/scenes.js';
 
 test('scene storyboard persists typed story assets and ordered beat lane', async (t) => {
   const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-scenes-'));
@@ -15,7 +15,7 @@ test('scene storyboard persists typed story assets and ordered beat lane', async
     assets: [
       { kind: 'character', refId: 'kiala-id', role: 'viewpoint' },
       { kind: 'location', refId: 'council-id', role: 'setting' },
-      { kind: 'theme', refId: theme.id, role: 'pressure' },
+      { kind: 'theme', refId: theme.id, role: 'appears' },
       { kind: 'plot', refId: 'summons-beat-id', role: 'dramatizes' },
       { kind: 'character', refId: 'kiala-id', role: 'duplicate ignored' },
     ],
@@ -65,4 +65,50 @@ test('scene update rejects invalid status without changing persisted scene', asy
 
   await assert.rejects(updateScene(projectDir, scene.id, { status: 'lost' as any }), /scene status must be one of/);
   assert.equal((await readScenes(projectDir)).scenes[0].status, 'planned');
+});
+
+test('theme map persists motif metadata and typed occurrences across scenes', async (t) => {
+  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-themes-'));
+  t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
+
+  const theme = await createSceneTheme(projectDir, {
+    name: 'Inherited duty',
+    description: 'What family asks us to carry.',
+    question: 'When does loyalty become surrender?',
+    motif: 'A cracked silver seal',
+  });
+  const updated = await updateSceneTheme(projectDir, theme.id, { motif: 'Cracked seals and broken rings' });
+  const scene = await createScene(projectDir, {
+    title: 'The seal returns',
+    assets: [{ kind: 'theme', refId: theme.id, role: 'echoes' }],
+  });
+
+  assert.equal(updated.question, 'When does loyalty become surrender?');
+  assert.equal(updated.motif, 'Cracked seals and broken rings');
+  assert.equal(scene.assets[0].role, 'echoes');
+  await assert.rejects(
+    updateScene(projectDir, scene.id, { assets: [{ kind: 'theme', refId: theme.id, role: 'intensifies' } as any] }),
+    /theme occurrence must be one of/,
+  );
+  assert.equal((await readScenes(projectDir)).scenes[0].assets[0].role, 'echoes');
+});
+
+test('unrelated scene edit normalizes legacy theme pressure role to appears', async (t) => {
+  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-legacy-theme-'));
+  t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
+  const theme = await createSceneTheme(projectDir, { name: 'Duty' });
+  const scene = await createScene(projectDir, {
+    title: 'Old scene',
+    assets: [{ kind: 'theme', refId: theme.id, role: 'appears' }],
+  });
+  const file = path.join(projectDir, 'scenes', 'scenes.json');
+  const legacy = JSON.parse(await fs.readFile(file, 'utf8'));
+  legacy.scenes[0].assets[0].role = 'pressure';
+  await fs.writeFile(file, `${JSON.stringify(legacy, null, 2)}\n`, 'utf8');
+
+  const updated = await updateScene(projectDir, scene.id, { summary: 'Unrelated summary edit.' });
+
+  assert.equal(updated.summary, 'Unrelated summary edit.');
+  assert.equal(updated.assets[0].role, 'appears');
+  assert.equal((await readScenes(projectDir)).scenes[0].assets[0].role, 'appears');
 });

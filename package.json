@@ -3,15 +3,20 @@
   "private": true,
   "version": "0.1.0",
   "description": "A writers' room you can assemble around the page.",
-  "workspaces": ["server", "web"],
+  "workspaces": [
+    "server",
+    "web"
+  ],
   "scripts": {
     "dev": "concurrently -n server,web -c blue,green \"npm:dev:server\" \"npm:dev:web\"",
     "dev:server": "npm -w server run dev",
     "dev:web": "npm -w web run dev",
     "test": "npm -w server run test",
-    "build": "npm -w web run build"
+    "build": "npm -w web run build",
+    "test:browser": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "concurrently": "^9.1.0"
   }
 }
