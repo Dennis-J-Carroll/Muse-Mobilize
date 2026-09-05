@@ -2,33 +2,63 @@
 
 Last updated: 2026-09-04 by Claude (Sonnet 5), continuing Codex/Opus 5 work.
 
-## Handoff for next session — 2026-09-04
+## Unresolved revision persistence — implemented — 2026-09-04
 
-**Task: build durable unresolved-revision persistence (item #4).** Read
-"Unresolved revision persistence — design and confirmed findings" below in
-full before doing anything else — it has the exact file/line grounding, the
-two things already verified (not hypotheses), and the open wiring decisions.
+Item #4 from the prior handoff is done. Split into two deliverables per
+advisor consult (both shipped together, not sequenced across sessions):
 
-Before writing code: run an `advisor()` consult (this project's convention —
-see the two prior "Reviewed by advisor" commits in git log) at high effort to
-settle the open wiring decisions listed at the end of that section — mainly
-where a recovered patch renders (ReviewPane vs. Progress pane) and what
-placeholder `agentId`/`agentName` a recovered patch should carry through the
-existing `PatchCard` component. Then implement with TDD (write the failing
-test first — server test for the event-payload body persisting through
-`readEvents`/`projectUnresolvedRevisions`, then a web test or e2e test for
-the recovery-and-act path), following `superpowers:test-driven-development`.
+1. **Dismiss-only recourse** — the actual stuck-state bug fix. No schema
+   change needed; `POST /patches/reject` already only needs `{patchId}`.
+2. **Body persistence** — `patch.proposed` events now carry `beforeText`/
+   `afterText` (`server/src/agents.ts` emit call), so a recovered patch can
+   also be *accepted*, not just dismissed.
 
-Verify with the full gate before calling it done: `npm test`,
-`npx tsc -p server/tsconfig.json --noEmit`, `npm run build`,
-`node --import tsx --test web/test/*.test.ts`, `npx playwright test`,
-`git diff --check`. Commit only after everything is green — see the two most
-recent commits for this repo's commit-message conventions (why, not what;
-advisor findings called out explicitly when they changed the outcome).
+**Wiring decisions settled:**
+
+- **Where it renders:** `ReviewPane` (`web/src/panes/ReviewPane.tsx`), not
+  `ProgressPane`. A **hydrate-`runs`-at-load** option was investigated and
+  *rejected*: `web/src/panes/AgentPane.tsx` renders full run transcripts
+  (question/text/consultations/provider/model) from the same `s.runs[agentId]`
+  slice `ReviewPane` reads. Synthesizing a fake `AgentRun` for a recovered
+  patch would inject fabricated conversation history into AgentPane. Instead,
+  `ReviewPane` reads `progress.unresolvedRevisions` directly and renders any
+  entry whose `patchId` isn't already covered by a live `runs`-backed patch
+  through a new `web/src/components/RecoveredPatchCard.tsx` — separate from
+  `PatchCard`, with its own local `pending`/`stale` state instead of routing
+  through `runs`-keyed `markPatch` (which would silently no-op for a patch
+  that was never in `runs`, per the prior handoff's own reading of that
+  function — that no-op is exactly why stale-refusal visibility needed its
+  own state here, not reuse of `acceptPatch`/`rejectPatch`).
+- **Recovered-patch label:** `revision.actor ?? 'Agent'`. No placeholder
+  `agentId` string was needed — confirmed by reading `PatchCard.tsx` in full:
+  `agentId` is only passed through to `rejectPatch`'s unused leading-
+  underscore parameter, never rendered or used to index anything.
+- **`readEvents` cost:** unchanged, confirmed not worth revisiting — patch
+  bodies are bounded ("one to three sentences", `agents.ts:33`).
+
+**A real bug caught only by a second advisor pass, not by the test gate:**
+the first draft of `RecoveredPatchCard`'s accept handler skipped
+`flushDoc(documentId)` before calling `applyPatch`, unlike `acceptPatch`
+(`store.ts:357`) which flushes for exactly this reason — the server always
+applies to the last-saved file, so accepting a recovered patch while the
+writer has unflushed keystrokes in that same document would silently
+overwrite them. Fixed by calling `useStore.getState().flushDoc(...)` before
+`api.applyPatch(...)`. The e2e tests couldn't catch this on their own because
+they set document content via the HTTP API, never through the editor, so
+there was never a dirty doc to lose — this is a case worth remembering: a
+green gate does not mean an invariant like this one was actually exercised.
+
+Coverage: `server/test/progress.test.ts` (event payload → projection,
+including that a pre-upgrade/legacy event with no `beforeText` correctly
+*omits* the key rather than emitting an empty string) and
+`e2e/review-recovery.spec.ts` (accept-with-body updates the document and
+clears the queue; legacy/bodyless patch offers Reject only, no Accept;
+a patch whose `beforeText` no longer matches the document surfaces
+"draft changed — stale" rather than silently no-op'ing).
 
 ## Current goal
 
-Characters, World Building, Plot Outline, Scenes, Dialogue, Themes, References, Goals, Progress, managed story images, hosted provider fast lane, and one-click local model setup are implemented. Automated acceptance now covers uploads and all four new story-system surfaces. Reference deletion with cross-store managed-image garbage collection now exists. Current goal: persist full unresolved revision bodies so a server restart doesn't strand an undecided patch (design consulted, not yet implemented — see below). Sidebar collapse and focus modes remain open.
+Characters, World Building, Plot Outline, Scenes, Dialogue, Themes, References, Goals, Progress, managed story images, hosted provider fast lane, and one-click local model setup are implemented. Automated acceptance now covers uploads and all four new story-system surfaces. Reference deletion with cross-store managed-image garbage collection exists. Unresolved revision persistence (dismiss + accept-with-recovered-body) exists. Sidebar collapse and focus modes remain open — likely next.
 
 ## Repository state
 
@@ -284,8 +314,10 @@ settled):**
   2026-09-04, see "Reference deletion and cross-store image garbage collection" above.
 - Accepted patches now emit saved-word events. Historical patch deltas from before
   this fix are not backfilled.
-- Unresolved revision history preserves summary metadata, not full patch bodies,
-  across runtime restart.
+- ~~Unresolved revision history preserves summary metadata, not full patch
+  bodies, across runtime restart~~ — fixed 2026-09-04, see "Unresolved
+  revision persistence — implemented" above. Patches proposed before this
+  shipped still recover as dismiss-only (no body was recorded for them).
 - New References and Goals JSON stores have runtime validation and tests but no
   checked-in JSON schemas yet.
 - Chromium browser regressions now cover reference uploads. JPEG/WebP/GIF/AVIF

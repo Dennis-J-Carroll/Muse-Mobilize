@@ -230,6 +230,8 @@ export async function runAgent(
         documentId: p.documentId,
         anchored: p.anchored,
         reason: p.reason,
+        beforeText: p.beforeText,
+        afterText: p.afterText,
       }, agent.id);
     }
     await emit(dir, 'agent.request.completed', { agentId: agent.id, consultations: run.consultations.length, patches: run.patches.length }, agent.id);

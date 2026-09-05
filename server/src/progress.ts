@@ -62,11 +62,14 @@ function projectUnresolvedRevisions(events: MuseEvent[]): UnresolvedRevision[] {
     if (event.type === 'patch.proposed') {
       const documentId = text(event.payload?.documentId);
       const reason = text(event.payload?.reason);
+      const beforeText = text(event.payload?.beforeText);
+      const afterText = text(event.payload?.afterText);
       revisions.set(patchId, {
         patchId,
         ...(documentId ? { documentId } : {}),
         ...(reason ? { reason } : {}),
         ...(event.actor ? { actor: event.actor } : {}),
+        ...(beforeText ? { beforeText, afterText } : {}),
         proposedAt: event.ts,
       });
     } else if (event.type === 'patch.accepted' || event.type === 'patch.rejected') {

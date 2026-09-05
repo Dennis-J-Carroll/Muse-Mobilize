@@ -50,6 +50,29 @@ test('progress projects manuscript words, word flow, completed scenes, and unres
   ]);
 });
 
+test('unresolved revisions carry beforeText/afterText when the proposing event recorded them, and omit them otherwise', async (t) => {
+  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-progress-'));
+  t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
+  await fs.writeFile(path.join(projectDir, 'project.json'), JSON.stringify({ documents: [] }));
+
+  await emit(projectDir, 'patch.proposed', {
+    patchId: 'with-body', documentId: 'one', reason: 'Tighten.',
+    beforeText: 'the door', afterText: 'the heavy door',
+  }, 'critic');
+  await emit(projectDir, 'patch.proposed', { patchId: 'legacy-no-body', documentId: 'one', reason: 'Older event, pre-body.' });
+
+  const progress = await readProgress(projectDir);
+  const byId = new Map(progress.unresolvedRevisions.map((r) => [r.patchId, r]));
+
+  assert.deepEqual(byId.get('with-body'), {
+    patchId: 'with-body', documentId: 'one', reason: 'Tighten.', actor: 'critic',
+    beforeText: 'the door', afterText: 'the heavy door',
+    proposedAt: byId.get('with-body')!.proposedAt,
+  });
+  assert.equal('beforeText' in byId.get('legacy-no-body')!, false);
+  assert.equal('afterText' in byId.get('legacy-no-body')!, false);
+});
+
 test('progress returns empty projection when optional stores and history are missing', async (t) => {
   const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-progress-'));
   t.after(() => fs.rm(projectDir, { recursive: true, force: true }));

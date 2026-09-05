@@ -285,6 +285,8 @@ export interface UnresolvedRevision {
   documentId?: string;
   reason?: string;
   actor?: string;
+  beforeText?: string;
+  afterText?: string;
   proposedAt: string;
 }
 
