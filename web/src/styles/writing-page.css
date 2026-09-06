@@ -1,0 +1,42 @@
+/* The manuscript has its own quiet surface; controls retain the room's palette. */
+.writing-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--line); color: var(--ink-mid); font-size: 12px; }
+.writing-focus-title { display: none; font-weight: 400; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.writing-appearance { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.writing-font-note { margin: 0; padding: 5px 16px; color: var(--ink-mid); font-size: 11px; }
+.writing-appearance select:disabled { opacity: .65; cursor: default; }
+.writing-appearance select { min-width: 0; min-height: 32px; max-width: 138px; border: 1px solid transparent; border-radius: 6px; padding: 4px 6px; background: transparent; color: var(--ink-mid); font-size: 12px; }
+.writing-appearance select:hover { border-color: var(--line-strong); }
+.writing-page[data-surface="paper"] { background: #f8f6f0; }
+.writing-page[data-surface="paper"] .draft { padding: 32px max(24px, calc((100% - 68ch) / 2)) 64px; font-size: 18px; line-height: 1.9; letter-spacing: .005em; }
+.writing-focus-button { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--glass-face); font-size: 12px; }
+.writing-focus-button kbd { font: inherit; color: var(--ink-soft); }
+.writing-toolbar :is(button, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.app.is-writing-focus { padding: 0; gap: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100dvh; }
+.app.is-writing-focus > .sidebar,
+.app.is-writing-focus .workspace-head,
+.app.is-writing-focus .statusbar,
+.app.is-writing-focus .split,
+.app.is-writing-focus .workspace-empty-message,
+.app.is-writing-focus .pane:not(.is-writing-focus),
+.app.is-writing-focus .region:not(:has(.is-writing-focus)),
+.pane.is-writing-focus > .pane-head,
+.pane.is-writing-focus > .pane-resize-handle,
+.pane.is-writing-focus .ask-bar { display: none; }
+.app.is-writing-focus .workspace { border: 0; border-radius: 0; box-shadow: none; min-width: 0; }
+.app.is-writing-focus .canvas { display: flex; flex: 1; padding: 0; min-height: 0; }
+.app.is-writing-focus .region:has(.is-writing-focus) { flex: 1; min-height: 0; }
+.app.is-writing-focus .pane.is-writing-focus { width: 100% !important; height: 100% !important; flex: 1 !important; border: 0; border-radius: 0; box-shadow: none; }
+.pane.is-writing-focus .writing-focus-title { display: block; }
+.pane.is-writing-focus .writing-toolbar { padding: 12px 24px; }
+.floating-editor-host[hidden] { display: none; }
+@media (max-width: 700px) {
+  .pane.is-writing-focus .writing-toolbar { padding: 8px 12px; }
+  .pane.is-writing-focus .writing-focus-title { flex-basis: 100%; font-size: 12px; }
+  .writing-toolbar { gap: 6px; padding: 6px 10px; }
+  .writing-appearance { gap: 2px; }
+  .writing-appearance select { max-width: 119px; padding: 4px 2px; }
+  .writing-focus-button { padding: 5px 7px; gap: 5px; }
+  .pane.is-writing-focus .writing-focus-button { font-size: 0; }
+  .pane.is-writing-focus .writing-focus-button kbd { font-size: 12px; }
+  .writing-page[data-surface="paper"] .draft { padding: 24px 22px 44px; font-size: 17px; }
+}

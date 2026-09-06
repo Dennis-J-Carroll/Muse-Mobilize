@@ -1,5 +1,25 @@
 import { test, expect, png } from './fixtures';
 
+test('long project lists keep creation and settings reachable on desktop and phone', async ({ page, request, projectId }) => {
+  const projects = await Promise.all(Array.from({ length: 24 }, (_, index) => request.post('/api/projects', {
+    data: { name: `Long menu ${projectId} ${index}` },
+  })));
+  for (const response of projects) expect(response.ok()).toBeTruthy();
+  await page.reload();
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.getByRole('button', { name: 'Project menu' }).click();
+    await expect(page.getByRole('button', { name: 'New Project', exact: true })).toBeInViewport();
+    await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeInViewport();
+    const list = page.getByRole('group', { name: 'Available projects' });
+    const lastProject = list.getByRole('button').last();
+    await lastProject.scrollIntoViewIfNeeded();
+    await expect(lastProject).toBeInViewport();
+    await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeInViewport();
+    await page.getByRole('button', { name: 'Project menu' }).click();
+  }
+});
+
 test('phone-sized story tools keep uploads and save actions inside the viewport', async ({ page, projectId }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const expectNoPageOverflow = async () => {

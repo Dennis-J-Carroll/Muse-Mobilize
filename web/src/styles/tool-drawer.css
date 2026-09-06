@@ -1,0 +1,32 @@
+/* Stable pane hosts let tools move between the canvas and drawer without remounting. */
+.pane-slot { display: flex; flex: 1; min-width: 0; min-height: 0; max-width: 100%; }
+.pane-slot > .pane { flex: 1; width: 100%; height: 100%; }
+.pane-slot[hidden], .region[hidden], .tool-drawer[hidden], .tool-drawer-host[hidden] { display: none !important; }
+.region-maximum { flex: 1; }
+.workspace-empty-message { grid-column: 1 / -1; grid-row: 1 / -1; }
+.tool-drawer-trigger { position: fixed; right: 12px; bottom: 12px; z-index: 2100; display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 8px 14px; border: 1px solid var(--glass-edge); border-radius: 10px; background: var(--glass-sheen), var(--glass-overlay); box-shadow: var(--shadow-float); font-size: 12px; }
+.tool-drawer-trigger span { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.tool-drawer { position: fixed; z-index: 850; top: 16px; right: 48px; bottom: 62px; width: min(520px, calc(100vw - 64px)); display: flex; flex-direction: column; border: 1px solid var(--glass-edge); border-radius: 14px; background: var(--glass-sheen), var(--glass-overlay); box-shadow: var(--shadow-float); overflow: hidden; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+.tool-drawer-head { display: flex; align-items: center; gap: 10px; padding: 12px; border-bottom: 1px solid var(--line); }
+.tool-drawer-head h2 { margin: 0; flex: 1; font-size: 16px; font-weight: 350; }
+.tool-drawer-head [role="group"] { display: flex; gap: 2px; }
+.tool-drawer-head button, .tool-drawer-tabs button { min-height: 32px; padding: 5px 9px; border: 1px solid transparent; border-radius: 6px; background: transparent; font-size: 12px; }
+.tool-drawer-head [aria-pressed="true"], .tool-drawer-tabs [aria-selected="true"] { border-color: var(--line-strong); background: var(--glass-face); color: var(--accent); }
+.tool-drawer-tabs { display: flex; gap: 4px; overflow-x: auto; padding: 8px; border-bottom: 1px solid var(--line); }
+.tool-drawer-tabs button { flex-shrink: 0; }
+.tool-drawer-content { display: flex; flex: 1; flex-direction: column; gap: 10px; padding: 10px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.tool-drawer.is-tabs .pane-slot { min-height: 0; }
+.tool-drawer.is-stack .pane-slot { flex: 0 0 380px; }
+.tool-drawer .pane.is-min { flex: 1; }
+.tool-drawer :is(button, input, textarea, select):focus-visible, .tool-drawer-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.app.is-writing-focus .pane-slot:has(.is-writing-focus) { flex: 1 !important; width: 100% !important; height: 100% !important; }
+.app.is-writing-focus .pane-slot:not(:has(.is-writing-focus)) { display: none; }
+@container writing-space (max-width: 650px) {
+  .region .pane-slot { flex: 0 0 400px; }
+  .region .pane-slot > .pane:not(.is-min) { flex: 1; }
+  .canvas-single .region-maximum { flex: 1; }
+  .canvas-single .region-maximum .pane-slot { flex: 1; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .tool-drawer { backdrop-filter: none; -webkit-backdrop-filter: none; }
+}

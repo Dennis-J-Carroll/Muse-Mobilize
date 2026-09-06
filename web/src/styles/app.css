@@ -486,8 +486,7 @@ input, textarea, select { font-family: var(--font-ui); }
 .cast-empty h3 { margin: 16px 0 4px; font-family: var(--font-prose); font-size: 22px; font-weight: 500; }
 .cast-empty p { max-width: 380px; margin: 0 0 16px; color: var(--ink-soft); line-height: 1.5; }
 
-.character-drawer-backdrop { position: absolute; inset: 0; z-index: 70; background: rgba(47,59,68,.2); display: flex; justify-content: flex-end; }
-.character-drawer { width: min(620px, 92%); height: 100%; display: flex; flex-direction: column; background: var(--paper-raised); box-shadow: -14px 0 42px rgba(47,59,68,.18); animation: drawer-in .2s ease-out; }
+.character-drawer { width: 100%; height: 100%; display: flex; flex-direction: column; background: var(--paper-raised); }
 @keyframes drawer-in { from { transform: translateX(28px); opacity: .45; } }
 .character-drawer > header { display: flex; justify-content: space-between; gap: 14px; padding: 20px 24px 15px; border-bottom: 1px solid var(--line); }
 .character-drawer header span { color: var(--ink-soft); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; }
@@ -728,8 +727,7 @@ input, textarea, select { font-family: var(--font-ui); }
 .world-inspector > footer { flex: 0 0 auto; display: flex; align-items: center; gap: 7px; padding: 10px 14px; border-top: 1px solid var(--line); }
 .world-inspector > footer .linkish { margin-left: auto; }
 
-.world-drawer-backdrop { position: absolute; inset: 0; z-index: 70; display: flex; justify-content: flex-end; background: rgba(47,59,68,.2); }
-.world-drawer { width: min(560px, 94%); height: 100%; display: flex; flex-direction: column; background: var(--paper-raised); box-shadow: -14px 0 42px rgba(47,59,68,.18); animation: drawer-in .2s ease-out; }
+.world-drawer { width: 100%; height: 100%; display: flex; flex-direction: column; background: var(--paper-raised); }
 .world-drawer > header { display: flex; justify-content: space-between; gap: 14px; padding: 20px 24px 15px; border-bottom: 1px solid var(--line); }
 .world-drawer > header span { color: var(--ink-soft); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; }
 .world-drawer h2 { margin: 4px 0 0; font-family: var(--font-prose); font-size: 25px; font-weight: 500; }
@@ -970,8 +968,7 @@ input, textarea, select { font-family: var(--font-ui); }
 .plot-folio > footer { flex: 0 0 auto; display: flex; align-items: center; gap: 7px; padding: 10px 14px; border-top: 1px solid var(--line); }
 .plot-folio > footer .linkish { margin-left: auto; }
 
-.plot-drawer-backdrop { position: absolute; inset: 0; z-index: 70; display: flex; justify-content: flex-end; background: rgba(47,59,68,.22); }
-.plot-drawer { width: min(610px, 95%); height: 100%; display: flex; flex-direction: column; background: var(--paper-raised); box-shadow: -14px 0 42px rgba(47,59,68,.18); animation: drawer-in .2s ease-out; }
+.plot-drawer { width: 100%; height: 100%; display: flex; flex-direction: column; background: var(--paper-raised); }
 .plot-drawer > header { display: flex; justify-content: space-between; gap: 14px; padding: 20px 24px 15px; border-bottom: 1px solid var(--line); }
 .plot-drawer > header span { color: var(--ink-soft); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; }
 .plot-drawer h2 { margin: 4px 0 0; font: 500 25px var(--font-prose); }
@@ -1369,8 +1366,7 @@ input, textarea, select { font-family: var(--font-ui); }
 .scene-lane-actions button:hover { background: rgba(63,95,125,.07); color: var(--ink); }
 .scene-lane-actions b { display: block; color: var(--ink); font: 11px var(--font-mono); }
 
-.scene-drawer-backdrop { position: absolute; inset: 0; z-index: 70; display: flex; justify-content: flex-end; background: rgba(47,59,68,.22); }
-.scene-drawer { width: min(650px,96%); height: 100%; display: flex; flex-direction: column; background: var(--paper-raised); box-shadow: -14px 0 42px rgba(47,59,68,.18); animation: drawer-in .2s ease-out; }
+.scene-drawer { width: 100%; height: 100%; display: flex; flex-direction: column; background: var(--paper-raised); }
 .scene-drawer > header { display: flex; justify-content: space-between; padding: 20px 24px 15px; border-bottom: 1px solid var(--line); }
 .scene-drawer > header span { color: var(--ink-soft); font-size: 9px; text-transform: uppercase; letter-spacing: .12em; }
 .scene-drawer > header h2 { margin: 4px 0 0; font: 500 25px var(--font-prose); }

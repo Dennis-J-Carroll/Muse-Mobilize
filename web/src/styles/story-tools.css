@@ -25,14 +25,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .story-empty p { max-width: 390px; margin: 6px 0 16px; font-size: 12px; line-height: 1.55; }
 .story-empty.compact { min-height: 180px; }
 
-.story-drawer-backdrop {
-  position: absolute; inset: 0; z-index: 75; display: flex; justify-content: flex-end; background: rgba(47,59,68,.25);
-}
 .story-drawer {
-  width: min(680px,96%); height: 100%; display: flex; flex-direction: column; background: var(--paper-raised);
-  box-shadow: -14px 0 42px rgba(47,59,68,.18); animation: story-drawer-in .2s ease-out;
+  width: 100%; height: 100%; display: flex; flex-direction: column; background: var(--paper-raised);
 }
-@keyframes story-drawer-in { from { transform: translateX(28px); opacity: .5; } }
 .story-drawer > header { display: flex; justify-content: space-between; padding: 20px 25px 15px; border-bottom: 1px solid var(--line); }
 .story-drawer > header span { color: var(--ink-mid); font-size: 11px; }
 .story-drawer > header h2 { margin: 4px 0 0; font: 500 25px var(--font-prose); }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
+import { openFloatingEditor } from '../components/floatingEditors';
 import type { CanonEntity, Pane, PlotNode, Scene, SceneAssetKind, SceneAssetRef, SceneBeat, SceneStatus, SceneTheme } from '../types';
 
 const DRAG_TYPE = 'application/x-muse-scene-asset';
@@ -32,10 +33,7 @@ function SceneDrawer({ scene, onClose }: { scene?: Scene; onClose: () => void })
 
   useEffect(() => {
     titleRef.current?.focus();
-    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', key);
-    return () => window.removeEventListener('keydown', key);
-  }, [onClose]);
+  }, []);
 
   const setBeat = (index: number, patch: Partial<SceneBeat>) => setBeats((current) => current.map((beat, i) => (i === index ? { ...beat, ...patch } : beat)));
   const moveBeat = (index: number, direction: -1 | 1) => setBeats((current) => {
@@ -55,8 +53,7 @@ function SceneDrawer({ scene, onClose }: { scene?: Scene; onClose: () => void })
     if (saved) onClose();
   };
 
-  return <div className="scene-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <form className="scene-drawer" onSubmit={save}>
+  return <form className="scene-drawer" onSubmit={save}>
       <header><div><span>Scene folio</span><h2>{scene ? `Revise ${scene.title}` : 'Add scene'}</h2></div><button type="button" aria-label="Close" onClick={onClose}>×</button></header>
       <div className="scene-drawer-scroll">
         <section><h3>Story position</h3><div className="scene-form-grid">
@@ -76,8 +73,7 @@ function SceneDrawer({ scene, onClose }: { scene?: Scene; onClose: () => void })
         </section>
       </div>
       <footer><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={!title.trim()}>{scene ? 'Save scene' : 'Add to board'}</button></footer>
-    </form>
-  </div>;
+    </form>;
 }
 
 export function ScenesPane({ pane }: { pane: Pane }) {
@@ -88,7 +84,7 @@ export function ScenesPane({ pane }: { pane: Pane }) {
   const [selectedId, setSelectedId] = useState('');
   const [resourceKind, setResourceKind] = useState<SceneAssetKind>('character');
   const [themeName, setThemeName] = useState('');
-  const [drawer, setDrawer] = useState<Scene | 'new' | null>(null);
+  const [railCollapsed, setRailCollapsed] = useState(false);
   const [dragOverId, setDragOverId] = useState('');
 
   useEffect(() => { void Promise.all([useStore.getState().loadScenes(), useStore.getState().loadCanon(), useStore.getState().loadPlot()]); }, []);
@@ -125,25 +121,34 @@ export function ScenesPane({ pane }: { pane: Pane }) {
   };
   const sections = Array.from(new Set(scenes.map((scene) => scene.section || 'Unsectioned')));
   const selected = scenes.find((scene) => scene.id === selectedId);
+  const openDrawer = (scene?: Scene) => openFloatingEditor({
+    id: `scenes:${scene?.id ?? 'new'}`,
+    paneType: 'scenes',
+    title: scene ? `Revise ${scene.title}` : 'Add scene',
+    width: 650,
+    render: (close) => <SceneDrawer scene={scene} onClose={close} />,
+  });
 
   if (!board || !canon || !plot) return <div className="pane-body pane-loading">Laying scene cards…</div>;
 
-  return <div className="scene-workspace">
-    <header className="scene-toolbar"><div><span>Storyboard</span><h2>{useStore.getState().project?.name ?? 'Scenes'}</h2></div><p><b>{scenes.length}</b> scenes · <b>{scenes.reduce((sum, scene) => sum + scene.beats.length, 0)}</b> beats</p><button className="btn btn-primary" onClick={() => setDrawer('new')}>+ Add scene</button></header>
+  return <div className={`scene-workspace ${railCollapsed ? 'scene-rail-collapsed' : ''}`}>
+    <header className="scene-toolbar"><div><span>Storyboard</span><h2>{useStore.getState().project?.name ?? 'Scenes'}</h2></div><p><b>{scenes.length}</b> scenes · <b>{scenes.reduce((sum, scene) => sum + scene.beats.length, 0)}</b> beats</p><button className="btn btn-primary" onClick={() => openDrawer()}>+ Add scene</button></header>
     <aside className="scene-resource-rail">
+      <button type="button" className="scene-rail-toggle" aria-label={railCollapsed ? 'Expand story material' : 'Collapse story material'} aria-expanded={!railCollapsed} aria-controls={`scene-material-${pane.id}`} onClick={() => setRailCollapsed((value) => !value)}>{railCollapsed ? '›' : '‹'}</button>
+      <div id={`scene-material-${pane.id}`} className="scene-rail-body" hidden={railCollapsed}>
       <header><span>Story material</span><p>Drag into any scene. Click adds to selected scene.</p></header>
       <nav>{(['character', 'theme', 'location', 'plot'] as SceneAssetKind[]).map((kind) => <button key={kind} className={resourceKind === kind ? 'is-active' : ''} onClick={() => setResourceKind(kind)}>{ASSET_MARK[kind]}<span>{ASSET_LABEL[kind]}</span><b>{resources.filter((item) => item.kind === kind).length}</b></button>)}</nav>
       {resourceKind === 'theme' && <form className="scene-theme-add" onSubmit={async (event) => { event.preventDefault(); const theme = await useStore.getState().createSceneTheme({ name: themeName }); if (theme) setThemeName(''); }}><input aria-label="New theme" value={themeName} onChange={(event) => setThemeName(event.target.value)} placeholder="New theme…" /><button disabled={!themeName.trim()}>+</button></form>}
       <div className="scene-resource-list">{resources.filter((item) => item.kind === resourceKind).map((resource) => <button key={resource.refId} draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData(DRAG_TYPE, JSON.stringify(resource)); }} onClick={() => { if (selected) void attach(selected, resource); }} disabled={!selected}><i>{ASSET_MARK[resource.kind]}</i><span><strong>{resource.label}</strong><small>{resource.detail}</small></span><em>⠿</em></button>)}{!resources.some((item) => item.kind === resourceKind) && <p className="scene-resource-empty">No {ASSET_LABEL[resourceKind].toLowerCase()} material yet.</p>}</div>
+      </div>
     </aside>
     <main className="scene-board">
-      {!scenes.length && <div className="scene-empty"><span>□</span><h3>First scene starts lane</h3><p>Create scene, then drag cast, themes, locations, and plot nodes into it.</p><button className="btn btn-primary" onClick={() => setDrawer('new')}>Add opening scene</button></div>}
+      {!scenes.length && <div className="scene-empty"><span>□</span><h3>First scene starts lane</h3><p>Create scene, then drag cast, themes, locations, and plot nodes into it.</p><button className="btn btn-primary" onClick={() => openDrawer()}>Add opening scene</button></div>}
       {sections.map((section) => <section className="scene-section" key={section}><header><span>{section}</span><i /></header>{scenes.filter((scene) => (scene.section || 'Unsectioned') === section).map((scene) => <article key={scene.id} className={`scene-lane ${selectedId === scene.id ? 'is-selected' : ''} ${dragOverId === scene.id ? 'is-drop-target' : ''}`} onClick={() => setSelectedId(scene.id)} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; setDragOverId(scene.id); }} onDragLeave={() => setDragOverId('')} onDrop={(event) => drop(event, scene)}>
         <div className="scene-lane-head"><small>{String(scene.order + 1).padStart(2, '0')} · {scene.status}</small><h3>{scene.title}</h3><p>{scene.purpose || scene.summary || 'Purpose not set.'}</p><div className="scene-asset-chips">{scene.assets.map((asset) => { const resource = resourceMap.get(`${asset.kind}:${asset.refId}`); return <button key={`${asset.kind}:${asset.refId}`} title={`Remove ${resource?.label ?? asset.refId}`} onClick={(event) => { event.stopPropagation(); void useStore.getState().updateScene(scene.id, { assets: scene.assets.filter((item) => item !== asset) }); }}><i>{ASSET_MARK[asset.kind]}</i>{resource?.label ?? 'Missing reference'}<span>×</span></button>; })}<em>Drop story material here</em></div></div>
-        <div className="scene-beat-lane">{scene.beats.map((beat, index) => <div className="scene-beat-card" key={beat.id}><small>{String(index + 1).padStart(2, '0')}</small><strong>{beat.title}</strong><p>{beat.summary || 'No change note.'}</p></div>)}{!scene.beats.length && <div className="scene-no-beats">No beats yet</div>}<button className="scene-add-beat" onClick={(event) => { event.stopPropagation(); setDrawer(scene); }}>+ beat</button></div>
-        <div className="scene-lane-actions"><button onClick={(event) => { event.stopPropagation(); openDialogue(scene); }}><b>{scene.dialogue.length}</b> dialogue</button><button onClick={(event) => { event.stopPropagation(); setDrawer(scene); }}>Edit</button></div>
+        <div className="scene-beat-lane">{scene.beats.map((beat, index) => <div className="scene-beat-card" key={beat.id}><small>{String(index + 1).padStart(2, '0')}</small><strong>{beat.title}</strong><p>{beat.summary || 'No change note.'}</p></div>)}{!scene.beats.length && <div className="scene-no-beats">No beats yet</div>}<button className="scene-add-beat" onClick={(event) => { event.stopPropagation(); openDrawer(scene); }}>+ beat</button></div>
+        <div className="scene-lane-actions"><button onClick={(event) => { event.stopPropagation(); openDialogue(scene); }}><b>{scene.dialogue.length}</b> dialogue</button><button onClick={(event) => { event.stopPropagation(); openDrawer(scene); }}>Edit</button></div>
       </article>)}</section>)}
     </main>
-    {drawer && <SceneDrawer scene={drawer === 'new' ? undefined : drawer} onClose={() => setDrawer(null)} />}
   </div>;
 }

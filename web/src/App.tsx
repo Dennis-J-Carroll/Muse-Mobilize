@@ -4,6 +4,8 @@ import { Sidebar } from './components/Sidebar';
 import { WorkspaceCanvas } from './components/WorkspaceCanvas';
 import { StatusBar } from './components/StatusBar';
 import { SettingsModal } from './components/SettingsModal';
+import { FloatingEditorHost } from './components/floatingEditors';
+import { useWritingView } from './writingView';
 import * as Icon from './components/icons';
 
 export default function App() {
@@ -15,11 +17,31 @@ export default function App() {
   const error = useStore((s) => s.error);
   const notice = useStore((s) => s.notice);
   const settings = useStore((s) => s.settings);
+  const panes = useStore((s) => s.panes);
+  const focusPaneId = useWritingView((s) => s.focusPaneId);
+  const workbench = useWritingView((s) => s.workbench);
+  const writingFocused = panes.some((pane) => pane.id === focusPaneId);
   const [showSettings, setShowSettings] = useState(false);
+  const sidebarCollapsed = useWritingView((s) => s.sidebarCollapsed);
 
   useEffect(() => {
     void useStore.getState().bootstrap();
   }, []);
+
+  useEffect(() => {
+    if (focusPaneId && !writingFocused) useWritingView.getState().focus(null);
+  }, [focusPaneId, writingFocused]);
+
+  useEffect(() => {
+    if (!writingFocused) return;
+    const exit = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
+      event.preventDefault();
+      useWritingView.getState().focus(null);
+    };
+    window.addEventListener('keydown', exit);
+    return () => window.removeEventListener('keydown', exit);
+  }, [writingFocused]);
 
   useEffect(() => {
     if (!notice) return;
@@ -57,8 +79,12 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      <Sidebar onOpenSettings={() => setShowSettings(true)} />
+    <div className={`app ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''} ${writingFocused ? 'is-writing-focus' : ''} ${workbench ? 'is-workbench' : ''}`}>
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => useWritingView.getState().setSidebarCollapsed(!sidebarCollapsed)}
+        onOpenSettings={() => setShowSettings(true)}
+      />
 
       <main className="workspace">
         <header className="workspace-head">
@@ -97,6 +123,7 @@ export default function App() {
       )}
       {notice && <div className="toast" role="status" aria-live="polite">{notice}</div>}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      <FloatingEditorHost />
     </div>
   );
 }

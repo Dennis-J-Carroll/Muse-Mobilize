@@ -1,0 +1,31 @@
+import { test, expect } from './fixtures';
+
+test('document tile presets rearrange live pages without replacing drafts or companion tools', async ({ page, projectId }, testInfo) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const question = page.getByPlaceholder('Ask Muse…');
+  await question.fill('Keep this question through each tile preset.');
+  const manuscript = page.locator('.pane-editor').filter({ has: page.getByRole('button', { name: 'Move Chapter One', exact: true }) });
+  const notes = page.locator('.pane-notes');
+  await notes.getByRole('textbox').fill(`Tile notes ${projectId}`);
+  await expect(page.getByLabel('Document tiles', { exact: true })).toBeVisible();
+  await page.getByLabel('Document tiles', { exact: true }).selectOption('columns');
+  const first = (await manuscript.boundingBox())!;
+  const second = (await notes.boundingBox())!;
+  expect(Math.abs(first.y - second.y)).toBeLessThan(2);
+  expect(second.x).toBeGreaterThan(first.x + first.width);
+  await page.getByLabel('Document tiles', { exact: true }).selectOption('rows');
+  expect((await notes.boundingBox())!.y).toBeGreaterThan((await manuscript.boundingBox())!.y + (await manuscript.boundingBox())!.height);
+  await page.getByRole('button', { name: 'Open document', exact: true }).click();
+  await page.getByRole('button', { name: 'Open Outline', exact: true }).click();
+  await page.getByLabel('Document tiles', { exact: true }).selectOption('grid');
+  await expect(page.locator('.document-tiles .pane')).toHaveCount(3);
+  await expect(question).toHaveValue('Keep this question through each tile preset.');
+  await expect(notes.getByRole('textbox')).toHaveValue(`Tile notes ${projectId}`);
+  await page.screenshot({ path: testInfo.outputPath('document-tiles-desktop.png'), animations: 'disabled' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(async () => (await notes.boundingBox())!.y - (await manuscript.boundingBox())!.y).toBeGreaterThan(100);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await page.getByLabel('Document tiles', { exact: true }).selectOption('workspace');
+  await expect(question).toHaveValue('Keep this question through each tile preset.');
+  await expect(notes.getByRole('textbox')).toHaveValue(`Tile notes ${projectId}`);
+});

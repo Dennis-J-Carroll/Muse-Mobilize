@@ -1,5 +1,7 @@
 import { create } from 'zustand';
+import type { ReactNode } from 'react';
 import { api } from './api';
+import { reconcileDeskPanes, type DeskPane } from './desks';
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   FloatingPanel, GoalStore, ProgressProjection, ReferenceStore, StoryReference,
@@ -29,6 +31,7 @@ interface State {
   docs: Record<string, DocState>;
   panes: Pane[];
   floatingPanels: FloatingPanel[];
+  floatingEditorContents: Record<string, ReactNode>;
   rightWidth: number;
   bottomHeight: number;
 
@@ -63,6 +66,11 @@ interface State {
   closePane: (paneId: string) => void;
   setPaneSize: (paneId: string, mode: Pane['sizeMode']) => void;
   resizePane: (paneId: string, width: number, height: number) => void;
+  floatPane: (paneId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
+  returnPaneToLayout: (paneId: string) => void;
+  raisePane: (paneId: string) => void;
+  tileDocuments: () => void;
+  restoreDeskPanes: (panes: DeskPane[]) => void;
   openFloatingPanel: (cfg: { id: string; paneType: PaneType; title: string; width?: number; height?: number }) => void;
   closeFloatingPanel: (id: string) => void;
   dockFloatingPanel: (id: string) => void;
@@ -109,7 +117,7 @@ interface State {
   updateReference: (referenceId: string, patch: Partial<Omit<StoryReference, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<StoryReference | null>;
   deleteReference: (referenceId: string) => Promise<boolean>;
   loadGoals: () => Promise<void>;
-  updateGoals: (patch: Partial<Pick<GoalStore, 'sessionTarget' | 'milestones'>>) => Promise<GoalStore | null>;
+  updateGoals: (patch: GoalPatch | ((current: GoalStore) => GoalPatch)) => Promise<GoalStore | null>;
   loadWorldMap: () => Promise<void>;
   updateWorldMap: (patch: Partial<Omit<WorldMap, 'version'>>) => Promise<WorldMap | null>;
   loadProgress: () => Promise<void>;
@@ -124,6 +132,10 @@ interface State {
 
 const saveTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 let paneSeq = 0;
+let projectSession = 0;
+export const getProjectSession = () => projectSession;
+type GoalPatch = Partial<Pick<GoalStore, 'sessionTarget' | 'milestones'>>;
+const goalUpdateQueues = new Map<number, Promise<void>>();
 
 const titleFor = (type: PaneType, s: State, bindingId?: string): string => {
   if (type === 'agent') return s.agents.find((a) => a.id === bindingId)?.name ?? 'Agent';
@@ -154,6 +166,7 @@ export const useStore = create<State>((set, get) => ({
   docs: {},
   panes: [],
   floatingPanels: [],
+  floatingEditorContents: {},
   rightWidth: 400,
   bottomHeight: 210,
   selection: null,
@@ -197,8 +210,9 @@ export const useStore = create<State>((set, get) => ({
   async openProject(id) {
     try {
       const { project, agents, workspaces } = await api.openProject(id);
+      projectSession += 1;
       localStorage.setItem('muse:lastProject', id);
-      set({ project, agents, workspaces, docs: {}, panes: [], floatingPanels: [], runs: {}, events: [], canon: null, plot: null, sceneBoard: null, references: null, goals: null, progress: null, worldMap: null, worldFocusEntityId: null, plotFocusNodeId: null, sceneFocusId: null, selection: null, error: null });
+      set({ project, agents, workspaces, docs: {}, panes: [], floatingPanels: [], floatingEditorContents: {}, runs: {}, events: [], canon: null, plot: null, sceneBoard: null, references: null, goals: null, progress: null, worldMap: null, worldFocusEntityId: null, plotFocusNodeId: null, sceneFocusId: null, selection: null, error: null });
       const drafting = workspaces.find((w) => w.id === 'drafting') ?? workspaces[0];
       if (drafting) await get().applyWorkspace(drafting.id);
       else {
@@ -212,16 +226,22 @@ export const useStore = create<State>((set, get) => ({
   },
 
   async uploadStoryImage(file) {
+    const session = projectSession;
     const project = get().project;
     if (!project) throw new Error('Open a project before uploading images');
     const { image } = await api.uploadImage(project.id, file);
+    if (get().project !== project || projectSession !== session) throw new Error('Project changed before image upload completed');
     return image;
   },
 
   async loadDoc(docId) {
     const { project, docs } = get();
     if (!project || docs[docId]) return;
+    const session = projectSession;
     const { meta, content } = await api.readDoc(project.id, docId);
+    // Opening a saved desk can mount and request the same document together.
+    // A later read must not overwrite the first loaded/edited draft or cross stories.
+    if (get().project !== project || projectSession !== session || get().docs[docId]) return;
     set({ docs: { ...get().docs, [docId]: { content, dirty: false, title: meta.title } } });
   },
 
@@ -296,9 +316,46 @@ export const useStore = create<State>((set, get) => ({
   resizePane(paneId, width, height) {
     set({
       panes: get().panes.map((p) =>
-        p.id === paneId ? { ...p, size: { width: Math.max(320, width), height: Math.max(200, height) } } : p,
+        p.id === paneId ? p.floating
+          ? { ...p, floating: { ...p.floating, width: Math.max(320, width), height: Math.max(200, height) } }
+          : { ...p, size: { width: Math.max(320, width), height: Math.max(200, height) } } : p,
       ),
     });
+  },
+
+  floatPane(paneId, bounds) {
+    const layer = Math.max(0, ...get().panes.map((pane) => pane.floating?.layer ?? 0));
+    set({ panes: get().panes.map((pane) => pane.id === paneId
+      ? { ...pane, sizeMode: 'normal', floating: { ...bounds, layer: pane.floating?.layer ?? layer + 1 } }
+      : pane) });
+  },
+
+  returnPaneToLayout(paneId) {
+    set({ panes: get().panes.map((pane) => pane.id === paneId ? { ...pane, floating: undefined, sizeMode: 'normal' } : pane) });
+  },
+
+  raisePane(paneId) {
+    const panes = get().panes;
+    const pane = panes.find((item) => item.id === paneId);
+    const layer = Math.max(0, ...panes.map((item) => item.floating?.layer ?? 0));
+    if (!pane?.floating || pane.floating.layer === layer) return;
+    set({ panes: panes.map((item) => item.id === paneId ? { ...item, floating: { ...pane.floating!, layer: layer + 1 } } : item) });
+  },
+
+  tileDocuments() {
+    set({ panes: get().panes.map((pane) => pane.binding?.type === 'document'
+      ? { ...pane, sizeMode: 'normal', floating: undefined }
+      : pane.sizeMode === 'maximized' ? { ...pane, sizeMode: 'normal' } : pane) });
+  },
+
+  restoreDeskPanes(layout) {
+    const s = get();
+    const valid = layout.filter((pane) => !pane.binding || (pane.binding.type === 'document'
+      ? s.project?.documents.some((doc) => doc.id === pane.binding!.id)
+      : s.agents.some((agent) => agent.id === pane.binding!.id)));
+    const panes = reconcileDeskPanes(s.panes, valid, () => `pane-${++paneSeq}-desk`);
+    set({ panes });
+    for (const pane of panes) if (pane.binding?.type === 'document') void get().loadDoc(pane.binding.id);
   },
 
   openFloatingPanel(cfg) {
@@ -337,7 +394,9 @@ export const useStore = create<State>((set, get) => ({
   },
 
   closeFloatingPanel(id) {
-    set({ floatingPanels: get().floatingPanels.filter((p) => p.id !== id) });
+    const contents = { ...get().floatingEditorContents };
+    delete contents[id];
+    set({ floatingPanels: get().floatingPanels.filter((p) => p.id !== id), floatingEditorContents: contents });
   },
 
   dockFloatingPanel(id) {
@@ -362,6 +421,7 @@ export const useStore = create<State>((set, get) => ({
 
   focusFloatingPanel(id) {
     const s = get();
+    if (s.floatingPanels.at(-1)?.id === id) return;
     const panel = s.floatingPanels.find((p) => p.id === id);
     if (!panel) return;
     set({
@@ -482,338 +542,422 @@ export const useStore = create<State>((set, get) => ({
   },
 
   async loadCanon() {
+    const session = projectSession;
     const s = get();
     if (!s.project) return;
     try {
       const { canon } = await api.canon(s.project.id);
+      if (get().project !== s.project || projectSession !== session) return;
       set({ canon });
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return;
       set({ error: `Could not load canon: ${err.message}` });
     }
   },
 
   async createCanonEntity(input) {
+    const session = projectSession;
     const s = get();
     if (!s.project) return null;
     try {
       const { entity } = await api.createCanonEntity(s.project.id, input);
+      if (get().project !== s.project || projectSession !== session) return null;
       const canon = get().canon ?? { version: 1, entities: [], facts: [] };
       set({ canon: { ...canon, entities: [...canon.entities, entity] }, notice: `${entity.name} added to canon.` });
       await get().refreshEvents();
       return entity;
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return null;
       set({ error: err.message });
       return null;
     }
   },
 
   async updateCanonEntity(entityId, patch) {
+    const session = projectSession;
     const s = get();
     if (!s.project) return null;
     try {
       const { entity } = await api.updateCanonEntity(s.project.id, entityId, patch);
+      if (get().project !== s.project || projectSession !== session) return null;
       const canon = get().canon;
       if (canon) set({ canon: { ...canon, entities: canon.entities.map((item) => (item.id === entityId ? entity : item)) }, notice: `${entity.name} updated.` });
       await get().refreshEvents();
       return entity;
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return null;
       set({ error: err.message });
       return null;
     }
   },
 
   async createCanonFact(input) {
+    const session = projectSession;
     const s = get();
     if (!s.project) return null;
     try {
       const { fact } = await api.createCanonFact(s.project.id, input);
+      if (get().project !== s.project || projectSession !== session) return null;
       const canon = get().canon ?? { version: 1, entities: [], facts: [] };
       set({ canon: { ...canon, facts: [...canon.facts, fact] }, notice: 'Fact captured as proposed.' });
       await get().refreshEvents();
       return fact;
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return null;
       set({ error: err.message });
       return null;
     }
   },
 
   async updateCanonFact(factId, patch) {
+    const session = projectSession;
     const s = get();
     if (!s.project) return;
     try {
       const { fact } = await api.updateCanonFact(s.project.id, factId, patch);
+      if (get().project !== s.project || projectSession !== session) return;
       const canon = get().canon;
       if (canon) set({ canon: { ...canon, facts: canon.facts.map((item) => (item.id === factId ? fact : item)) }, notice: `Fact marked ${fact.status}.` });
       await get().refreshEvents();
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return;
       set({ error: err.message });
     }
   },
 
   async loadPlot() {
+    const session = projectSession;
     const s = get();
     if (!s.project) return;
     try {
       const { plot } = await api.plot(s.project.id);
+      if (get().project !== s.project || projectSession !== session) return;
       set({ plot });
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return;
       set({ error: `Could not load plot: ${err.message}` });
     }
   },
 
   async createPlotNode(input) {
+    const session = projectSession;
     const s = get();
     if (!s.project) return null;
     try {
       const { node } = await api.createPlotNode(s.project.id, input);
+      if (get().project !== s.project || projectSession !== session) return null;
       const plot = get().plot ?? { version: 1, nodes: [], edges: [] };
       set({ plot: { ...plot, nodes: [...plot.nodes, node] }, plotFocusNodeId: node.id, notice: `${node.title} added to through-line.` });
       await get().refreshEvents();
       return node;
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return null;
       set({ error: err.message });
       return null;
     }
   },
 
   async updatePlotNode(nodeId, patch) {
+    const session = projectSession;
     const s = get();
     if (!s.project) return null;
     try {
       const { node } = await api.updatePlotNode(s.project.id, nodeId, patch);
+      if (get().project !== s.project || projectSession !== session) return null;
       const plot = get().plot;
       if (plot) set({ plot: { ...plot, nodes: plot.nodes.map((item) => (item.id === nodeId ? node : item)) }, notice: `${node.title} updated.` });
       await get().refreshEvents();
       return node;
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return null;
       set({ error: err.message });
       return null;
     }
   },
 
   async createPlotEdge(input) {
+    const session = projectSession;
     const s = get();
     if (!s.project) return null;
     try {
       const { edge } = await api.createPlotEdge(s.project.id, input);
+      if (get().project !== s.project || projectSession !== session) return null;
       const plot = get().plot ?? { version: 1, nodes: [], edges: [] };
       set({ plot: { ...plot, edges: [...plot.edges, edge] }, notice: `${edge.relation} connection added.` });
       await get().refreshEvents();
       return edge;
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return null;
       set({ error: err.message });
       return null;
     }
   },
 
   async updatePlotEdge(edgeId, patch) {
+    const session = projectSession;
     const s = get();
     if (!s.project) return null;
     try {
       const { edge } = await api.updatePlotEdge(s.project.id, edgeId, patch);
+      if (get().project !== s.project || projectSession !== session) return null;
       const plot = get().plot;
       if (plot) set({ plot: { ...plot, edges: plot.edges.map((item) => (item.id === edgeId ? edge : item)) }, notice: 'Story thread updated.' });
       await get().refreshEvents();
       return edge;
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return null;
       set({ error: err.message });
       return null;
     }
   },
 
   async loadScenes() {
+    const session = projectSession;
     const s = get();
     if (!s.project) return;
     try {
       const { board } = await api.scenes(s.project.id);
+      if (get().project !== s.project || projectSession !== session) return;
       set({ sceneBoard: board });
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return;
       set({ error: `Could not load scenes: ${err.message}` });
     }
   },
 
   async createSceneTheme(input) {
+    const session = projectSession;
     const s = get();
     if (!s.project) return null;
     try {
       const { theme } = await api.createSceneTheme(s.project.id, input);
+      if (get().project !== s.project || projectSession !== session) return null;
       const board = get().sceneBoard ?? { version: 1, themes: [], scenes: [] };
       set({ sceneBoard: { ...board, themes: [...board.themes, theme] }, notice: `${theme.name} added to scene themes.` });
       await get().refreshEvents();
       return theme;
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return null;
       set({ error: err.message });
       return null;
     }
   },
 
   async updateSceneTheme(themeId, patch) {
+    const session = projectSession;
     const s = get();
     if (!s.project) return null;
     try {
       const { theme } = await api.updateSceneTheme(s.project.id, themeId, patch);
+      if (get().project !== s.project || projectSession !== session) return null;
       const board = get().sceneBoard;
       if (board) set({ sceneBoard: { ...board, themes: board.themes.map((item) => (item.id === themeId ? theme : item)) }, notice: `${theme.name} updated.` });
       await get().refreshEvents();
       return theme;
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return null;
       set({ error: err.message });
       return null;
     }
   },
 
   async createScene(input) {
+    const session = projectSession;
     const s = get();
     if (!s.project) return null;
     try {
       const { scene } = await api.createScene(s.project.id, input);
+      if (get().project !== s.project || projectSession !== session) return null;
       const board = get().sceneBoard ?? { version: 1, themes: [], scenes: [] };
       set({ sceneBoard: { ...board, scenes: [...board.scenes, scene].sort((a, b) => a.order - b.order) }, sceneFocusId: scene.id, notice: `${scene.title} added to board.` });
       await get().refreshEvents();
       return scene;
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return null;
       set({ error: err.message });
       return null;
     }
   },
 
   async updateScene(sceneId, patch) {
+    const session = projectSession;
     const s = get();
     if (!s.project) return null;
     try {
       const { scene } = await api.updateScene(s.project.id, sceneId, patch);
+      if (get().project !== s.project || projectSession !== session) return null;
       const board = get().sceneBoard;
       if (board) set({ sceneBoard: { ...board, scenes: board.scenes.map((item) => (item.id === sceneId ? scene : item)).sort((a, b) => a.order - b.order) }, notice: `${scene.title} updated.` });
       await get().refreshEvents();
       return scene;
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return null;
       set({ error: err.message });
       return null;
     }
   },
 
   async loadReferences() {
+    const session = projectSession;
     const s = get();
     if (!s.project) return;
     try {
       const { references } = await api.references(s.project.id);
+      if (get().project !== s.project || projectSession !== session) return;
       set({ references });
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return;
       set({ error: `Could not load references: ${err.message}` });
     }
   },
 
   async createReference(input) {
+    const session = projectSession;
     const s = get();
     if (!s.project) return null;
     try {
       const { reference } = await api.createReference(s.project.id, input);
+      if (get().project !== s.project || projectSession !== session) return null;
       const references = get().references ?? { version: 1, items: [] };
       set({ references: { ...references, items: [...references.items, reference] }, notice: `${reference.title} pinned to references.`, error: null });
       await get().refreshEvents();
       return reference;
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return null;
       set({ error: err.message });
       return null;
     }
   },
 
   async updateReference(referenceId, patch) {
+    const session = projectSession;
     const s = get();
     if (!s.project) return null;
     try {
       const { reference } = await api.updateReference(s.project.id, referenceId, patch);
+      if (get().project !== s.project || projectSession !== session) return null;
       const references = get().references;
       if (references) set({ references: { ...references, items: references.items.map((item) => (item.id === referenceId ? reference : item)) }, notice: `${reference.title} updated.`, error: null });
       await get().refreshEvents();
       return reference;
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return null;
       set({ error: err.message });
       return null;
     }
   },
 
   async deleteReference(referenceId) {
+    const session = projectSession;
     const s = get();
     if (!s.project) return false;
     try {
       const { reference } = await api.deleteReference(s.project.id, referenceId);
+      if (get().project !== s.project || projectSession !== session) return false;
       const references = get().references;
       if (references) set({ references: { ...references, items: references.items.filter((item) => item.id !== referenceId) }, notice: `${reference.title} removed from references.`, error: null });
       await get().refreshEvents();
       return true;
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return false;
       set({ error: err.message });
       return false;
     }
   },
 
   async loadGoals() {
+    const session = projectSession;
     const s = get();
     if (!s.project) return;
     try {
       const { goals } = await api.goals(s.project.id);
+      if (get().project !== s.project || projectSession !== session) return;
       set({ goals });
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return;
       set({ error: `Could not load goals: ${err.message}` });
     }
   },
 
   async updateGoals(patch) {
-    const s = get();
-    if (!s.project) return null;
-    try {
-      const { goals } = await api.updateGoals(s.project.id, patch);
-      set({ goals, notice: 'Writing goals updated.' });
-      await get().refreshEvents();
-      return goals;
-    } catch (err: any) {
-      set({ error: err.message });
-      return null;
-    }
+    const session = projectSession;
+    const project = get().project;
+    if (!project) return null;
+    const prior = goalUpdateQueues.get(session) ?? Promise.resolve();
+    let result: GoalStore | null = null;
+    const operation = prior.catch(() => undefined).then(async () => {
+      if (get().project !== project || projectSession !== session) return;
+      try {
+        const current = get().goals;
+        if (!current) return;
+        const evaluated = typeof patch === 'function' ? patch(current) : patch;
+        const { goals } = await api.updateGoals(project.id, evaluated);
+        if (get().project !== project || projectSession !== session) return;
+        set({ goals, notice: 'Writing goals updated.' });
+        result = goals;
+        await get().refreshEvents();
+      } catch (err: any) {
+        if (get().project === project && projectSession === session) set({ error: err.message });
+      }
+    });
+    goalUpdateQueues.set(session, operation);
+    await operation;
+    if (goalUpdateQueues.get(session) === operation) goalUpdateQueues.delete(session);
+    return result;
   },
 
   async loadWorldMap() {
+    const session = projectSession;
     const s = get();
     if (!s.project) return;
     try {
       const { worldMap } = await api.worldMap(s.project.id);
+      if (get().project !== s.project || projectSession !== session) return;
       set({ worldMap });
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return;
       set({ error: `Could not load world map: ${err.message}` });
     }
   },
 
   async updateWorldMap(patch) {
+    const session = projectSession;
     const s = get();
     if (!s.project) return null;
     try {
       const { worldMap } = await api.updateWorldMap(s.project.id, patch);
+      if (get().project !== s.project || projectSession !== session) return null;
       set({ worldMap });
       await get().refreshEvents();
       return worldMap;
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return null;
       set({ error: err.message });
       return null;
     }
   },
 
   async loadProgress() {
+    const session = projectSession;
     const s = get();
     if (!s.project) return;
     try {
       const { progress } = await api.progress(s.project.id);
+      if (get().project !== s.project || projectSession !== session) return;
       set({ progress });
     } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return;
       set({ error: `Could not load progress: ${err.message}` });
     }
   },
 
   async refreshEvents() {
+    const session = projectSession;
     const s = get();
     if (!s.project) return;
     try {
       const { events } = await api.events(s.project.id, 120);
+      if (get().project !== s.project || projectSession !== session) return;
       set({ events });
     } catch {
       /* the log is a nicety, never a blocker */

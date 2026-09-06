@@ -187,7 +187,11 @@ function Launcher({ card, onClose }: { card: Card; onClose: () => void }) {
   );
 }
 
-export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
+export function Sidebar({ collapsed, onToggleCollapsed, onOpenSettings }: {
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+  onOpenSettings: () => void;
+}) {
   const [open, setOpen] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
   const project = useStore((s) => s.project);
@@ -206,7 +210,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   }, []);
 
   return (
-    <aside className="sidebar" ref={ref}>
+    <aside className={`sidebar ${collapsed ? 'is-collapsed' : ''}`} ref={ref}>
       <div className="brand-row">
         <button className="brand-dot" onClick={() => setMenu((m) => !m)} title="Project menu">
           <Icon.Dots />
@@ -215,23 +219,38 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           <strong>Muse</strong>
           <span>Mobilize</span>
         </div>
+        <button
+          type="button"
+          className="sidebar-toggle"
+          aria-label={collapsed ? 'Expand tool menu' : 'Collapse tool menu'}
+          title={collapsed ? 'Expand tool menu' : 'Collapse tool menu'}
+          aria-expanded={!collapsed}
+          aria-controls="tool-menu-cards"
+          onClick={() => { setOpen(null); onToggleCollapsed(); }}
+        >
+          <span aria-hidden="true">{collapsed ? '›' : '‹'}</span>
+        </button>
       </div>
 
       {menu && (
         <div className="launcher project-menu">
           <div className="launcher-head">Projects</div>
-          {projects.map((p) => (
-            <button
-              key={p.id}
-              className={`launcher-item ${p.id === project?.id ? 'is-current' : ''}`}
-              onClick={() => {
-                void useStore.getState().openProject(p.id);
-                setMenu(false);
-              }}
-            >
-              <span>{p.name}</span>
-            </button>
-          ))}
+          <div className="project-menu-list" role="group" aria-label="Available projects">
+            {projects.map((p) => (
+              <button
+                key={p.id}
+                className={`launcher-item ${p.id === project?.id ? 'is-current' : ''}`}
+                aria-current={p.id === project?.id ? 'page' : undefined}
+                onClick={() => {
+                  const state = useStore.getState();
+                  if (state.project?.id !== p.id) void state.openProject(p.id);
+                  setMenu(false);
+                }}
+              >
+                <span>{p.name}</span>
+              </button>
+            ))}
+          </div>
           <button
             className="launcher-item"
             onClick={() => {
@@ -248,7 +267,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         </div>
       )}
 
-      <div className="cards">
+      <div className="cards" id="tool-menu-cards" hidden={collapsed}>
         {CARDS.map((c) => (
           <div key={c.key} className={`card-slot ${c.wide ? 'wide' : ''}`}>
             <button

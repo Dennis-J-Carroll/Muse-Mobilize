@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { ImageGalleryEditor, StoryImageStrip } from '../components/ImageGalleryEditor';
+import { openFloatingEditor } from '../components/floatingEditors';
 import type {
   CanonEntity, Pane, PlotEdgeRelation, PlotNode, PlotNodeKind, PlotWorldRef, PlotWorldRole, StoryImage,
 } from '../types';
@@ -36,17 +37,18 @@ function nextPoint(nodes: PlotNode[]): Point {
 function PlotDrawer({
   node,
   point,
-  worldEntities,
   onClose,
   onSaved,
 }: {
   node?: PlotNode;
   point: Point;
-  worldEntities: CanonEntity[];
   onClose: () => void;
   onSaved: (node: PlotNode) => void;
 }) {
-  const documents = useStore((s) => s.project?.documents ?? []);
+  const project = useStore((s) => s.project);
+  const canon = useStore((s) => s.canon);
+  const documents = project?.documents ?? [];
+  const worldEntities = useMemo(() => (canon?.entities ?? []).filter((entity) => entity.type !== 'character'), [canon]);
   const [title, setTitle] = useState(node?.title ?? '');
   const [kind, setKind] = useState<PlotNodeKind>(node?.kind ?? 'beat');
   const [section, setSection] = useState(node?.section ?? 'Act I');
@@ -63,10 +65,7 @@ function PlotDrawer({
 
   useEffect(() => {
     titleRef.current?.focus();
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [uploadingImages, onClose]);
+  }, []);
 
   const setDetail = (key: keyof PlotNode['details'], value: string) => setDetails((current) => ({ ...current, [key]: value }));
   const setAnchor = (index: number, patch: Partial<{ entityId: string; role: PlotWorldRole }>) => setAnchors((current) => current.map((anchor, i) => (i === index ? { ...anchor, ...patch } : anchor)));
@@ -86,7 +85,6 @@ function PlotDrawer({
   };
 
   return (
-    <div className="plot-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
       <form className="plot-drawer" onSubmit={save}>
         <header><div><span>Story folio</span><h2>{node ? `Revise ${node.title}` : 'Add plot beat'}</h2></div><button type="button" className="drawer-close" aria-label="Close" onClick={close} disabled={uploadingImages}>×</button></header>
         <div className="drawer-scroll">
@@ -127,7 +125,6 @@ function PlotDrawer({
         </div>
         <footer><button type="button" className="btn" onClick={close} disabled={uploadingImages}>Cancel</button><button className="btn btn-primary" disabled={!title.trim() || uploadingImages}>{uploadingImages ? 'Adding images…' : node ? 'Save folio' : 'Add to through-line'}</button></footer>
       </form>
-    </div>
   );
 }
 
@@ -135,13 +132,13 @@ export function PlotPane({ pane }: { pane: Pane }) {
   const plot = useStore((s) => s.plot);
   const canon = useStore((s) => s.canon);
   const focusNodeId = useStore((s) => s.plotFocusNodeId);
-  const documents = useStore((s) => s.project?.documents ?? []);
+  const project = useStore((s) => s.project);
+  const documents = project?.documents ?? [];
   const agents = useStore((s) => s.agents);
   const [selectedId, setSelectedId] = useState('');
   const [positions, setPositions] = useState<Record<string, Point>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [showWorld, setShowWorld] = useState(false);
-  const [drawer, setDrawer] = useState<{ node?: PlotNode; point: Point } | null>(null);
   const [edgeTarget, setEdgeTarget] = useState('');
   const [edgeRelation, setEdgeRelation] = useState<PlotEdgeRelation>('sequence');
   const [edgeLabel, setEdgeLabel] = useState('');
@@ -149,6 +146,10 @@ export function PlotPane({ pane }: { pane: Pane }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; clientX: number; clientY: number; origin: Point } | null>(null);
   const initializedSelection = useRef(false);
+  const openDrawer = (point: Point, node?: PlotNode) => openFloatingEditor({
+    id: `plot:${node?.id ?? 'new'}`, paneType: 'plot', title: node ? `Revise ${node.title}` : 'Add plot beat', width: 610,
+    render: (close) => <PlotDrawer node={node} point={point} onClose={close} onSaved={(saved) => { setSelectedId(saved.id); setExpanded((current) => new Set(current).add(saved.id)); close(); }} />,
+  });
 
   useEffect(() => { void Promise.all([useStore.getState().loadPlot(), useStore.getState().loadCanon()]); }, []);
 
@@ -266,7 +267,7 @@ export function PlotPane({ pane }: { pane: Pane }) {
         <div className="plot-heading"><span>Story current</span><h2>{useStore.getState().project?.name ?? 'Plot outline'}</h2></div>
         <div className="plot-count"><b>{nodes.length}</b><span>{nodes.length === 1 ? 'beat' : 'beats'}</span><i /> <b>{edges.length}</b><span>threads</span></div>
         <button className={`plot-world-toggle ${showWorld ? 'is-on' : ''}`} aria-pressed={showWorld} onClick={() => setShowWorld((value) => !value)}><i>⌖</i> World pins</button>
-        <button className="btn" onClick={() => setDrawer({ point: nextPoint(nodes) })}>+ Add beat</button>
+        <button className="btn" onClick={() => openDrawer(nextPoint(nodes))}>+ Add beat</button>
       </header>
 
       <div className="plot-scroll" ref={scrollRef}>
@@ -307,7 +308,7 @@ export function PlotPane({ pane }: { pane: Pane }) {
             </article>;
           })}
 
-          {!nodes.length && <div className="plot-empty"><span><i /></span><h3>Through-line begins here</h3><p>Add first beat, then branch when story demands another path.</p><button className="btn" onClick={() => setDrawer({ point: { x: 180, y: 280 } })}>Add opening beat</button></div>}
+          {!nodes.length && <div className="plot-empty"><span><i /></span><h3>Through-line begins here</h3><p>Add first beat, then branch when story demands another path.</p><button className="btn" onClick={() => openDrawer({ x: 180, y: 280 })}>Add opening beat</button></div>}
         </div>
       </div>
 
@@ -322,10 +323,9 @@ export function PlotPane({ pane }: { pane: Pane }) {
           <section className="plot-connections"><h3>Story threads <span>{selectedEdges.length}</span></h3>{selectedEdges.length ? selectedEdges.map((edge) => { const outward = edge.from === selected.id; const other = nodes.find((node) => node.id === (outward ? edge.to : edge.from)); const editing = edgeEdit?.id === edge.id; return <div className={`plot-connection-row ${editing ? 'is-editing' : ''}`} key={edge.id}><button className="plot-connection-jump" onClick={() => { if (other) { setSelectedId(other.id); centerNode(other.id); } }}><i className={`relation-${edge.relation}`} /><span>{outward ? 'to' : 'from'} · {edge.relation}</span><strong>{other?.title ?? 'Missing beat'}</strong><em>{edge.label || 'No path text'}</em></button><button className="plot-connection-edit" aria-label={`Edit thread to ${other?.title ?? 'missing beat'}`} onClick={() => setEdgeEdit({ id: edge.id, relation: edge.relation, label: edge.label })}>{editing ? 'Editing' : 'Edit text'}</button>{editing && <form className="plot-edge-edit" onSubmit={saveEdge}><select aria-label="Thread type" value={edgeEdit.relation} onChange={(event) => setEdgeEdit({ ...edgeEdit, relation: event.target.value as PlotEdgeRelation })}>{EDGE_RELATIONS.map((relation) => <option key={relation} value={relation}>{relation}</option>)}</select><input aria-label="Thread text" autoFocus value={edgeEdit.label} onChange={(event) => setEdgeEdit({ ...edgeEdit, label: event.target.value })} placeholder="e.g. quiet path" /><div><button type="button" className="linkish" onClick={() => setEdgeEdit(null)}>Cancel</button><button className="btn btn-primary">Save thread</button></div></form>}</div>; }) : <p>No connected beats yet.</p>}</section>
           {nodes.length > 1 && <form className="plot-connect" onSubmit={connect}><h3>Draw story thread</h3><select aria-label="Connection type" value={edgeRelation} onChange={(event) => setEdgeRelation(event.target.value as PlotEdgeRelation)}>{EDGE_RELATIONS.map((relation) => <option key={relation} value={relation}>{relation}</option>)}</select><select aria-label="Connection target" value={edgeTarget} onChange={(event) => setEdgeTarget(event.target.value)}><option value="">Choose next beat</option>{nodes.filter((node) => node.id !== selected.id).map((node) => <option key={node.id} value={node.id}>{node.title}</option>)}</select><input aria-label="Connection label" value={edgeLabel} onChange={(event) => setEdgeLabel(event.target.value)} placeholder="optional path label" /><button className="btn" disabled={!edgeTarget}>Connect</button></form>}
         </div>
-        <footer>{selected.documentId && documents.some((document) => document.id === selected.documentId) && <button className="btn" onClick={() => openDocument(selected.documentId!)}>Open bound page</button>}<button className="btn" onClick={() => setDrawer({ node: selected, point: selected.position })}>Edit folio</button>{agents.some((agent) => agent.id === 'architect') && <button className="linkish" onClick={openArchitect}>ask Architect</button>}</footer>
+        <footer>{selected.documentId && documents.some((document) => document.id === selected.documentId) && <button className="btn" onClick={() => openDocument(selected.documentId!)}>Open bound page</button>}<button className="btn" onClick={() => openDrawer(selected.position, selected)}>Edit folio</button>{agents.some((agent) => agent.id === 'architect') && <button className="linkish" onClick={openArchitect}>ask Architect</button>}</footer>
       </aside>}
 
-      {drawer && <PlotDrawer node={drawer.node} point={drawer.point} worldEntities={worldEntities} onClose={() => setDrawer(null)} onSaved={(node) => { setSelectedId(node.id); setExpanded((current) => new Set(current).add(node.id)); setDrawer(null); }} />}
     </div>
   );
 }

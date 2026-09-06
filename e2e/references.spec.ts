@@ -65,7 +65,7 @@ test('overlapping chooser and drop batches preserve edits and both images', asyn
   await expect(page.getByLabel('Caption for reference image 2')).toBeVisible();
 });
 
-test('mixed uploads preserve valid images and block closing until upload completes', async ({ page, projectId }) => {
+test('mixed uploads preserve valid images while docked and block discarding until upload completes', async ({ page, projectId }) => {
   await openTool(page, 'References');
   await page.getByRole('button', { name: '+ Pin reference', exact: true }).click();
   await page.getByLabel('Title', { exact: true }).fill('Mixed image batch');
@@ -86,12 +86,15 @@ test('mixed uploads preserve valid images and block closing until upload complet
     await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Close reference editor', exact: true })).toBeDisabled();
     await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: 'Recall Pin reference', exact: true })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Pin reference', exact: true })).toBeHidden();
     await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Mixed image batch');
   } finally {
     release();
   }
   await expect(page.getByRole('alert')).toContainText('3 images skipped:');
   await expect(page.getByRole('alert')).toContainText('file contents do not match image type');
+  await page.getByRole('button', { name: 'Recall Pin reference', exact: true }).click();
   await expect(page.getByLabel('Caption for reference image 1')).toBeVisible();
   await expect(page.getByLabel('Caption for reference image 2')).toHaveCount(0);
   await page.getByRole('button', { name: 'Pin to board', exact: true }).click();

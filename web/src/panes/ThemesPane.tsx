@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
+import { openFloatingEditor } from '../components/floatingEditors';
 import type { Scene, SceneTheme, ThemeOccurrence } from '../types';
 
 const OCCURRENCES: ThemeOccurrence[] = ['appears', 'echoes', 'fades', 'resolves'];
@@ -50,12 +51,7 @@ function ThemeDrawer({ theme, onClose }: { theme?: SceneTheme; onClose: () => vo
 
   useEffect(() => {
     first.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !saving) onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, saving]);
+  }, []);
 
   const set = (key: keyof ThemeDraft, value: string) => setDraft((current) => ({ ...current, [key]: value }));
   const save = async (event: React.FormEvent) => {
@@ -87,10 +83,9 @@ function ThemeDrawer({ theme, onClose }: { theme?: SceneTheme; onClose: () => vo
   };
 
   return (
-    <div className="story-drawer-backdrop theme-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose(); }}>
-      <form className="story-drawer theme-drawer" role="dialog" aria-modal="true" aria-labelledby="theme-drawer-title" onSubmit={save}>
+      <form className="story-drawer theme-drawer" onSubmit={save}>
         <header>
-          <div><span>Theme folio</span><h2 id="theme-drawer-title">{theme ? `Revise ${theme.name}` : createdId ? 'Finish new theme' : 'Add theme'}</h2></div>
+          <div><span>Theme folio</span><h2>{theme ? `Revise ${theme.name}` : createdId ? 'Finish new theme' : 'Add theme'}</h2></div>
           <button type="button" aria-label="Close theme editor" disabled={saving} onClick={onClose}>×</button>
         </header>
         <div className="story-drawer-scroll">
@@ -107,15 +102,14 @@ function ThemeDrawer({ theme, onClose }: { theme?: SceneTheme; onClose: () => vo
           <button className="btn btn-primary" disabled={!draft.name.trim() || saving}>{saving ? 'Saving…' : theme || createdId ? 'Save theme' : 'Add to map'}</button>
         </footer>
       </form>
-    </div>
   );
 }
 
 export function ThemesPane() {
   const board = useStore((state) => state.sceneBoard);
   const project = useStore((state) => state.project);
-  const [drawer, setDrawer] = useState<SceneTheme | 'new' | null>(null);
   const [savingCells, setSavingCells] = useState<Set<string>>(new Set());
+  const openDrawer = (theme?: SceneTheme) => openFloatingEditor({ id: `themes:${theme?.id ?? 'new'}`, paneType: 'themes', title: theme ? `Revise ${theme.name}` : 'Add theme', width: 680, render: (close) => <ThemeDrawer theme={theme} onClose={close} /> });
 
   useEffect(() => { void useStore.getState().loadScenes(); }, []);
 
@@ -150,7 +144,7 @@ export function ThemesPane() {
       <header className="story-toolbar theme-toolbar">
         <div><span>Motif current</span><h2>{project?.name ?? 'Theme threads'}</h2></div>
         <p><b>{themes.length}</b> themes · <b>{occurrenceCount}</b> scene marks</p>
-        <button type="button" className="btn btn-primary" onClick={() => setDrawer('new')}>+ Add theme</button>
+        <button type="button" className="btn btn-primary" onClick={() => openDrawer()}>+ Add theme</button>
       </header>
 
       <section className="theme-map-intro" aria-label="Thread map key">
@@ -163,7 +157,7 @@ export function ThemesPane() {
 
       <main className="theme-map-scroll">
         {!themes.length && (
-          <div className="story-empty theme-empty"><span>◇</span><h3>No thread on map</h3><p>Add first theme, then mark where it appears, echoes, fades, and resolves.</p><button type="button" className="btn btn-primary" onClick={() => setDrawer('new')}>Add first theme</button></div>
+          <div className="story-empty theme-empty"><span>◇</span><h3>No thread on map</h3><p>Add first theme, then mark where it appears, echoes, fades, and resolves.</p><button type="button" className="btn btn-primary" onClick={() => openDrawer()}>Add first theme</button></div>
         )}
         {themes.length > 0 && !scenes.length && (
           <div className="story-empty theme-empty compact"><h3>No scenes to cross</h3><p>Create scenes in Scene Board; they become columns here in story order.</p></div>
@@ -173,7 +167,7 @@ export function ThemesPane() {
             <caption>Theme occurrences across scenes in story order</caption>
             <thead><tr><th scope="col" className="theme-corner"><span>Theme</span><small>motif / question</small></th>{scenes.map((scene, index) => <th scope="col" className="theme-scene-head" key={scene.id}><small>{String(index + 1).padStart(2, '0')} · {scene.section || 'Unsectioned'}</small><span>{scene.title}</span></th>)}</tr></thead>
             <tbody>{themes.map((theme) => <tr key={theme.id}>
-              <th scope="row" className="theme-identity"><button type="button" aria-label={`Edit theme ${theme.name}`} onClick={() => setDrawer(theme)}><strong>{theme.name}</strong>{theme.motif && <span>{theme.motif}</span>}{theme.question && <small>{theme.question}</small>}{!theme.motif && !theme.question && <small>Add motif or question</small>}</button></th>
+              <th scope="row" className="theme-identity"><button type="button" aria-label={`Edit theme ${theme.name}`} onClick={() => openDrawer(theme)}><strong>{theme.name}</strong>{theme.motif && <span>{theme.motif}</span>}{theme.question && <small>{theme.question}</small>}{!theme.motif && !theme.question && <small>Add motif or question</small>}</button></th>
               {scenes.map((scene) => {
                 const current = occurrenceFor(scene, theme.id);
                 const next = nextOccurrence(current);
@@ -187,7 +181,6 @@ export function ThemesPane() {
         )}
       </main>
 
-      {drawer && <ThemeDrawer theme={drawer === 'new' ? undefined : drawer} onClose={() => setDrawer(null)} />}
     </div>
   );
 }

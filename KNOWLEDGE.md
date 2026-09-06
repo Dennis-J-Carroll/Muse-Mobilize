@@ -1,6 +1,118 @@
 # Muse-Mobilize Knowledge & Continuation Log
 
-Last updated: 2026-09-05, adding the world map atlas background.
+Last updated: 2026-09-06, adding draggable windows, Workbench, saved visual desks, and manuscript fonts.
+
+## Personal desks, window movement, and typography — 2026-09-06
+
+Dennis requested dragging for every workspace window, document tile templates,
+an optional right-edge Workbench, Times New Roman and fonts from a Typemade
+reference. His follow-up clarified personal desk setups: click a visual preview
+to restore cards in their chosen arrangement.
+
+- Every workspace header now has a pointer/keyboard move grip. Floating bounds
+  remain separate from original tile sizes; Return to layout restores the slot.
+  Movement, resize, minimize/maximize, and writing Focus preserve mounted tools.
+- Documents picker opens existing project pages. Columns, Rows, and Grid tile
+  open documents; Workspace restores their original regions. Phone tiles stack.
+- Workbench parks companion tools and exposes all story tools and agents as
+  right-edge launch tabs. Tools still opens Tabs/Stack. Entity-editor recall
+  occupies a separate lower rail; focus mode hides both layers temporarily.
+- Desks saves up to twelve named, clickable layout previews per project/browser.
+  It remembers card order, regions, bounds, floating layers, parked/maximized
+  state, tile/Workbench settings, sidebar, splits, and manuscript appearance.
+  Restoring matches existing pane identities; extra live cards park safely.
+  Previews contain titles/geometry, not prose. No draft text is serialized.
+- Added Inter, Times New Roman (installed/system fallback), Antic, Antic Didone,
+  Italiana, Josefin Sans, and Josefin Slab choices. Open fonts are self-hosted;
+  license notices ship in web/public/font-licenses. Static faces use Regular,
+  variable faces retain Light 350 / Regular 400. Other tools keep their font.
+- Regression-first fixes cover keyboard focus lost during host reparenting,
+  preview painter order hiding floating cards, and late document reads that
+  could overwrite newer writing or enter a different project/session.
+
+Final verification: **42/42 Chromium scenarios**, **25 web helper tests**,
+**13 server test files**, production build, server/e2e typechecks, and diff
+check pass. Desktop/phone screenshots reviewed. Existing upload → save → reload,
+Themes, References, Goals, Progress, and floating-editor coverage remain green.
+
+Details: `docs/workbench-desks-and-typography-2026-09-06.md`. Desks remain local
+to this browser, not cloud-synced backups. Entity-editor drafts/positions are
+left untouched when switching desks but are not part of saved desk records.
+Save unfinished edits before reload. Native touch/keyboards and long-session
+comfort still need user acceptance. Implementation is tracked on
+`codex/floating-editor-integration`; unrelated work and Claude's tree preserved.
+Dennis authorized the implementation commit after this verification gate.
+
+## Writing page and shared tool drawer — 2026-09-06
+
+Dennis requested a distinct optional manuscript surface, light sans typography,
+viewport-filling focus with Escape restoration, and approved a shared right-side
+drawer with Tabs/Stack views alongside existing floating-editor recall tabs.
+
+- Manuscript-only Glass/Paper and Light/Regular sans controls use bundled Inter
+  Variable (350/400). Appearance persists locally without changing other tools,
+  notes typography, or manuscript content. Paper uses a quieter warm surface
+  and a roughly 68-character measure.
+- Focus fills the app viewport, hides workspace chrome and floating editors,
+  and suspends their recall shortcuts. Escape restores previous sidebar,
+  pane sizes, maximized arrangement, and open drawer. Browser/OS chrome stays.
+- Minimized workspace panes now live in one right-side tool drawer. Tabs shows
+  one tool; Stack shows a scrollable set. View preference persists per project
+  and workspace. Restoring returns a pane to its original region and order.
+- Stable portal hosts preserve unsent questions and tool state through
+  minimize/maximize/restore and drawer changes. Focus also works from a parked
+  manuscript and returns it to the open drawer without discarding edits.
+- Full-suite trace exposed a separate same-project navigation race: the menu
+  reopened an already-current story, replacing panes after typing began. The
+  menu now closes without reloading when that story is already selected.
+
+Verification: **35/35 Chromium scenarios pass**, including seven new writing,
+drawer, and project-navigation scenarios. Navigation/drawer regressions also
+passed three consecutive runs (**12/12**). **13 server test files**, **18 web
+helper tests**, production build, server/e2e typechecks, and diff check pass.
+Desktop and 390px phone screenshots were reviewed; native mobile keyboard/touch
+acceptance remains. Tests use disposable projects and mock providers.
+
+Details and limits: `docs/writing-focus-and-tool-drawer-2026-09-06.md`.
+Changes remain uncommitted on `codex/floating-editor-integration`; existing
+Claude worktree and unrelated files are preserved. Save before refreshing the
+live preview at `http://localhost:5177/`. Unsaved tool forms remain session-only.
+
+## Floating editors, collapse, and integration acceptance — 2026-09-05
+
+Claude's stopped foundation was fast-forwarded through `f5a5d81` with Dennis's
+approval. Integration continues on `codex/floating-editor-integration`; new
+changes are uncommitted, and Claude's worktree plus `.claude/` and `notes/`
+remain untouched. See `docs/floating-editors-2026-09-05.md` for controls,
+architecture, tests, and known limitations.
+
+- All seven story editors now float, move, collapse into recall tabs, and keep
+  independent drafts through tool/layout switches. Alt+1–9 recalls docked
+  editors; Escape docks without discarding. App-root ownership is necessary:
+  pane-local portals still lose state when their parent pane unmounts.
+- Tool sidebar and Scenes Story material collapse independently; normal panes
+  support pointer/keyboard resize. Pearl-blue/sand sheen adds material depth
+  while preserving the palette, Inter typography, and readable manuscript.
+- Regressions exposed and fixed stale milestone-save overwrites, late responses
+  entering another project's client state, milestone reorder undone by old
+  order values, narrow map fitting blocked by a minimum zoom, and Settings
+  pushed below long project lists. Upload tests now validate docking rather
+  than the superseded Escape-to-close behavior.
+- Full gate: `npm run test:browser` **28/28 Chromium scenarios pass**;
+  `npm test` **13 server test files pass**; direct web helper invocation
+  **18/18 tests pass**; `npm run build`, server/e2e TypeScript checks, and
+  `git diff --check` pass. Scoped independent fix review reports no new issue.
+- Tests use disposable projects and mock providers, never the live manuscript.
+  Desktop and phone captures support visual review. Native mobile keyboards,
+  touch dragging, and extended writing sessions still need user acceptance.
+- Unsaved floating drafts/positions remain session-only: save before reload or
+  project switch. Minor deferred polish: a pending counter would make inline
+  Goals busy indication exact during overlapping queued route operations;
+  serialized writes already preserve the data.
+
+Handoff: `/tmp/MUSE_MOBILIZE_FLOATING_HANDOFF_2026-09-05.md`.
+Next-session prompt: `/tmp/MUSE_MOBILIZE_FLOATING_NEXT_SESSION_PROMPT.md`.
+Preview: `http://localhost:5177/`; save before refreshing the existing tab.
 
 ## Atlas background for the World map — 2026-09-05
 
@@ -152,12 +264,12 @@ a patch whose `beforeText` no longer matches the document surfaces
 
 ## Current goal
 
-Characters, World Building, Plot Outline, Scenes, Dialogue, Themes, References, Goals, Progress, managed story images, hosted provider fast lane, and one-click local model setup are implemented. Automated acceptance now covers uploads and all four new story-system surfaces. Reference deletion with cross-store managed-image garbage collection exists. Unresolved revision persistence (dismiss + accept-with-recovered-body) exists. Sidebar collapse and focus modes remain open — likely next.
+Characters, World Building, Plot Outline, Scenes, Dialogue, Themes, References, Goals, Progress, managed story images, hosted provider fast lane, and one-click local model setup are implemented. Automated acceptance covers uploads and all four story-system surfaces. Reference deletion with cross-store managed-image garbage collection and unresolved revision recovery exist. Sidebar collapse, independent floating editor recall, pane resize, and world atlas backgrounds are now implemented. Next: Dennis's real-writing acceptance feedback and native mobile checks.
 
 ## Repository state
 
 - Project path: `/home/dennisjcarroll/Desktop/creative/Muse-Mobilize`
-- Git boundary: isolated repository on branch `main`.
+- Git boundary: isolated repository on branch `codex/floating-editor-integration`.
 - Baseline commit: `ccbb660` (`chore: establish Muse-Mobilize baseline`).
 - Parent `creative` repository no longer determines project history.
 - Product/architecture source: `muse-mobilize-handoff/MUSE_MOBILIZE_HANDOFF.md`

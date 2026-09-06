@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { ImageGalleryEditor, StoryImageStrip } from '../components/ImageGalleryEditor';
+import { openFloatingEditor } from '../components/floatingEditors';
 import type {
   CanonEntity,
   CanonStatus,
@@ -173,12 +174,6 @@ function Drawer({ entity, draft, setDraft, onClose, onSave }: {
     first.current?.focus();
   }, []);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [saving, uploadingImages, onClose]);
-
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!draft.name.trim() || saving || uploadingImages) return;
@@ -187,7 +182,6 @@ function Drawer({ entity, draft, setDraft, onClose, onSave }: {
   };
 
   return (
-    <div className="character-drawer-backdrop" onMouseDown={(e) => { if (e.currentTarget === e.target) close(); }}>
       <form className="character-drawer" onSubmit={save}>
         <header>
           <div><span>{entity ? 'Revise dossier' : 'Bring someone into the story'}</span><h2>{entity?.name ?? 'New character'}</h2></div>
@@ -236,8 +230,19 @@ function Drawer({ entity, draft, setDraft, onClose, onSave }: {
         </div>
         <footer><button type="button" className="btn" onClick={close} disabled={saving || uploadingImages}>Cancel</button><button className="btn btn-primary" disabled={!draft.name.trim() || saving || uploadingImages}>{uploadingImages ? 'Adding images…' : saving ? 'Saving…' : entity ? 'Save changes' : 'Add to cast'}</button></footer>
       </form>
-    </div>
   );
+}
+
+function CharacterEditor({ entity, onClose, onSaved }: { entity?: CanonEntity; onClose: () => void; onSaved: (entity: CanonEntity) => void }) {
+  const [draft, setDraft] = useState<CharacterDraft>(() => draftFrom(entity));
+  const save = async () => {
+    const profile = profileFrom(draft);
+    const saved = entity
+      ? await useStore.getState().updateCanonEntity(entity.id, { name: draft.name.trim(), aliases: list(draft.aliases), summary: draft.summary.trim(), character: profile })
+      : await useStore.getState().createCanonEntity({ type: 'character', name: draft.name.trim(), aliases: list(draft.aliases), summary: draft.summary.trim(), character: profile });
+    if (saved) { onSaved(saved); onClose(); }
+  };
+  return <Drawer entity={entity} draft={draft} setDraft={setDraft} onClose={onClose} onSave={save} />;
 }
 
 export function CharactersPane({ pane }: { pane: Pane }) {
@@ -245,8 +250,6 @@ export function CharactersPane({ pane }: { pane: Pane }) {
   const agents = useStore((s) => s.agents);
   const [selectedId, setSelectedId] = useState('');
   const [filter, setFilter] = useState('all');
-  const [drawerEntity, setDrawerEntity] = useState<CanonEntity | null | undefined>(undefined);
-  const [draft, setDraft] = useState<CharacterDraft>(blankDraft);
 
   useEffect(() => { void useStore.getState().loadCanon(); }, []);
   const characters = useMemo(() => (canon?.entities ?? []).filter((entity) => entity.type === 'character'), [canon]);
@@ -265,29 +268,8 @@ export function CharactersPane({ pane }: { pane: Pane }) {
   const image = profile.references.images[0];
 
   const openDrawer = (entity?: CanonEntity) => {
-    setDraft(draftFrom(entity));
-    setDrawerEntity(entity ?? null);
-  };
-  const closeDrawer = () => setDrawerEntity(undefined);
-  const save = async () => {
-    const profile = profileFrom(draft);
-    if (drawerEntity) {
-      const updated = await useStore.getState().updateCanonEntity(drawerEntity.id, {
-        name: draft.name.trim(), aliases: list(draft.aliases), summary: draft.summary.trim(), character: profile,
-      });
-      if (updated) {
-        setSelectedId(updated.id);
-        closeDrawer();
-      }
-    } else {
-      const created = await useStore.getState().createCanonEntity({
-        type: 'character', name: draft.name.trim(), aliases: list(draft.aliases), summary: draft.summary.trim(), character: profile,
-      });
-      if (created) {
-        setSelectedId(created.id);
-        closeDrawer();
-      }
-    }
+    openFloatingEditor({ id: `characters:${entity?.id ?? 'new'}`, paneType: 'characters', title: entity ? `Revise ${entity.name}` : 'New character', width: 620,
+      render: (close) => <CharacterEditor entity={entity} onClose={close} onSaved={(saved) => setSelectedId(saved.id)} /> });
   };
 
   if (!canon) return <div className="pane-body pane-loading">Gathering cast…</div>;
@@ -355,7 +337,6 @@ export function CharactersPane({ pane }: { pane: Pane }) {
         </div>
       )}
 
-      {drawerEntity !== undefined && <Drawer entity={drawerEntity ?? undefined} draft={draft} setDraft={setDraft} onClose={closeDrawer} onSave={save} />}
     </div>
   );
 }

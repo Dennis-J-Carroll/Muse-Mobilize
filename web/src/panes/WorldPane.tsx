@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { ImageGalleryEditor, StoryImageStrip } from '../components/ImageGalleryEditor';
 import { preflightImageFiles } from '../components/ImageGalleryEditor';
+import { openFloatingEditor } from '../components/floatingEditors';
 import type { CanonEntity, CanonEntityType, CanonFact, Pane, StoryImage, WorldProfile } from '../types';
 
 type Point = { x: number; y: number };
@@ -64,7 +65,8 @@ function WorldDrawer({
   onClose: () => void;
   onSaved: (entity: CanonEntity) => void;
 }) {
-  const documents = useStore((s) => s.project?.documents ?? []);
+  const project = useStore((s) => s.project);
+  const documents = project?.documents ?? [];
   const [name, setName] = useState(entity?.name ?? '');
   const [type, setType] = useState<CanonEntityType>(entity?.type ?? 'location');
   const [aliases, setAliases] = useState(entity?.aliases.join(', ') ?? '');
@@ -81,12 +83,7 @@ function WorldDrawer({
 
   useEffect(() => {
     nameRef.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [uploadingImages, onClose]);
+  }, []);
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -115,7 +112,6 @@ function WorldDrawer({
   const loreDocuments = documents.filter((document) => document.kind === 'canon' || document.kind === 'notes');
 
   return (
-    <div className="world-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
       <form className="world-drawer" onSubmit={save}>
         <header>
           <div><span>Atlas entry</span><h2>{entity ? `Edit ${entity.name}` : 'Place a landmark'}</h2></div>
@@ -159,7 +155,6 @@ function WorldDrawer({
         </div>
         <footer><button type="button" className="btn" onClick={close} disabled={uploadingImages}>Cancel</button><button className="btn btn-primary" disabled={!name.trim() || uploadingImages}>{uploadingImages ? 'Adding images…' : entity ? 'Save landmark' : 'Place landmark'}</button></footer>
       </form>
-    </div>
   );
 }
 
@@ -168,13 +163,13 @@ export function WorldPane({ pane }: { pane: Pane }) {
   const plot = useStore((s) => s.plot);
   const worldMap = useStore((s) => s.worldMap);
   const focusEntityId = useStore((s) => s.worldFocusEntityId);
-  const documents = useStore((s) => s.project?.documents ?? []);
+  const project = useStore((s) => s.project);
+  const documents = project?.documents ?? [];
   const [mode, setMode] = useState<WorldMode>('canvas');
   const [filter, setFilter] = useState<string>('all');
   const [selectedId, setSelectedId] = useState('');
   const [positions, setPositions] = useState<Record<string, Point>>({});
   const [view, setView] = useState<View>({ x: 85, y: 82, scale: 1 });
-  const [drawer, setDrawer] = useState<{ entity?: CanonEntity; point: Point } | null>(null);
   const [relationship, setRelationship] = useState('');
   const [targetId, setTargetId] = useState('');
   const [panning, setPanning] = useState(false);
@@ -187,6 +182,10 @@ export function WorldPane({ pane }: { pane: Pane }) {
   const panRef = useRef<{ pointerId: number; clientX: number; clientY: number; origin: View } | null>(null);
   const dragRef = useRef<{ id: string; clientX: number; clientY: number; origin: Point; scale: number } | null>(null);
   const initializedSelection = useRef(false);
+  const openDrawer = (point: Point, entity?: CanonEntity) => openFloatingEditor({
+    id: `world:${entity?.id ?? 'new'}`, paneType: 'world', title: entity ? `Edit ${entity.name}` : 'Place a landmark', width: 560,
+    render: (close) => <WorldDrawer entity={entity} point={point} onClose={close} onSaved={(saved) => { setSelectedId(saved.id); close(); }} />,
+  });
 
   useEffect(() => {
     void Promise.all([useStore.getState().loadCanon(), useStore.getState().loadPlot(), useStore.getState().loadWorldMap()]);
@@ -367,10 +366,14 @@ export function WorldPane({ pane }: { pane: Pane }) {
     const maxX = Math.max(...points.map((point) => point.x));
     const minY = Math.min(...points.map((point) => point.y));
     const maxY = Math.max(...points.map((point) => point.y));
-    const scale = Math.max(.45, Math.min(1.35, (rect.width - 300) / Math.max(260, maxX - minX), (rect.height - 180) / Math.max(180, maxY - minY)));
+    const paddingX = mapBounds.length ? 24 : Math.min(150, rect.width * .15);
+    const paddingY = mapBounds.length ? 24 : Math.min(90, rect.height * .15);
+    const scale = Math.max(.001, Math.min(1.35,
+      Math.max(1, rect.width - paddingX * 2) / Math.max(260, maxX - minX),
+      Math.max(1, rect.height - paddingY * 2) / Math.max(180, maxY - minY)));
     setView({
       scale,
-      x: rect.width / 2 - ((minX + maxX) / 2) * scale - (selected ? 90 : 0),
+      x: rect.width / 2 - ((minX + maxX) / 2) * scale,
       y: rect.height / 2 - ((minY + maxY) / 2) * scale,
     });
   };
@@ -378,7 +381,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
   const zoom = (factor: number) => {
     const rect = viewportRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const nextScale = Math.max(.4, Math.min(2, view.scale * factor));
+    const nextScale = Math.max(.001, Math.min(2, view.scale * factor));
     const cx = rect.width / 2;
     const cy = rect.height / 2;
     const worldX = (cx - view.x) / view.scale;
@@ -422,7 +425,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
           <button className={mode === 'pages' ? 'is-on' : ''} aria-pressed={mode === 'pages'} onClick={() => setMode('pages')}>Pages</button>
         </div>
         <label className="world-filter">Show<select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">Everything</option>{WORLD_TYPES.map((type) => <option key={type} value={type}>{TYPE_LABEL[type]}</option>)}</select></label>
-        <button className="btn world-add" onClick={() => setDrawer({ point: placePoint() })}>+ Place landmark</button>
+        <button className="btn world-add" onClick={() => openDrawer(placePoint())}>+ Place landmark</button>
       </header>
 
       {mode === 'canvas' ? (
@@ -450,7 +453,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
           onWheel={(event) => {
             event.preventDefault();
             const rect = event.currentTarget.getBoundingClientRect();
-            const nextScale = Math.max(.4, Math.min(2, view.scale * (event.deltaY > 0 ? .9 : 1.1)));
+            const nextScale = Math.max(.001, Math.min(2, view.scale * (event.deltaY > 0 ? .9 : 1.1)));
             const mouseX = event.clientX - rect.left;
             const mouseY = event.clientY - rect.top;
             const worldX = (mouseX - view.x) / view.scale;
@@ -459,7 +462,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
           }}
           onDoubleClick={(event) => {
             if ((event.target as Element).closest('.world-node, .world-inspector, .world-nav, .world-map-panel')) return;
-            setDrawer({ point: placePoint(event.clientX, event.clientY) });
+            openDrawer(placePoint(event.clientX, event.clientY));
           }}
         >
           <div className="world-space" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}>
@@ -511,7 +514,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
             })}
           </div>
 
-          {!visible.length && <div className="world-empty"><span className="world-empty-compass">N<i /></span><h3>No landmarks placed</h3><p>Double-click open ground or place first location.</p><button className="btn" onClick={() => setDrawer({ point: placePoint() })}>Place first landmark</button></div>}
+          {!visible.length && <div className="world-empty"><span className="world-empty-compass">N<i /></span><h3>No landmarks placed</h3><p>Double-click open ground or place first location.</p><button className="btn" onClick={() => openDrawer(placePoint())}>Place first landmark</button></div>}
 
           <nav className="world-nav" aria-label="Canvas controls">
             <button onClick={() => zoom(1.15)} aria-label="Zoom in">+</button>
@@ -592,7 +595,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
               </div>
               <footer>
                 {selected.world?.referenceDocumentId && documents.some((document) => document.id === selected.world?.referenceDocumentId) && <button className="btn" onClick={() => openDocument(selected.world!.referenceDocumentId!)}>Open lore page</button>}
-                <button className="btn" onClick={() => setDrawer({ entity: selected, point: positions[selected.id] ?? fallbackPoint(0) })}>Edit landmark</button>
+                <button className="btn" onClick={() => openDrawer(positions[selected.id] ?? fallbackPoint(0), selected)}>Edit landmark</button>
                 <button className="linkish" onClick={openCanon}>canon trail</button>
               </footer>
             </aside>
@@ -607,13 +610,12 @@ export function WorldPane({ pane }: { pane: Pane }) {
             {visible.map((entity) => {
               const related = links.filter((link) => link.source.id === entity.id || link.target.id === entity.id);
               const cover = entity.world?.images?.[0];
-              return <article key={entity.id} className={`world-page-entry type-${entity.type}`}><div className={`world-page-mark ${cover ? 'has-image' : ''}`}>{cover ? <img src={cover.src} alt="" /> : TYPE_GLYPH[entity.type]}<small>{TYPE_LABEL[entity.type]}</small></div><div><span>{entity.world?.attributes.era || 'Era unmarked'}</span><h2>{entity.name}</h2><p>{entity.summary || 'No summary recorded.'}</p><div className="world-page-meta">{entity.world?.attributes.atmosphere && <em>Atmosphere: {entity.world.attributes.atmosphere}</em>}{entity.world?.attributes.significance && <em>Story weight: {entity.world.attributes.significance}</em>}{related.length > 0 && <em>{related.length} connected {related.length === 1 ? 'thread' : 'threads'}</em>}</div></div><div className="world-page-actions">{entity.world?.referenceDocumentId && documents.some((document) => document.id === entity.world?.referenceDocumentId) && <button className="linkish" onClick={() => openDocument(entity.world!.referenceDocumentId!)}>Open lore page</button>}<button className="linkish" onClick={() => setDrawer({ entity, point: positions[entity.id] ?? fallbackPoint(0) })}>Edit</button><button className="linkish" onClick={() => { setSelectedId(entity.id); setMode('canvas'); }}>Locate</button></div></article>;
+              return <article key={entity.id} className={`world-page-entry type-${entity.type}`}><div className={`world-page-mark ${cover ? 'has-image' : ''}`}>{cover ? <img src={cover.src} alt="" /> : TYPE_GLYPH[entity.type]}<small>{TYPE_LABEL[entity.type]}</small></div><div><span>{entity.world?.attributes.era || 'Era unmarked'}</span><h2>{entity.name}</h2><p>{entity.summary || 'No summary recorded.'}</p><div className="world-page-meta">{entity.world?.attributes.atmosphere && <em>Atmosphere: {entity.world.attributes.atmosphere}</em>}{entity.world?.attributes.significance && <em>Story weight: {entity.world.attributes.significance}</em>}{related.length > 0 && <em>{related.length} connected {related.length === 1 ? 'thread' : 'threads'}</em>}</div></div><div className="world-page-actions">{entity.world?.referenceDocumentId && documents.some((document) => document.id === entity.world?.referenceDocumentId) && <button className="linkish" onClick={() => openDocument(entity.world!.referenceDocumentId!)}>Open lore page</button>}<button className="linkish" onClick={() => openDrawer(positions[entity.id] ?? fallbackPoint(0), entity)}>Edit</button><button className="linkish" onClick={() => { setSelectedId(entity.id); setMode('canvas'); }}>Locate</button></div></article>;
             })}
           </main>
         </div>
       )}
 
-      {drawer && <WorldDrawer entity={drawer.entity} point={drawer.point} onClose={() => setDrawer(null)} onSaved={(entity) => { setSelectedId(entity.id); setDrawer(null); }} />}
     </div>
   );
 }

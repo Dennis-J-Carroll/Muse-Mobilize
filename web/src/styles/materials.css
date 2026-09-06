@@ -16,12 +16,12 @@
 
 /* Blur only layered surfaces, never each cell or card in a scrolling board. */
 .workspace, .launcher, .modal, .story-drawer, .character-drawer,
-.world-drawer, .plot-drawer, .scene-drawer, .world-inspector, .plot-folio {
+.world-drawer, .plot-drawer, .scene-drawer, .world-inspector, .plot-folio, .world-map-panel {
   -webkit-backdrop-filter: blur(18px) saturate(110%);
   backdrop-filter: blur(18px) saturate(110%);
 }
 .launcher, .modal, .story-drawer, .character-drawer,
-.world-drawer, .plot-drawer, .scene-drawer, .world-inspector, .plot-folio {
+.world-drawer, .plot-drawer, .scene-drawer, .world-inspector, .plot-folio, .world-map-panel {
   background: var(--glass-sheen), var(--glass-overlay);
   border: 1px solid var(--glass-edge);
   box-shadow: var(--shadow-float);
@@ -32,6 +32,10 @@
 .character-drawer > footer { background: transparent; }
 .launcher-head { text-transform: none; letter-spacing: 0; font-size: 12px; }
 .launcher-item.is-current { font-weight: 500; }
+.project-menu { display: flex; flex-direction: column; max-height: calc(100dvh - 90px); overflow: hidden; }
+.project-menu > :not(.project-menu-list) { flex: 0 0 auto; }
+.project-menu-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.project-menu-list .launcher-item { width: 100%; }
 
 .story-toolbar, .scene-toolbar, .dialogue-toolbar, .world-toolbar, .plot-toolbar {
   background: var(--glass-face);
@@ -108,10 +112,28 @@
 .statusbar b { font-weight: var(--weight-label); }
 .draft:focus-visible { outline-offset: -3px; }
 
+/* Keep navigation recall separate from the canvas: hiding tools must never
+   unmount a draft or clip the project menu in the narrow rail. */
+.app.is-sidebar-collapsed { grid-template-columns: 60px minmax(0, 1fr); }
+.sidebar-toggle {
+  flex: 0 0 34px; width: 34px; height: 34px; margin-left: auto;
+  display: grid; place-items: center; padding: 0;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
+  background: var(--glass-sheen), var(--glass-face);
+  box-shadow: var(--shadow-card); color: var(--accent); font-size: 24px;
+}
+.sidebar-toggle:hover { border-color: var(--accent-soft); }
+.sidebar-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.sidebar.is-collapsed { overflow: visible; }
+.sidebar.is-collapsed .brand-row { flex-direction: column; }
+.sidebar.is-collapsed .sidebar-toggle { margin-left: 0; }
+.sidebar.is-collapsed .brand-text, .cards[hidden] { display: none; }
+.sidebar.is-collapsed .project-menu { left: 52px; top: 0; }
+
 /* Small screens keep the same tools, arranged as a horizontal glass rail.
    Menus escape the scroll rail so keyboard/project actions stay reachable. */
 @media (max-width: 700px) {
-  .app {
+  .app, .app.is-sidebar-collapsed {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
     gap: 10px;
@@ -119,6 +141,8 @@
   }
   .sidebar { min-width: 0; overflow: visible; padding: 0; }
   .brand-row { gap: 9px; margin-bottom: 8px; }
+  .sidebar.is-collapsed .brand-row { flex-direction: row; margin-bottom: 0; }
+  .sidebar.is-collapsed .sidebar-toggle { margin-left: auto; }
   .brand-dot { width: 32px; height: 32px; }
   .brand-text { flex-direction: row; align-items: baseline; gap: 5px; }
   .brand-text strong { font-size: 18px; }
@@ -139,7 +163,8 @@
   .card-title { font-size: 12px; }
   .card-blurb { display: none; }
   .launcher { position: fixed; top: 134px; left: 10px; right: 10px; min-width: 0; max-height: calc(100dvh - 154px); overflow-y: auto; }
-  .project-menu { top: 49px; }
+  .project-menu { top: 49px; max-height: calc(100dvh - 69px); overflow: hidden; }
+  .sidebar.is-collapsed .project-menu { left: 10px; top: 49px; }
   .workspace-head { flex-direction: column; gap: 10px; padding: 15px 16px 13px; }
   .workspace-head h1 { font-size: 22px; }
   .workspace-head p { margin-top: 3px; font-size: 11px; }
@@ -176,7 +201,7 @@
 @media (prefers-reduced-transparency: reduce) {
   :root { --glass-face: #f4f7f7; --glass-overlay: #f8faf9; --glass-sheen: none; }
   .workspace, .launcher, .modal, .story-drawer, .character-drawer,
-  .world-drawer, .plot-drawer, .scene-drawer, .world-inspector, .plot-folio {
+  .world-drawer, .plot-drawer, .scene-drawer, .world-inspector, .plot-folio, .world-map-panel {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }

@@ -387,6 +387,7 @@ export interface Pane {
   binding?: { type: 'document' | 'agent'; id: string };
   sizeMode: 'normal' | 'minimized' | 'maximized';
   size?: { width: number; height: number };
+  floating?: { x: number; y: number; width: number; height: number; layer: number };
 }
 
 export interface FloatingPanel {

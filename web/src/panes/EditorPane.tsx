@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useStore } from '../store';
 import type { Pane } from '../types';
 import * as Icon from '../components/icons';
+import { useWritingView, WRITING_FONTS, type WritingFont } from '../writingView';
 
 /** Registry so a patch card can point at the exact range inside the draft. */
 export const editorRefs = new Map<string, HTMLTextAreaElement>();
@@ -27,6 +28,19 @@ export function EditorPane({ pane }: { pane: Pane }) {
   const editDoc = useStore((s) => s.editDoc);
   const setSelection = useStore((s) => s.setSelection);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const isManuscript = useStore((s) => s.project?.documents.find((item) => item.id === docId)?.kind === 'manuscript');
+  const focused = useWritingView((s) => s.focusPaneId === pane.id);
+  const surface = useWritingView((s) => s.surface);
+  const weight = useWritingView((s) => s.weight);
+  const fontId = useWritingView((s) => s.font);
+  const font = WRITING_FONTS.find((item) => item.id === fontId) ?? WRITING_FONTS[0];
+  const wasFocused = useRef(focused);
+
+  useLayoutEffect(() => {
+    if (wasFocused.current === focused) return;
+    wasFocused.current = focused;
+    ref.current?.focus({ preventScroll: true });
+  }, [focused]);
 
   useEffect(() => {
     if (ref.current) editorRefs.set(docId, ref.current);
@@ -60,7 +74,30 @@ export function EditorPane({ pane }: { pane: Pane }) {
   if (!doc) return <div className="pane-body pane-loading">Opening…</div>;
 
   return (
-    <div className="editor-wrap">
+    <div className={`editor-wrap ${isManuscript ? 'writing-page' : ''}`} data-surface={isManuscript ? surface : undefined}>
+      {isManuscript && <div className="writing-toolbar">
+        <span className="writing-focus-title">{doc.title}</span>
+        <div className="writing-appearance">
+          <select aria-label="Page surface" value={surface} onChange={(event) => useWritingView.getState().setSurface(event.target.value as 'glass' | 'paper')}>
+            <option value="glass">Glass</option><option value="paper">Paper</option>
+          </select>
+          <select aria-label="Writing font" value={font.id} onChange={(event) => useWritingView.getState().setFont(event.target.value as WritingFont)}>
+            {WRITING_FONTS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          </select>
+          <select aria-label="Writing weight" value={font.variable ? weight : '400'} disabled={!font.variable} title={font.variable ? 'Writing weight' : 'This font has one regular weight'} onChange={(event) => useWritingView.getState().setWeight(event.target.value as '350' | '400')}>
+            <option value="350">Light</option><option value="400">Regular</option>
+          </select>
+        </div>
+        <button type="button" className="writing-focus-button"
+          aria-label={focused ? 'Exit writing focus' : 'Focus writing'}
+          aria-pressed={focused}
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={() => useWritingView.getState().focus(focused ? null : pane.id)}>
+          <Icon.Expand size={15} /> {focused ? 'Back to workspace' : 'Focus'}
+          {focused && <kbd>Esc</kbd>}
+        </button>
+      </div>}
+      {isManuscript && font.id === 'times' && <p className="writing-font-note">Uses installed Times New Roman; otherwise a serif fallback.</p>}
       <div className={`ask-bar ${mine ? 'is-live' : ''}`}>
         {mine ? (
           <>
@@ -90,6 +127,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
       <textarea
         ref={ref}
         className={`draft ${pane.type === 'notes' ? 'draft-notes' : ''}`}
+        style={isManuscript ? { fontFamily: font.family, fontWeight: font.variable ? Number(weight) : 400 } : undefined}
         spellCheck
         value={doc.content}
         onChange={(e) => editDoc(docId, e.target.value)}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ImageGalleryEditor } from '../components/ImageGalleryEditor';
+import { openFloatingEditor } from '../components/floatingEditors';
 import { useStore } from '../store';
 import type {
   CanonEntity, PlotNode, Scene, SceneTheme, StoryEntityKind, StoryEntityRef, StoryImage,
@@ -25,11 +26,15 @@ function referenceLinks(
   ];
 }
 
-function ReferenceDrawer({ reference, options, onClose }: {
+function ReferenceDrawer({ reference, onClose }: {
   reference?: StoryReference;
-  options: LinkOption[];
   onClose: () => void;
 }) {
+  const canon = useStore((s) => s.canon);
+  const plot = useStore((s) => s.plot);
+  const scenes = useStore((s) => s.sceneBoard);
+  const project = useStore((s) => s.project);
+  const options = useMemo(() => referenceLinks(canon?.entities ?? [], plot?.nodes ?? [], scenes?.scenes ?? [], scenes?.themes ?? [], project?.documents ?? []), [canon, plot, scenes, project]);
   const [draft, setDraft] = useState(() => reference ? {
     kind: reference.kind, title: reference.title, images: reference.images, quote: reference.quote, url: reference.url,
     attribution: reference.attribution, sourceUrl: reference.sourceUrl, notes: reference.notes, entityRefs: reference.entityRefs,
@@ -43,11 +48,6 @@ function ReferenceDrawer({ reference, options, onClose }: {
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { titleRef.current?.focus(); }, []);
-  useEffect(() => {
-    const key = (event: KeyboardEvent) => { if (event.key === 'Escape' && !busy) onClose(); };
-    window.addEventListener('keydown', key);
-    return () => window.removeEventListener('keydown', key);
-  }, [onClose, busy]);
 
   const set = <K extends keyof typeof draft>(key: K, value: (typeof draft)[K]) => setDraft((current) => ({ ...current, [key]: value }));
   const addLink = () => {
@@ -86,9 +86,8 @@ function ReferenceDrawer({ reference, options, onClose }: {
     }
   };
 
-  return <div className="story-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
-    <form className="story-drawer reference-drawer" role="dialog" aria-modal="true" aria-labelledby="reference-drawer-title" onSubmit={submit}>
-      <header><div><span>Reference folio</span><h2 id="reference-drawer-title">{reference ? `Revise ${reference.title}` : 'Pin reference'}</h2></div><button type="button" aria-label="Close reference editor" disabled={busy} onClick={onClose}>×</button></header>
+  return <form className="story-drawer reference-drawer" onSubmit={submit}>
+      <header><div><span>Reference folio</span><h2>{reference ? `Revise ${reference.title}` : 'Pin reference'}</h2></div><button type="button" aria-label="Close reference editor" disabled={busy} onClick={onClose}>×</button></header>
       <fieldset className="story-drawer-scroll" disabled={saving} style={{ border: 0, margin: 0, minWidth: 0 }}>
         <section className="story-form-grid">
           <label>Reference kind<select value={draft.kind} onChange={(event) => set('kind', event.target.value as StoryReferenceKind)}><option value="image">Image</option><option value="quote">Quote</option><option value="link">Web source</option></select></label>
@@ -115,8 +114,7 @@ function ReferenceDrawer({ reference, options, onClose }: {
         <button type="button" className="btn" disabled={busy} onClick={onClose}>Cancel</button>
         <button type="submit" className="btn btn-primary" disabled={!draft.title.trim() || busy}>{saving ? 'Saving…' : reference ? 'Save reference' : 'Pin to board'}</button>
       </footer>
-    </form>
-  </div>;
+    </form>;
 }
 
 function RefVisual({ item }: { item: StoryReference }) {
@@ -133,7 +131,6 @@ export function ReferencesPane() {
   const project = useStore((s) => s.project);
   const [filter, setFilter] = useState<'all' | StoryReferenceKind>('all');
   const [query, setQuery] = useState('');
-  const [drawer, setDrawer] = useState<StoryReference | 'new' | null>(null);
 
   useEffect(() => { void Promise.all([
     useStore.getState().loadReferences(), useStore.getState().loadCanon(), useStore.getState().loadPlot(), useStore.getState().loadScenes(),
@@ -145,20 +142,20 @@ export function ReferencesPane() {
     const text = `${item.title} ${item.attribution} ${item.notes} ${item.quote}`.toLocaleLowerCase();
     return (filter === 'all' || item.kind === filter) && (!query.trim() || text.includes(query.trim().toLocaleLowerCase()));
   }), [references, filter, query]);
+  const openDrawer = (reference?: StoryReference) => openFloatingEditor({ id: `references:${reference?.id ?? 'new'}`, paneType: 'references', title: reference ? `Revise ${reference.title}` : 'Pin reference', width: 680, render: (close) => <ReferenceDrawer reference={reference} onClose={close} /> });
 
   if (!references || !canon || !plot || !scenes) return <div className="pane-body pane-loading">Opening reference board…</div>;
 
   return <div className="reference-workspace">
-    <header className="story-toolbar reference-toolbar"><div><span>Source room</span><h2>{project?.name ?? 'References'}</h2></div><p><b>{references.items.length}</b> pinned sources · <b>{references.items.reduce((sum, item) => sum + item.entityRefs.length, 0)}</b> story links</p><button className="btn btn-primary" onClick={() => setDrawer('new')}>+ Pin reference</button></header>
+    <header className="story-toolbar reference-toolbar"><div><span>Source room</span><h2>{project?.name ?? 'References'}</h2></div><p><b>{references.items.length}</b> pinned sources · <b>{references.items.reduce((sum, item) => sum + item.entityRefs.length, 0)}</b> story links</p><button className="btn btn-primary" onClick={() => openDrawer()}>+ Pin reference</button></header>
     <nav className="reference-filter" aria-label="Reference filters"><div>{(['all', 'image', 'quote', 'link'] as const).map((kind) => <button key={kind} className={filter === kind ? 'is-active' : ''} onClick={() => setFilter(kind)}>{kind === 'all' ? 'Everything' : kind === 'link' ? 'Web sources' : `${kind[0].toUpperCase()}${kind.slice(1)}s`} <b>{kind === 'all' ? references.items.length : references.items.filter((item) => item.kind === kind).length}</b></button>)}</div><input type="search" aria-label="Search references" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search board" /></nav>
     <main className="reference-board">
-      {!references.items.length && <div className="story-empty"><span>⌑</span><h3>Pin first source</h3><p>Gather images, exact quotes, and links. Connect each source to story material it can sharpen.</p><button className="btn btn-primary" onClick={() => setDrawer('new')}>Pin first reference</button></div>}
+      {!references.items.length && <div className="story-empty"><span>⌑</span><h3>Pin first source</h3><p>Gather images, exact quotes, and links. Connect each source to story material it can sharpen.</p><button className="btn btn-primary" onClick={() => openDrawer()}>Pin first reference</button></div>}
       {references.items.length > 0 && !items.length && <div className="story-empty compact"><h3>No matching references</h3><p>Change filter or search phrase.</p></div>}
       <div className="reference-grid">{items.map((item) => <article className={`reference-card kind-${item.kind}`} key={item.id}>
-        <button className="reference-card-open" aria-label={`Edit ${item.title}`} onClick={() => setDrawer(item)}><div className="reference-visual"><RefVisual item={item} /></div><div className="reference-card-copy"><span>{item.kind === 'link' ? 'Web source' : item.kind}</span><h3>{item.title}</h3>{item.kind === 'quote' && item.images[0] && <blockquote>“{item.quote}”</blockquote>}{item.attribution && <p className="reference-by">{item.attribution}</p>}{item.notes && <p>{item.notes}</p>}</div></button>
+        <button className="reference-card-open" aria-label={`Edit ${item.title}`} onClick={() => openDrawer(item)}><div className="reference-visual"><RefVisual item={item} /></div><div className="reference-card-copy"><span>{item.kind === 'link' ? 'Web source' : item.kind}</span><h3>{item.title}</h3>{item.kind === 'quote' && item.images[0] && <blockquote>“{item.quote}”</blockquote>}{item.attribution && <p className="reference-by">{item.attribution}</p>}{item.notes && <p>{item.notes}</p>}</div></button>
         <footer><div>{item.entityRefs.slice(0, 4).map((link) => { const option = optionMap.get(`${link.kind}:${link.refId}`); return <span key={`${link.kind}:${link.refId}`}>{option?.label ?? 'Missing link'}</span>; })}{item.entityRefs.length > 4 && <span>+{item.entityRefs.length - 4}</span>}</div>{(item.sourceUrl || item.url) && <a href={item.sourceUrl || item.url} target="_blank" rel="noreferrer" aria-label={`Open source for ${item.title}`} onClick={(event) => event.stopPropagation()}>Source ↗</a>}</footer>
       </article>)}</div>
     </main>
-    {drawer && <ReferenceDrawer reference={drawer === 'new' ? undefined : drawer} options={options} onClose={() => setDrawer(null)} />}
   </div>;
 }
