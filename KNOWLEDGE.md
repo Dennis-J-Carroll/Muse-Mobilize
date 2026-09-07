@@ -1,6 +1,36 @@
 # Muse-Mobilize Knowledge & Continuation Log
 
-Last updated: 2026-09-06, adding writing recovery, portable saved-project backups, and the connected story layer.
+Last updated: 2026-09-07, creating the document-first Mobilize skill and an export roadmap.
+
+## Mobilize preparation and export seed — 2026-09-07
+
+- `skills/mobilize/` is the maintained Codex/Claude skill package. Its offline
+  Node helper previews an explicit source selection and, after approval of that
+  exact hash, creates a Muse-restorable project JSON. No source writes or live
+  app API calls occur. Relative links and assets are not silently rewritten.
+- Matching personal copies were installed in `~/.codex/skills/mobilize` and
+  `~/.claude/skills/mobilize`, with metadata validation and helper tests passing
+  in both locations. A fresh host session may be needed for skill discovery.
+- Original Markdown/text bytes and source provenance survive through a Notes
+  receipt. Stable IDs enable repeatable packaging, not in-place synchronization;
+  each app restore still creates another project. Structured fact/card extraction
+  and a first-class contested-account model are deferred.
+- Standalone behavior checks and a real backup-service restore/export round trip
+  cover preservation, approval/change detection, path safety, output protection,
+  size bounds, and identity behavior. An independent synthetic dry run preserved
+  all source hashes, excluded retired/session material, and stopped at approval.
+- Verification: six standalone helper cases, all sixteen server test files
+  (including the real restore/export compatibility test), production build,
+  server TypeScript check, and whitespace check pass. No runtime app UI changed;
+  the browser suite was not rerun for this skill-only slice.
+- KingsBlood's three-file pilot remains preview-only. Packaging requires approval
+  of its current selection/hash; restoring needs an explicit destination choice.
+- `docs/mobilize-and-export-roadmap.md` separates existing project archives from
+  proposed reader editions and adaptations. Portable Saved Desks, novel renderers,
+  comic panels, and update/merge import remain future work.
+
+The earlier “/mobilize not implemented” checkpoints below are historical and
+superseded by this section. Existing `.claude/` and `notes/` remain unrelated.
 
 ## Writing trust and connected story layer — 2026-09-06
 

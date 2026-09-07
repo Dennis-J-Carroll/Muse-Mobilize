@@ -1,8 +1,10 @@
 # KingsBlood → Muse: read-only import preview
 
 Source: `/home/dennisjcarroll/Desktop/creative/KingsBlood`.
-No files imported, moved, rewritten, or canonized. This is a mapping proposal,
-not an installed `/mobilize` skill or a synchronization service.
+No files imported, moved, rewritten, or canonized. This is the original mapping
+proposal. A document-first `/mobilize` skill was created on 2026-09-07; see
+[current capability and roadmap](mobilize-and-export-roadmap.md). It is not a
+synchronization service and this proposal does not authorize packaging or import.
 
 ## Proposed three-file pilot
 
@@ -72,8 +74,9 @@ Focus interaction contract:
 4. Browser fullscreen is independent. Browser-owned Escape may restore its URL
    bar; this must not also clear Muse's writing focus or card draft.
 
-Card lookup, persisted tag attachments, and backlinks are implemented. Automatic
-import and the `/mobilize` skill are not. See
+Card lookup, persisted tag attachments, and backlinks are implemented. The later
+`/mobilize` v1 skill supports approved document bundles; automatic structured
+import and synchronization are not implemented. See
 [current connections and recovery behavior](writing-trust-and-connections-2026-09-06.md).
 
 ## Evidence inspected

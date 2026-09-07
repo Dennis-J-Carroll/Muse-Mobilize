@@ -62,6 +62,17 @@ Unfinished documents and the seven card forms have browser-local recovery.
 never over the original. Save tool forms first: browser recovery and Saved Desks
 are not portable backups. See [features, limits, and acceptance checklist](docs/writing-trust-and-connections-2026-09-06.md).
 
+## Story repository preparation
+
+The optional **Mobilize** skill in `skills/mobilize/` prepares an existing story
+repository for Muse through a read-only mapping preview and an approved JSON
+bundle. Sources remain verbatim; a provenance receipt travels with the documents.
+Restore the bundle through **Backups** as a new project. Version 1 does not extract
+structured lore cards or synchronize an existing project.
+
+See [Mobilize and export roadmap](docs/mobilize-and-export-roadmap.md) for scope,
+testing, and the separation between project archives and future novel/comic output.
+
 ## The golden path
 
 1. A project is created for you on first run, seeded with a short chapter.

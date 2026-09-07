@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mobilize"
+  short_description: "Prepare story repositories for Muse Mobilize"
+  default_prompt: "Use $mobilize to preview a source-preserving Muse project from my story repository."

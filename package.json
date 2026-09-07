@@ -13,7 +13,8 @@
     "dev:web": "npm -w web run dev",
     "test": "npm -w server run test",
     "build": "npm -w web run build",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "test:mobilize": "node skills/mobilize/tests/mobilize.test.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
