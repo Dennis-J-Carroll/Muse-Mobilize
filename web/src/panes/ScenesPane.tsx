@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { openFloatingEditor } from '../components/floatingEditors';
+import { DraftRecoveryNotice, useRecoverableDraft } from '../useRecoverableDraft';
 import type { CanonEntity, Pane, PlotNode, Scene, SceneAssetKind, SceneAssetRef, SceneBeat, SceneStatus, SceneTheme } from '../types';
 
 const DRAG_TYPE = 'application/x-muse-scene-asset';
@@ -22,13 +23,15 @@ function sceneResources(characters: CanonEntity[], locations: CanonEntity[], the
 function SceneDrawer({ scene, onClose }: { scene?: Scene; onClose: () => void }) {
   const project = useStore((s) => s.project);
   const documents = project?.documents.filter((document) => document.kind === 'manuscript') ?? [];
-  const [title, setTitle] = useState(scene?.title ?? '');
-  const [section, setSection] = useState(scene?.section ?? 'Act I');
-  const [status, setStatus] = useState<SceneStatus>(scene?.status ?? 'planned');
-  const [summary, setSummary] = useState(scene?.summary ?? '');
-  const [purpose, setPurpose] = useState(scene?.purpose ?? '');
-  const [documentId, setDocumentId] = useState(scene?.documentId ?? '');
-  const [beats, setBeats] = useState<SceneBeat[]>(scene?.beats ?? []);
+  const draftFrom = (item?: Scene) => ({ title: item?.title ?? '', section: item?.section ?? 'Act I', status: item?.status ?? 'planned' as SceneStatus, summary: item?.summary ?? '', purpose: item?.purpose ?? '', documentId: item?.documentId ?? '', beats: item?.beats ?? [] as SceneBeat[] });
+  const recovery = useRecoverableDraft('scenes', scene?.id ?? 'new', () => draftFrom(scene));
+  const [title, setTitle] = recovery.field('title');
+  const [section, setSection] = recovery.field('section');
+  const [status, setStatus] = recovery.field('status');
+  const [summary, setSummary] = recovery.field('summary');
+  const [purpose, setPurpose] = recovery.field('purpose');
+  const [documentId, setDocumentId] = recovery.field('documentId');
+  const [beats, setBeats] = recovery.field('beats');
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -46,16 +49,19 @@ function SceneDrawer({ scene, onClose }: { scene?: Scene; onClose: () => void })
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!title.trim()) return;
+    const checkpoint = recovery.checkpoint();
+    const recordId = scene?.id ?? recovery.recordId;
     const input = { title, section, status, summary, purpose, documentId, beats };
-    const saved = scene
-      ? await useStore.getState().updateScene(scene.id, input)
+    const saved = recordId
+      ? await useStore.getState().updateScene(recordId, input)
       : await useStore.getState().createScene(input);
-    if (saved) onClose();
+    if (saved) { recovery.rememberRecord(saved.id); if (recovery.completeSave(checkpoint, draftFrom(saved))) onClose(); }
   };
 
   return <form className="scene-drawer" onSubmit={save}>
       <header><div><span>Scene folio</span><h2>{scene ? `Revise ${scene.title}` : 'Add scene'}</h2></div><button type="button" aria-label="Close" onClick={onClose}>×</button></header>
       <div className="scene-drawer-scroll">
+        <DraftRecoveryNotice recovery={recovery} />
         <section><h3>Story position</h3><div className="scene-form-grid">
           <label className="span-2">Scene title<input ref={titleRef} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Council summons Kiala" /></label>
           <label>Section<input value={section} onChange={(event) => setSection(event.target.value)} placeholder="Act I" /></label>
@@ -72,8 +78,13 @@ function SceneDrawer({ scene, onClose }: { scene?: Scene; onClose: () => void })
           <button type="button" className="btn" onClick={() => setBeats((current) => [...current, { id: `draft-${Date.now()}`, title: '', summary: '', order: current.length }])}>+ Add beat</button>
         </section>
       </div>
-      <footer><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={!title.trim()}>{scene ? 'Save scene' : 'Add to board'}</button></footer>
+      <footer><button type="button" className="btn" onClick={() => { recovery.discard(); onClose(); }}>Cancel</button><button className="btn btn-primary" disabled={!title.trim()}>{scene ? 'Save scene' : 'Add to board'}</button></footer>
     </form>;
+}
+
+export function openSceneEditor(scene?: Scene) {
+  openFloatingEditor({ id: `scenes:${scene?.id ?? 'new'}`, paneType: 'scenes', title: scene ? `Revise ${scene.title}` : 'Add scene', width: 650,
+    render: (close) => <SceneDrawer scene={scene} onClose={close} /> });
 }
 
 export function ScenesPane({ pane }: { pane: Pane }) {
@@ -121,13 +132,7 @@ export function ScenesPane({ pane }: { pane: Pane }) {
   };
   const sections = Array.from(new Set(scenes.map((scene) => scene.section || 'Unsectioned')));
   const selected = scenes.find((scene) => scene.id === selectedId);
-  const openDrawer = (scene?: Scene) => openFloatingEditor({
-    id: `scenes:${scene?.id ?? 'new'}`,
-    paneType: 'scenes',
-    title: scene ? `Revise ${scene.title}` : 'Add scene',
-    width: 650,
-    render: (close) => <SceneDrawer scene={scene} onClose={close} />,
-  });
+  const openDrawer = openSceneEditor;
 
   if (!board || !canon || !plot) return <div className="pane-body pane-loading">Laying scene cards…</div>;
 

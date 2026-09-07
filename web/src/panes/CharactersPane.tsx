@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { ImageGalleryEditor, StoryImageStrip } from '../components/ImageGalleryEditor';
 import { openFloatingEditor } from '../components/floatingEditors';
+import { DraftRecoveryNotice, useRecoverableDraft } from '../useRecoverableDraft';
 import type {
   CanonEntity,
   CanonStatus,
@@ -154,12 +155,14 @@ function SenseBand({ name, sense, glyph }: { name: string; sense: CharacterSense
   );
 }
 
-function Drawer({ entity, draft, setDraft, onClose, onSave }: {
+function Drawer({ entity, draft, setDraft, onClose, onCancel, onSave, recovery }: {
   entity?: CanonEntity;
   draft: CharacterDraft;
   setDraft: React.Dispatch<React.SetStateAction<CharacterDraft>>;
   onClose: () => void;
+  onCancel: () => void;
   onSave: () => Promise<void>;
+  recovery: { restored: boolean; conflict: boolean };
 }) {
   const first = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
@@ -188,6 +191,7 @@ function Drawer({ entity, draft, setDraft, onClose, onSave }: {
           <button type="button" className="drawer-close" onClick={close} aria-label="Close" disabled={saving || uploadingImages}>×</button>
         </header>
         <div className="drawer-scroll">
+          <DraftRecoveryNotice recovery={recovery} />
           <section className="drawer-section">
             <h3>Identity</h3>
             <div className="drawer-grid">
@@ -228,21 +232,29 @@ function Drawer({ entity, draft, setDraft, onClose, onSave }: {
             <ImageGalleryEditor images={draft.images} onChange={(images) => setDraft((current) => ({ ...current, images }))} noun="character" onBusyChange={setUploadingImages} />
           </section>
         </div>
-        <footer><button type="button" className="btn" onClick={close} disabled={saving || uploadingImages}>Cancel</button><button className="btn btn-primary" disabled={!draft.name.trim() || saving || uploadingImages}>{uploadingImages ? 'Adding images…' : saving ? 'Saving…' : entity ? 'Save changes' : 'Add to cast'}</button></footer>
+        <footer><button type="button" className="btn" onClick={onCancel} disabled={saving || uploadingImages}>Cancel</button><button className="btn btn-primary" disabled={!draft.name.trim() || saving || uploadingImages}>{uploadingImages ? 'Adding images…' : saving ? 'Saving…' : entity ? 'Save changes' : 'Add to cast'}</button></footer>
       </form>
   );
 }
 
 function CharacterEditor({ entity, onClose, onSaved }: { entity?: CanonEntity; onClose: () => void; onSaved: (entity: CanonEntity) => void }) {
-  const [draft, setDraft] = useState<CharacterDraft>(() => draftFrom(entity));
+  const recovery = useRecoverableDraft('characters', entity?.id ?? 'new', () => draftFrom(entity));
+  const { draft, setDraft } = recovery;
   const save = async () => {
+    const checkpoint = recovery.checkpoint();
+    const recordId = entity?.id ?? recovery.recordId;
     const profile = profileFrom(draft);
-    const saved = entity
-      ? await useStore.getState().updateCanonEntity(entity.id, { name: draft.name.trim(), aliases: list(draft.aliases), summary: draft.summary.trim(), character: profile })
+    const saved = recordId
+      ? await useStore.getState().updateCanonEntity(recordId, { name: draft.name.trim(), aliases: list(draft.aliases), summary: draft.summary.trim(), character: profile })
       : await useStore.getState().createCanonEntity({ type: 'character', name: draft.name.trim(), aliases: list(draft.aliases), summary: draft.summary.trim(), character: profile });
-    if (saved) { onSaved(saved); onClose(); }
+    if (saved) { recovery.rememberRecord(saved.id); if (recovery.completeSave(checkpoint, draftFrom(saved))) { onSaved(saved); onClose(); } }
   };
-  return <Drawer entity={entity} draft={draft} setDraft={setDraft} onClose={onClose} onSave={save} />;
+  return <Drawer entity={entity} draft={draft} setDraft={setDraft} onClose={onClose} onCancel={() => { recovery.discard(); onClose(); }} onSave={save} recovery={recovery} />;
+}
+
+export function openCharacterEditor(entity?: CanonEntity, onSaved?: (entity: CanonEntity) => void) {
+  openFloatingEditor({ id: `characters:${entity?.id ?? 'new'}`, paneType: 'characters', title: entity ? `Revise ${entity.name}` : 'New character', width: 620,
+    render: (close) => <CharacterEditor entity={entity} onClose={close} onSaved={(saved) => onSaved?.(saved)} /> });
 }
 
 export function CharactersPane({ pane }: { pane: Pane }) {
@@ -267,10 +279,7 @@ export function CharactersPane({ pane }: { pane: Pane }) {
   const characterAgent = agents.find((agent) => agent.role === 'character' && (agent.id === selected?.id || agent.name.toLowerCase() === selected?.name.toLowerCase()));
   const image = profile.references.images[0];
 
-  const openDrawer = (entity?: CanonEntity) => {
-    openFloatingEditor({ id: `characters:${entity?.id ?? 'new'}`, paneType: 'characters', title: entity ? `Revise ${entity.name}` : 'New character', width: 620,
-      render: (close) => <CharacterEditor entity={entity} onClose={close} onSaved={(saved) => setSelectedId(saved.id)} /> });
-  };
+  const openDrawer = (entity?: CanonEntity) => openCharacterEditor(entity, (saved) => setSelectedId(saved.id));
 
   if (!canon) return <div className="pane-body pane-loading">Gathering cast…</div>;
 

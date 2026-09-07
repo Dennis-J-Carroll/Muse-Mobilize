@@ -4,6 +4,8 @@ import type { TileLayout } from '../workspaceLayout';
 import * as Icon from './icons';
 import { SavedDesks } from './SavedDesks';
 import type { SavedDesk } from '../desks';
+import { openConnections } from '../connectionsView';
+import { ProjectBackups } from './ProjectBackups';
 
 export function WorkspaceToolbar({ layout, onLayout, workbench, onWorkbench, captureDesk, restoreDesk }: { layout: TileLayout; onLayout: (layout: TileLayout) => void; workbench: boolean; onWorkbench: () => void; captureDesk: (name: string) => SavedDesk; restoreDesk: (desk: SavedDesk) => void }) {
   const documents = useStore((s) => s.project?.documents ?? []);
@@ -38,6 +40,8 @@ export function WorkspaceToolbar({ layout, onLayout, workbench, onWorkbench, cap
       </div>}
     </div>
     <SavedDesks capture={captureDesk} restore={restoreDesk} />
+    <button type="button" aria-label="Open connections" onClick={() => openConnections()}>Connections</button>
+    <ProjectBackups />
     <button type="button" className="workbench-toggle" aria-pressed={workbench} onClick={onWorkbench}><Icon.Layers size={16} /> Workbench</button>
   </div>;
 }

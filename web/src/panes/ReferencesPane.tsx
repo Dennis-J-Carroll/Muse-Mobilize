@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ImageGalleryEditor } from '../components/ImageGalleryEditor';
 import { openFloatingEditor } from '../components/floatingEditors';
+import { DraftRecoveryNotice, useRecoverableDraft } from '../useRecoverableDraft';
 import { useStore } from '../store';
 import type {
   CanonEntity, PlotNode, Scene, SceneTheme, StoryEntityKind, StoryEntityRef, StoryImage,
@@ -35,10 +36,12 @@ function ReferenceDrawer({ reference, onClose }: {
   const scenes = useStore((s) => s.sceneBoard);
   const project = useStore((s) => s.project);
   const options = useMemo(() => referenceLinks(canon?.entities ?? [], plot?.nodes ?? [], scenes?.scenes ?? [], scenes?.themes ?? [], project?.documents ?? []), [canon, plot, scenes, project]);
-  const [draft, setDraft] = useState(() => reference ? {
-    kind: reference.kind, title: reference.title, images: reference.images, quote: reference.quote, url: reference.url,
-    attribution: reference.attribution, sourceUrl: reference.sourceUrl, notes: reference.notes, entityRefs: reference.entityRefs,
-  } : emptyReference());
+  const draftFrom = (item?: StoryReference) => item ? {
+    kind: item.kind, title: item.title, images: item.images, quote: item.quote, url: item.url,
+    attribution: item.attribution, sourceUrl: item.sourceUrl, notes: item.notes, entityRefs: item.entityRefs,
+  } : emptyReference();
+  const recovery = useRecoverableDraft('references', reference?.id ?? 'new', () => draftFrom(reference));
+  const { draft, setDraft } = recovery;
   const [linkValue, setLinkValue] = useState('');
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -60,13 +63,15 @@ function ReferenceDrawer({ reference, onClose }: {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!draft.title.trim() || uploading || savingRef.current) return;
+    const checkpoint = recovery.checkpoint();
+    const recordId = reference?.id ?? recovery.recordId;
     savingRef.current = true;
     setSaving(true);
     try {
-      const saved = reference
-        ? await useStore.getState().updateReference(reference.id, draft)
+      const saved = recordId
+        ? await useStore.getState().updateReference(recordId, draft)
         : await useStore.getState().createReference(draft);
-      if (saved) onClose();
+      if (saved) { recovery.rememberRecord(saved.id); if (recovery.completeSave(checkpoint, draftFrom(saved))) onClose(); }
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -79,7 +84,7 @@ function ReferenceDrawer({ reference, onClose }: {
     setDeleting(true);
     try {
       const removed = await useStore.getState().deleteReference(reference.id);
-      if (removed) onClose();
+      if (removed) { recovery.discard(); onClose(); }
     } finally {
       savingRef.current = false;
       setDeleting(false);
@@ -89,6 +94,7 @@ function ReferenceDrawer({ reference, onClose }: {
   return <form className="story-drawer reference-drawer" onSubmit={submit}>
       <header><div><span>Reference folio</span><h2>{reference ? `Revise ${reference.title}` : 'Pin reference'}</h2></div><button type="button" aria-label="Close reference editor" disabled={busy} onClick={onClose}>×</button></header>
       <fieldset className="story-drawer-scroll" disabled={saving} style={{ border: 0, margin: 0, minWidth: 0 }}>
+        <DraftRecoveryNotice recovery={recovery} />
         <section className="story-form-grid">
           <label>Reference kind<select value={draft.kind} onChange={(event) => set('kind', event.target.value as StoryReferenceKind)}><option value="image">Image</option><option value="quote">Quote</option><option value="link">Web source</option></select></label>
           <label>Title<input ref={titleRef} value={draft.title} onChange={(event) => set('title', event.target.value)} placeholder="Storm light over black water" /></label>
@@ -111,7 +117,7 @@ function ReferenceDrawer({ reference, onClose }: {
       <footer>
         <span>{uploading ? 'Finishing image upload…' : ''}</span>
         {reference && <button type="button" className="btn btn-danger" disabled={busy} onClick={remove}>{deleting ? 'Removing…' : 'Remove'}</button>}
-        <button type="button" className="btn" disabled={busy} onClick={onClose}>Cancel</button>
+        <button type="button" className="btn" disabled={busy} onClick={() => { recovery.discard(); onClose(); }}>Cancel</button>
         <button type="submit" className="btn btn-primary" disabled={!draft.title.trim() || busy}>{saving ? 'Saving…' : reference ? 'Save reference' : 'Pin to board'}</button>
       </footer>
     </form>;
@@ -121,6 +127,10 @@ function RefVisual({ item }: { item: StoryReference }) {
   if (item.images[0]) return <img src={item.images[0].src} alt={item.images[0].caption || item.title} loading="lazy" />;
   if (item.kind === 'quote') return <blockquote>“{item.quote || 'Quote waiting to be captured.'}”</blockquote>;
   return <div className="reference-link-mark" aria-hidden="true">↗</div>;
+}
+
+export function openReferenceEditor(reference?: StoryReference) {
+  openFloatingEditor({ id: `references:${reference?.id ?? 'new'}`, paneType: 'references', title: reference ? `Revise ${reference.title}` : 'Pin reference', width: 680, render: (close) => <ReferenceDrawer reference={reference} onClose={close} /> });
 }
 
 export function ReferencesPane() {
@@ -142,7 +152,7 @@ export function ReferencesPane() {
     const text = `${item.title} ${item.attribution} ${item.notes} ${item.quote}`.toLocaleLowerCase();
     return (filter === 'all' || item.kind === filter) && (!query.trim() || text.includes(query.trim().toLocaleLowerCase()));
   }), [references, filter, query]);
-  const openDrawer = (reference?: StoryReference) => openFloatingEditor({ id: `references:${reference?.id ?? 'new'}`, paneType: 'references', title: reference ? `Revise ${reference.title}` : 'Pin reference', width: 680, render: (close) => <ReferenceDrawer reference={reference} onClose={close} /> });
+  const openDrawer = openReferenceEditor;
 
   if (!references || !canon || !plot || !scenes) return <div className="pane-body pane-loading">Opening reference board…</div>;
 

@@ -5,6 +5,11 @@ import { WorkspaceCanvas } from './components/WorkspaceCanvas';
 import { StatusBar } from './components/StatusBar';
 import { SettingsModal } from './components/SettingsModal';
 import { FloatingEditorHost } from './components/floatingEditors';
+import { FocusStoryCards } from './components/FocusStoryCards';
+import { ConnectionsPanel } from './components/ConnectionsPanel';
+import { RecoveryPanel } from './useRecoverableDraft';
+import { ProjectBackups } from './components/ProjectBackups';
+import { dismissFocusLayer } from './focusLayers';
 import { useWritingView } from './writingView';
 import * as Icon from './components/icons';
 
@@ -35,7 +40,19 @@ export default function App() {
   useEffect(() => {
     if (!writingFocused) return;
     const exit = (event: KeyboardEvent) => {
+      if (event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey && event.code === 'KeyK' && !event.isComposing && !event.defaultPrevented) {
+        // Do not replace an editor that currently owns the focus layer.
+        if (!useWritingView.getState().focusLayer) {
+          event.preventDefault();
+          useWritingView.getState().setFocusLayer({ kind: 'cards' });
+        }
+        return;
+      }
       if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
+      if (useWritingView.getState().focusLayer) { event.preventDefault(); dismissFocusLayer(); return; }
+      // Native fullscreen owns its escape hatch; restoring browser chrome
+      // must not also dismantle the writing workspace.
+      if (document.fullscreenElement) return;
       event.preventDefault();
       useWritingView.getState().focus(null);
     };
@@ -74,6 +91,7 @@ export default function App() {
         >
           {projects.length ? 'New Project' : 'Create your first project'}
         </button>
+        <ProjectBackups />
       </div>
     );
   }
@@ -124,6 +142,9 @@ export default function App() {
       {notice && <div className="toast" role="status" aria-live="polite">{notice}</div>}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       <FloatingEditorHost />
+      <FocusStoryCards />
+      <ConnectionsPanel />
+      <RecoveryPanel />
     </div>
   );
 }

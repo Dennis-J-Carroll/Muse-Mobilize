@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { ImageGalleryEditor, StoryImageStrip } from '../components/ImageGalleryEditor';
 import { openFloatingEditor } from '../components/floatingEditors';
+import { DraftRecoveryNotice, useRecoverableDraft } from '../useRecoverableDraft';
 import type {
   CanonEntity, Pane, PlotEdgeRelation, PlotNode, PlotNodeKind, PlotWorldRef, PlotWorldRole, StoryImage,
 } from '../types';
@@ -49,17 +50,17 @@ function PlotDrawer({
   const canon = useStore((s) => s.canon);
   const documents = project?.documents ?? [];
   const worldEntities = useMemo(() => (canon?.entities ?? []).filter((entity) => entity.type !== 'character'), [canon]);
-  const [title, setTitle] = useState(node?.title ?? '');
-  const [kind, setKind] = useState<PlotNodeKind>(node?.kind ?? 'beat');
-  const [section, setSection] = useState(node?.section ?? 'Act I');
-  const [summary, setSummary] = useState(node?.summary ?? '');
-  const [details, setDetails] = useState<PlotNode['details']>(node?.details ?? emptyDetails());
-  const [documentId, setDocumentId] = useState(node?.documentId ?? '');
-  const [images, setImages] = useState<StoryImage[]>(node?.images ?? []);
+  const draftFrom = (item?: PlotNode) => ({ title: item?.title ?? '', kind: item?.kind ?? 'beat' as PlotNodeKind, section: item?.section ?? 'Act I', summary: item?.summary ?? '', details: item?.details ?? emptyDetails(), documentId: item?.documentId ?? '', images: item?.images ?? [] as StoryImage[], anchors: Array.from({ length: Math.max(3, item?.worldRefs.length ?? 0) }, (_, index) => item?.worldRefs[index] ?? { entityId: '', role: 'setting' as PlotWorldRole }), point: item?.position ?? point });
+  const recovery = useRecoverableDraft('plot', node?.id ?? 'new', () => draftFrom(node));
+  const [title, setTitle] = recovery.field('title');
+  const [kind, setKind] = recovery.field('kind');
+  const [section, setSection] = recovery.field('section');
+  const [summary, setSummary] = recovery.field('summary');
+  const [details, setDetails] = recovery.field('details');
+  const [documentId, setDocumentId] = recovery.field('documentId');
+  const [images, setImages] = recovery.field('images');
   const [uploadingImages, setUploadingImages] = useState(false);
-  const [anchors, setAnchors] = useState<Array<{ entityId: string; role: PlotWorldRole }>>(
-    Array.from({ length: 3 }, (_, index) => node?.worldRefs[index] ?? { entityId: '', role: 'setting' }),
-  );
+  const [anchors, setAnchors] = recovery.field('anchors');
   const titleRef = useRef<HTMLInputElement>(null);
   const close = () => { if (!uploadingImages) onClose(); };
 
@@ -73,21 +74,24 @@ function PlotDrawer({
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!title.trim() || uploadingImages) return;
+    const checkpoint = recovery.checkpoint();
+    const recordId = node?.id ?? recovery.recordId;
     const worldRefs = anchors.filter((anchor) => anchor.entityId) as PlotWorldRef[];
     const input = {
-      title: title.trim(), summary: summary.trim(), kind, section: section.trim(), position: node?.position ?? point,
+      title: title.trim(), summary: summary.trim(), kind, section: section.trim(), position: recovery.draft.point,
       details, documentId, worldRefs, images,
     };
-    const saved = node
-      ? await useStore.getState().updatePlotNode(node.id, input)
+    const saved = recordId
+      ? await useStore.getState().updatePlotNode(recordId, input)
       : await useStore.getState().createPlotNode(input);
-    if (saved) onSaved(saved);
+    if (saved) { recovery.rememberRecord(saved.id); if (recovery.completeSave(checkpoint, draftFrom(saved))) onSaved(saved); }
   };
 
   return (
       <form className="plot-drawer" onSubmit={save}>
         <header><div><span>Story folio</span><h2>{node ? `Revise ${node.title}` : 'Add plot beat'}</h2></div><button type="button" className="drawer-close" aria-label="Close" onClick={close} disabled={uploadingImages}>×</button></header>
         <div className="drawer-scroll">
+          <DraftRecoveryNotice recovery={recovery} />
           <section className="drawer-section">
             <h3>Place in story</h3>
             <div className="drawer-grid">
@@ -123,9 +127,16 @@ function PlotDrawer({
             </div>
           </section>
         </div>
-        <footer><button type="button" className="btn" onClick={close} disabled={uploadingImages}>Cancel</button><button className="btn btn-primary" disabled={!title.trim() || uploadingImages}>{uploadingImages ? 'Adding images…' : node ? 'Save folio' : 'Add to through-line'}</button></footer>
+        <footer><button type="button" className="btn" onClick={() => { recovery.discard(); close(); }} disabled={uploadingImages}>Cancel</button><button className="btn btn-primary" disabled={!title.trim() || uploadingImages}>{uploadingImages ? 'Adding images…' : node ? 'Save folio' : 'Add to through-line'}</button></footer>
       </form>
   );
+}
+
+export function openPlotEditor(point: Point, node?: PlotNode, onSaved?: (node: PlotNode) => void) {
+  openFloatingEditor({
+    id: `plot:${node?.id ?? 'new'}`, paneType: 'plot', title: node ? `Revise ${node.title}` : 'Add plot beat', width: 610,
+    render: (close) => <PlotDrawer node={node} point={point} onClose={close} onSaved={(saved) => { onSaved?.(saved); close(); }} />,
+  });
 }
 
 export function PlotPane({ pane }: { pane: Pane }) {
@@ -146,10 +157,7 @@ export function PlotPane({ pane }: { pane: Pane }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; clientX: number; clientY: number; origin: Point } | null>(null);
   const initializedSelection = useRef(false);
-  const openDrawer = (point: Point, node?: PlotNode) => openFloatingEditor({
-    id: `plot:${node?.id ?? 'new'}`, paneType: 'plot', title: node ? `Revise ${node.title}` : 'Add plot beat', width: 610,
-    render: (close) => <PlotDrawer node={node} point={point} onClose={close} onSaved={(saved) => { setSelectedId(saved.id); setExpanded((current) => new Set(current).add(saved.id)); close(); }} />,
-  });
+  const openDrawer = (point: Point, node?: PlotNode) => openPlotEditor(point, node, (saved) => { setSelectedId(saved.id); setExpanded((current) => new Set(current).add(saved.id)); });
 
   useEffect(() => { void Promise.all([useStore.getState().loadPlot(), useStore.getState().loadCanon()]); }, []);
 

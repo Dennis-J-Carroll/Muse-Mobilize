@@ -20,17 +20,25 @@ import { deleteOrphanedImages } from './imageGc.js';
 import { readGoals, writeGoals } from './goals.js';
 import { readProgress } from './progress.js';
 import { readWorldMap, writeWorldMap } from './world-map.js';
+import { readConnections, createTag, renameTag, attachConnection, removeConnection } from './connections.js';
+import { exportProjectBackup, restoreProjectBackup, BackupError } from './backups.js';
 
 const app = express();
-app.use(express.json({ limit: '8mb' }));
 
 const wrap = (fn: express.RequestHandler): express.RequestHandler => async (req, res, next) => {
   try {
     await fn(req, res, next);
   } catch (err: any) {
-    res.status(400).json({ error: String(err?.message ?? err) });
+    res.status(err instanceof BackupError ? err.status : 400).json({ error: String(err?.message ?? err) });
   }
 };
+
+// Only portable restore accepts larger JSON. Parse and validate inside the
+// backup boundary before any destination project is created.
+app.post('/api/projects/restore', express.raw({ type: 'application/json', limit: '80mb' }), wrap(async (req, res) => {
+  res.json({ project: await restoreProjectBackup(req.body) });
+}));
+app.use(express.json({ limit: '8mb' }));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
@@ -78,6 +86,40 @@ app.post('/api/local-models/:id/install', async (req, res) => {
 });
 
 /* ---------------------------------------------------------------- projects */
+
+app.get('/api/projects/:id/backup', wrap(async (req, res) => {
+  const backup = await exportProjectBackup(req.params.id);
+  res.set('content-disposition', `attachment; filename="muse-backup-${encodeURIComponent(req.params.id)}.json"`);
+  res.json(backup);
+}));
+
+app.get('/api/projects/:id/connections', wrap(async (req, res) => {
+  res.json({ connections: await readConnections(await projectDir(req.params.id)) });
+}));
+app.post('/api/projects/:id/connections/tags', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const tag = await createTag(dir, req.body);
+  await emit(dir, 'connection.tag.created', { tagId: tag.id });
+  res.json({ tag });
+}));
+app.put('/api/projects/:id/connections/tags/:tagId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const tag = await renameTag(dir, req.params.tagId, req.body);
+  await emit(dir, 'connection.tag.renamed', { tagId: tag.id });
+  res.json({ tag });
+}));
+app.post('/api/projects/:id/connections/attachments', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const attachment = await attachConnection(dir, req.body);
+  await emit(dir, 'connection.attached', { attachmentId: attachment.id });
+  res.json({ attachment });
+}));
+app.delete('/api/projects/:id/connections/attachments/:attachmentId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  await removeConnection(dir, req.params.attachmentId);
+  await emit(dir, 'connection.removed', { attachmentId: req.params.attachmentId });
+  res.json({ ok: true });
+}));
 
 app.get('/api/projects', wrap(async (_req, res) => res.json({ projects: await listProjects() })));
 

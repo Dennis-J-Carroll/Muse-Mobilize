@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { openFloatingEditor } from '../components/floatingEditors';
+import { DraftRecoveryNotice, useRecoverableDraft } from '../useRecoverableDraft';
 import type { Scene, SceneTheme, ThemeOccurrence } from '../types';
 
 const OCCURRENCES: ThemeOccurrence[] = ['appears', 'echoes', 'fades', 'resolves'];
@@ -44,8 +45,9 @@ function nextOccurrence(current: ThemeOccurrence | null): ThemeOccurrence | null
 }
 
 function ThemeDrawer({ theme, onClose }: { theme?: SceneTheme; onClose: () => void }) {
-  const [draft, setDraft] = useState(() => draftFrom(theme));
-  const [createdId, setCreatedId] = useState('');
+  const recovery = useRecoverableDraft('themes', theme?.id ?? 'new', () => draftFrom(theme));
+  const { draft, setDraft } = recovery;
+  const createdId = recovery.recordId;
   const [saving, setSaving] = useState(false);
   const first = useRef<HTMLInputElement>(null);
 
@@ -57,6 +59,7 @@ function ThemeDrawer({ theme, onClose }: { theme?: SceneTheme; onClose: () => vo
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!draft.name.trim() || saving) return;
+    const checkpoint = recovery.checkpoint();
     setSaving(true);
     const patch = {
       name: draft.name.trim(),
@@ -68,15 +71,15 @@ function ThemeDrawer({ theme, onClose }: { theme?: SceneTheme; onClose: () => vo
       const existingId = theme?.id ?? createdId;
       if (existingId) {
         const updated = await useStore.getState().updateSceneTheme(existingId, patch);
-        if (updated) onClose();
+        if (updated && recovery.completeSave(checkpoint, draftFrom(updated))) onClose();
         return;
       }
 
       const created = await useStore.getState().createSceneTheme({ name: patch.name, description: patch.description });
       if (!created) return;
-      setCreatedId(created.id);
+      recovery.rememberRecord(created.id);
       const updated = await useStore.getState().updateSceneTheme(created.id, patch);
-      if (updated) onClose();
+      if (updated && recovery.completeSave(checkpoint, draftFrom(updated))) onClose();
     } finally {
       setSaving(false);
     }
@@ -89,6 +92,7 @@ function ThemeDrawer({ theme, onClose }: { theme?: SceneTheme; onClose: () => vo
           <button type="button" aria-label="Close theme editor" disabled={saving} onClick={onClose}>×</button>
         </header>
         <div className="story-drawer-scroll">
+          <DraftRecoveryNotice recovery={recovery} />
           <section className="story-form-grid theme-form-grid">
             <label className="span-2">Theme name<input ref={first} value={draft.name} onChange={(event) => set('name', event.target.value)} placeholder="Belonging without permission" /></label>
             <label className="span-2">Recurring motif<input value={draft.motif} onChange={(event) => set('motif', event.target.value)} placeholder="Open doors, borrowed names, shared meals…" /></label>
@@ -98,18 +102,22 @@ function ThemeDrawer({ theme, onClose }: { theme?: SceneTheme; onClose: () => vo
         </div>
         <footer>
           <span>{saving ? 'Saving theme…' : createdId ? 'Theme created; finishing details.' : ''}</span>
-          <button type="button" className="btn" disabled={saving} onClick={onClose}>Cancel</button>
+          <button type="button" className="btn" disabled={saving} onClick={() => { recovery.discard(); onClose(); }}>Cancel</button>
           <button className="btn btn-primary" disabled={!draft.name.trim() || saving}>{saving ? 'Saving…' : theme || createdId ? 'Save theme' : 'Add to map'}</button>
         </footer>
       </form>
   );
 }
 
+export function openThemeEditor(theme?: SceneTheme) {
+  openFloatingEditor({ id: `themes:${theme?.id ?? 'new'}`, paneType: 'themes', title: theme ? `Revise ${theme.name}` : 'Add theme', width: 680, render: (close) => <ThemeDrawer theme={theme} onClose={close} /> });
+}
+
 export function ThemesPane() {
   const board = useStore((state) => state.sceneBoard);
   const project = useStore((state) => state.project);
   const [savingCells, setSavingCells] = useState<Set<string>>(new Set());
-  const openDrawer = (theme?: SceneTheme) => openFloatingEditor({ id: `themes:${theme?.id ?? 'new'}`, paneType: 'themes', title: theme ? `Revise ${theme.name}` : 'Add theme', width: 680, render: (close) => <ThemeDrawer theme={theme} onClose={close} /> });
+  const openDrawer = openThemeEditor;
 
   useEffect(() => { void useStore.getState().loadScenes(); }, []);
 

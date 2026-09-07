@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 type Surface = 'glass' | 'paper';
 type Weight = '350' | '400';
+export type FocusLayer = { kind: 'cards' } | { kind: 'editor'; id: string } | { kind: 'connections' };
 export const WRITING_FONTS = [
   { id: 'inter', label: 'Inter', family: '"Inter Variable", sans-serif', variable: true },
   { id: 'times', label: 'Times New Roman', family: '"Times New Roman", "Liberation Serif", "Tinos", serif', variable: false },
@@ -24,6 +25,10 @@ const savePreference = (key: string, value: string) => {
 export const useWritingView = create<{
   focusPaneId: string | null;
   focus: (paneId: string | null) => void;
+  focusLayer: FocusLayer | null;
+  setFocusLayer: (layer: FocusLayer | null) => void;
+  controlsHidden: boolean;
+  setControlsHidden: (hidden: boolean) => void;
   workbench: boolean;
   setWorkbench: (workbench: boolean) => void;
   sidebarCollapsed: boolean;
@@ -36,11 +41,15 @@ export const useWritingView = create<{
   setWeight: (weight: Weight) => void;
 }>((set) => ({
   focusPaneId: null,
+  focusLayer: null,
+  setFocusLayer: (focusLayer) => set((state) => ({ focusLayer: state.focusPaneId ? focusLayer : null })),
+  controlsHidden: readPreference('muse:writing-controls-hidden') === 'true',
+  setControlsHidden: (controlsHidden) => { savePreference('muse:writing-controls-hidden', String(controlsHidden)); set({ controlsHidden }); },
   workbench: false,
   setWorkbench: (workbench) => set({ workbench }),
   sidebarCollapsed: false,
   setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
-  focus: (focusPaneId) => set({ focusPaneId }),
+  focus: (focusPaneId) => set({ focusPaneId, focusLayer: null }),
   surface: readPreference('muse:writing-surface') === 'paper' ? 'paper' : 'glass',
   weight: readPreference('muse:writing-weight') === '350' ? '350' : '400',
   font: WRITING_FONTS.find((font) => font.id === readPreference('muse:writing-font'))?.id ?? 'inter',

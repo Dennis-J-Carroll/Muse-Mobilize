@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { ImageGalleryEditor, StoryImageStrip } from '../components/ImageGalleryEditor';
 import { preflightImageFiles } from '../components/ImageGalleryEditor';
 import { openFloatingEditor } from '../components/floatingEditors';
+import { DraftRecoveryNotice, useRecoverableDraft } from '../useRecoverableDraft';
 import type { CanonEntity, CanonEntityType, CanonFact, Pane, StoryImage, WorldProfile } from '../types';
 
 type Point = { x: number; y: number };
@@ -67,16 +68,18 @@ function WorldDrawer({
 }) {
   const project = useStore((s) => s.project);
   const documents = project?.documents ?? [];
-  const [name, setName] = useState(entity?.name ?? '');
-  const [type, setType] = useState<CanonEntityType>(entity?.type ?? 'location');
-  const [aliases, setAliases] = useState(entity?.aliases.join(', ') ?? '');
-  const [categories, setCategories] = useState(entity?.world?.categories.join(', ') ?? '');
-  const [summary, setSummary] = useState(entity?.summary ?? '');
-  const [era, setEra] = useState(entity?.world?.attributes.era ?? '');
-  const [atmosphere, setAtmosphere] = useState(entity?.world?.attributes.atmosphere ?? '');
-  const [significance, setSignificance] = useState(entity?.world?.attributes.significance ?? '');
-  const [referenceDocumentId, setReferenceDocumentId] = useState(entity?.world?.referenceDocumentId ?? '');
-  const [images, setImages] = useState<StoryImage[]>(entity?.world?.images ?? []);
+  const draftFrom = (item?: CanonEntity) => ({ name: item?.name ?? '', type: item?.type ?? 'location' as CanonEntityType, aliases: item?.aliases.join(', ') ?? '', categories: item?.world?.categories.join(', ') ?? '', summary: item?.summary ?? '', era: item?.world?.attributes.era ?? '', atmosphere: item?.world?.attributes.atmosphere ?? '', significance: item?.world?.attributes.significance ?? '', referenceDocumentId: item?.world?.referenceDocumentId ?? '', images: item?.world?.images ?? [] as StoryImage[], point: item?.world?.canvas ?? point });
+  const recovery = useRecoverableDraft('world', entity?.id ?? 'new', () => draftFrom(entity));
+  const [name, setName] = recovery.field('name');
+  const [type, setType] = recovery.field('type');
+  const [aliases, setAliases] = recovery.field('aliases');
+  const [categories, setCategories] = recovery.field('categories');
+  const [summary, setSummary] = recovery.field('summary');
+  const [era, setEra] = recovery.field('era');
+  const [atmosphere, setAtmosphere] = recovery.field('atmosphere');
+  const [significance, setSignificance] = recovery.field('significance');
+  const [referenceDocumentId, setReferenceDocumentId] = recovery.field('referenceDocumentId');
+  const [images, setImages] = recovery.field('images');
   const [uploadingImages, setUploadingImages] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
   const close = () => { if (!uploadingImages) onClose(); };
@@ -88,6 +91,8 @@ function WorldDrawer({
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!name.trim() || uploadingImages) return;
+    const checkpoint = recovery.checkpoint();
+    const recordId = entity?.id ?? recovery.recordId;
     const world: WorldProfile = {
       categories: splitList(categories),
       attributes: {
@@ -95,18 +100,18 @@ function WorldDrawer({
         atmosphere: atmosphere.trim(),
         significance: significance.trim(),
       },
-      canvas: entity?.world?.canvas ?? point,
+      canvas: recovery.draft.point,
       images,
       ...(referenceDocumentId ? { referenceDocumentId } : {}),
     };
-    const saved = entity
-      ? await useStore.getState().updateCanonEntity(entity.id, {
+    const saved = recordId
+      ? await useStore.getState().updateCanonEntity(recordId, {
           name: name.trim(), aliases: splitList(aliases), summary: summary.trim(), world,
         })
       : await useStore.getState().createCanonEntity({
           type, name: name.trim(), aliases: splitList(aliases), summary: summary.trim(), world,
         });
-    if (saved) onSaved(saved);
+    if (saved) { recovery.rememberRecord(saved.id); if (recovery.completeSave(checkpoint, draftFrom(saved))) onSaved(saved); }
   };
 
   const loreDocuments = documents.filter((document) => document.kind === 'canon' || document.kind === 'notes');
@@ -118,6 +123,7 @@ function WorldDrawer({
           <button type="button" className="drawer-close" aria-label="Close" onClick={close} disabled={uploadingImages}>×</button>
         </header>
         <div className="drawer-scroll">
+          <DraftRecoveryNotice recovery={recovery} />
           <section className="drawer-section">
             <h3>Identity</h3>
             <div className="drawer-grid">
@@ -153,9 +159,16 @@ function WorldDrawer({
             <ImageGalleryEditor images={images} onChange={setImages} noun="world" onBusyChange={setUploadingImages} />
           </section>
         </div>
-        <footer><button type="button" className="btn" onClick={close} disabled={uploadingImages}>Cancel</button><button className="btn btn-primary" disabled={!name.trim() || uploadingImages}>{uploadingImages ? 'Adding images…' : entity ? 'Save landmark' : 'Place landmark'}</button></footer>
+        <footer><button type="button" className="btn" onClick={() => { recovery.discard(); close(); }} disabled={uploadingImages}>Cancel</button><button className="btn btn-primary" disabled={!name.trim() || uploadingImages}>{uploadingImages ? 'Adding images…' : entity ? 'Save landmark' : 'Place landmark'}</button></footer>
       </form>
   );
+}
+
+export function openWorldEditor(point: Point, entity?: CanonEntity, onSaved?: (entity: CanonEntity) => void) {
+  openFloatingEditor({
+    id: `world:${entity?.id ?? 'new'}`, paneType: 'world', title: entity ? `Edit ${entity.name}` : 'Place a landmark', width: 560,
+    render: (close) => <WorldDrawer entity={entity} point={point} onClose={close} onSaved={(saved) => { onSaved?.(saved); close(); }} />,
+  });
 }
 
 export function WorldPane({ pane }: { pane: Pane }) {
@@ -182,10 +195,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
   const panRef = useRef<{ pointerId: number; clientX: number; clientY: number; origin: View } | null>(null);
   const dragRef = useRef<{ id: string; clientX: number; clientY: number; origin: Point; scale: number } | null>(null);
   const initializedSelection = useRef(false);
-  const openDrawer = (point: Point, entity?: CanonEntity) => openFloatingEditor({
-    id: `world:${entity?.id ?? 'new'}`, paneType: 'world', title: entity ? `Edit ${entity.name}` : 'Place a landmark', width: 560,
-    render: (close) => <WorldDrawer entity={entity} point={point} onClose={close} onSaved={(saved) => { setSelectedId(saved.id); close(); }} />,
-  });
+  const openDrawer = (point: Point, entity?: CanonEntity) => openWorldEditor(point, entity, (saved) => setSelectedId(saved.id));
 
   useEffect(() => {
     void Promise.all([useStore.getState().loadCanon(), useStore.getState().loadPlot(), useStore.getState().loadWorldMap()]);

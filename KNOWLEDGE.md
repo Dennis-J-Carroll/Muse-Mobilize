@@ -1,6 +1,86 @@
 # Muse-Mobilize Knowledge & Continuation Log
 
-Last updated: 2026-09-06, adding draggable windows, Workbench, saved visual desks, and manuscript fonts.
+Last updated: 2026-09-06, adding writing recovery, portable saved-project backups, and the connected story layer.
+
+## Writing trust and connected story layer — 2026-09-06
+
+- Manuscript edits journal synchronously to versioned, project/document-scoped
+  browser storage. Reload offers explicit restore/discard and comparison when
+  saved text differs. Autosaves serialize; late replies cannot clear newer edits
+  or enter another project. Patch acceptance is gated by successful saving and
+  preserves keystrokes made while a patch response is pending.
+- All seven floating editor forms and Goals session targets have browser-local
+  draft recovery. Reopen the same record/new form after reload. Save clears only
+  its matching revision; Cancel cannot discard another form's newer revision.
+  Quota/storage failures are visible, preserve prior durable copies, keep affected
+  closed editors mounted in the drawer, and prevent unsafe project switching.
+- Backups download saved project files and restore a separate project identity.
+  Checksums, size limits, allowlisted paths, staged installation, collision checks,
+  and field-specific image URL remapping protect restoration. Originals remain
+  untouched. Provider keys, browser-local drafts, and Saved Desks are excluded.
+- Connections provides shared tags, stable renames, typed record links, backlinks,
+  and passage annotations in `connections/connections.json`. Its index filters
+  across tools by tag/type; it does not globally filter every canvas.
+- Manuscript **Tag / link** or typed **`!#`** opens connections above writing focus.
+  Selected prose is restored when the command temporarily replaced it. Exact
+  quotes plus adjacent context guide passage jumps; missing/ambiguous passages
+  require explicit reconnection. Unlink removes the attachment, not prose or tags.
+- Frosted palette and existing editor forms are retained. Saved record editors
+  expose **# / Tags and links**. Escape returns through connections → card → draft.
+- KingsBlood remains read-only and unimported. `/mobilize`, source provenance,
+  competing-account schema, and source maturity remain a separately approved next
+  slice. Existing `.claude/` and `notes/` are untouched. This implementation
+  extends `8363d49` on `codex/floating-editor-integration`; check `git log -1`
+  for the current committed checkpoint and `git status` for subsequent work.
+
+Feature boundaries, acceptance checklist, and continuation prompt:
+`docs/writing-trust-and-connections-2026-09-06.md`.
+Backup format: `docs/project-backups-contract.md`.
+
+Verified final gate: **59/59 Chromium scenarios**, **44 web node:test cases plus
+7 bang-hash assertions**, **15 server test files** (including 15 connection and
+11 backup service cases), production build, server/e2e typechecks, and diff check.
+Desktop and phone connection screenshots were inspected. Existing 5177 preview
+health returns `ok`; its tab was not reloaded. Browser tests used isolated
+5277/5278 temporary projects. Native Firefox/fullscreen Escape, mobile keyboard
+input, touch, and long-session comfort remain Dennis's acceptance checks.
+
+The older sections below record historical checkpoints; session-only draft and
+unimplemented-tag notes are superseded by this section.
+
+## Quiet focus and story-card layers — 2026-09-06
+
+- Optional Hide controls removes manuscript toolbar and font notices only in
+  writing focus. A small feather restores controls; preference persists locally.
+- Browser Fullscreen is a separate user-triggered option with denied/unsupported
+  fallback. Fullscreen targets the document root so editor portals remain visible.
+  Native browser exit does not intentionally exit Muse focus; browser Escape and
+  toolbar reveal still need Firefox/OS hands-on acceptance.
+- Story cards / Alt+Shift+K opens lookup over the draft, including parked editor
+  drafts. Character/World aliases/categories, theme motifs, and reference image
+  tags participate in lookup. Ctrl+Shift+K is avoided because Firefox reserves it.
+- All seven existing record-editor entry points are shared with focus lookup.
+  Pulled cards remain draggable and editable. Escape docks only the current app
+  layer, preserves the form, and restores manuscript selection. Tab stays inside
+  the active focus layer. Save uses existing APIs; drafts remain session-only.
+- Persistent tags, `!#` parsing, passage anchors/backlinks, and `/mobilize` imports
+  are not implemented in this slice. Their focus-layer contract is documented.
+- KingsBlood was inspected read-only. Proposed pilot: Dermelius Royer, Jandell,
+  and The Load They Bear. Keep source Markdown unchanged. Import metadata must
+  separate document maturity from claim authority, preserve intentional competing
+  accounts and names, and exclude superseded / PLAY / unreviewed sources from
+  automatic canon extraction. No story files were imported or modified.
+
+Details: `docs/quiet-focus-and-story-cards-2026-09-06.md` and
+`docs/kingsblood-mobilize-preview-2026-09-06.md`.
+Verification: **48/48 Chromium scenarios**, **25 web helper tests**, **13 server
+test files**, production build, server/e2e typechecks, and diff check pass.
+Six new browser scenarios exercise quiet focus and layered story-card behavior.
+Changes are uncommitted after `8363d49` on `codex/floating-editor-integration`.
+Unrelated `.claude/` and `notes/` remain untouched.
+
+Next: hands-on quiet-focus acceptance, then a shared tag/annotation contract and
+provenance/contested-account schema before any approved KingsBlood import.
 
 ## Personal desks, window movement, and typography — 2026-09-06
 

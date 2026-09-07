@@ -42,6 +42,26 @@ Reduced-motion and transparency preferences have explicit CSS fallbacks.
 
 See [design and responsive verification](docs/design-2026-09-05.md).
 
+Manuscript **Focus** also offers **Hide controls** for a quiet page and optional
+browser **Fullscreen**. A small feather restores controls. **Story cards** or
+**Alt+Shift+K** opens editable story records above the draft; Escape dismisses
+that layer before leaving writing focus. Card drafts recover locally when the
+same form is reopened; save them to include their contents in project backups.
+Browser fullscreen Escape is controlled by the browser.
+See [quiet focus and story cards](docs/quiet-focus-and-story-cards-2026-09-06.md).
+
+## Writing trust and connections
+
+**Connections** ties shared tags to story records and manuscript passages.
+Select text and type **`!#`**, or use **Tag / link**, to open the picker without
+leaving command tokens in prose. Tags survive renames; backlinks navigate only
+when their quote and context still match. Record cards remain editable in focus.
+
+Unfinished documents and the seven card forms have browser-local recovery.
+**Backups** downloads saved project files and restores them as a separate project,
+never over the original. Save tool forms first: browser recovery and Saved Desks
+are not portable backups. See [features, limits, and acceptance checklist](docs/writing-trust-and-connections-2026-09-06.md).
+
 ## The golden path
 
 1. A project is created for you on first run, seeded with a short chapter.

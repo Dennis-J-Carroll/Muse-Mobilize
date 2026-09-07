@@ -5,6 +5,7 @@ import type {
   LocalModelInstallResult, LocalModelProgress, PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
   ProviderCheckResult, ProviderStatus, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, StoryImage, WorkspaceDef, WorldMap, WorldProfile,
 } from './types';
+import type { ConnectionStore, ConnectionTarget, StoryAttachment, StoryTag } from '../../shared/connections';
 
 function imagePayload(file: File): Promise<{ name: string; mimeType: string; data: string }> {
   return new Promise((resolve, reject) => {
@@ -37,6 +38,13 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  connections: (id: string) => req<{ connections: ConnectionStore }>(`/api/projects/${id}/connections`),
+  createTag: (id: string, label: string) => req<{ tag: StoryTag }>(`/api/projects/${id}/connections/tags`, { method: 'POST', body: JSON.stringify({ label }) }),
+  renameTag: (id: string, tagId: string, label: string) => req<{ tag: StoryTag }>(`/api/projects/${id}/connections/tags/${tagId}`, { method: 'PUT', body: JSON.stringify({ label }) }),
+  attachConnection: (id: string, body: { target: ConnectionTarget; tagId?: string; entity?: ConnectionTarget; range?: { start: number; end: number; quote: string } }) =>
+    req<{ attachment: StoryAttachment }>(`/api/projects/${id}/connections/attachments`, { method: 'POST', body: JSON.stringify(body) }),
+  removeConnection: (id: string, attachmentId: string) => req<{ ok: true }>(`/api/projects/${id}/connections/attachments/${attachmentId}`, { method: 'DELETE' }),
+  restoreBackup: (backup: string) => req<{ project: ProjectManifest }>('/api/projects/restore', { method: 'POST', body: backup }),
   listProjects: () => req<{ projects: ProjectManifest[] }>('/api/projects'),
   createProject: (name: string) =>
     req<{ project: ProjectManifest }>('/api/projects', { method: 'POST', body: JSON.stringify({ name }) }),

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { milestoneProgress } from '../goalProgress';
 import { useStore } from '../store';
 import { openFloatingEditor } from '../components/floatingEditors';
+import { DraftRecoveryNotice, useRecoverableDraft } from '../useRecoverableDraft';
 import type { GoalMilestone, GoalMilestoneStatus, SessionTarget } from '../types';
 
 const MILESTONE_STATUSES: Array<{ value: GoalMilestoneStatus; label: string }> = [
@@ -63,7 +64,8 @@ function MilestoneDrawer({ milestone, onClose }: {
   milestone?: GoalMilestone;
   onClose: () => void;
 }) {
-  const [draft, setDraft] = useState(() => milestoneDraftFrom(milestone));
+  const recovery = useRecoverableDraft('goals', milestone?.id ?? 'new', () => milestoneDraftFrom(milestone));
+  const { draft, setDraft } = recovery;
   const [saving, setSaving] = useState(false);
   const first = useRef<HTMLInputElement>(null);
 
@@ -73,17 +75,20 @@ function MilestoneDrawer({ milestone, onClose }: {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!draft.title.trim() || saving) return;
+    const checkpoint = recovery.checkpoint();
+    const recordId = milestone?.id ?? recovery.recordId ?? makeMilestoneId();
     setSaving(true);
     try {
       const now = new Date().toISOString();
       const fields = { title: draft.title.trim(), description: draft.description.trim(), status: draft.status, targetWords: positiveInteger(draft.targetWords), dueDate: draft.dueDate || undefined };
-      if (await useStore.getState().updateGoals((current) => {
+      const saved = await useStore.getState().updateGoals((current) => {
         const milestones = ordered(current.milestones);
-        const next = milestone
-          ? milestones.map((item) => item.id === milestone.id ? { ...item, ...fields, updatedAt: now } : item)
-          : [...milestones, { ...fields, id: makeMilestoneId(), order: milestones.length, createdAt: now, updatedAt: now }];
+        const next = milestones.some((item) => item.id === recordId)
+          ? milestones.map((item) => item.id === recordId ? { ...item, ...fields, updatedAt: now } : item)
+          : [...milestones, { ...fields, id: recordId, order: milestones.length, createdAt: now, updatedAt: now }];
         return { milestones: ordered(next) };
-      })) onClose();
+      });
+      if (saved) { recovery.rememberRecord(recordId); if (recovery.completeSave(checkpoint, milestoneDraftFrom(saved.milestones.find((item) => item.id === recordId)))) onClose(); }
     } finally {
       setSaving(false);
     }
@@ -96,6 +101,7 @@ function MilestoneDrawer({ milestone, onClose }: {
           <button type="button" aria-label="Close milestone editor" disabled={saving} onClick={onClose}>×</button>
         </header>
         <div className="story-drawer-scroll">
+          <DraftRecoveryNotice recovery={recovery} />
           <section className="story-form-grid goal-form-grid">
             <label className="span-2">Milestone title<input ref={first} value={draft.title} onChange={(event) => set('title', event.target.value)} placeholder="Finish first act" /></label>
             <label>Status<select value={draft.status} onChange={(event) => set('status', event.target.value as GoalMilestoneStatus)}>{MILESTONE_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label>
@@ -106,50 +112,59 @@ function MilestoneDrawer({ milestone, onClose }: {
         </div>
         <footer>
           <span>{saving ? 'Saving route…' : ''}</span>
-          <button type="button" className="btn" disabled={saving} onClick={onClose}>Cancel</button>
+          <button type="button" className="btn" disabled={saving} onClick={() => { recovery.discard(); onClose(); }}>Cancel</button>
           <button className="btn btn-primary" disabled={!draft.title.trim() || saving}>{saving ? 'Saving…' : milestone ? 'Save milestone' : 'Add to route'}</button>
         </footer>
       </form>
   );
 }
 
+export function openMilestoneEditor(milestone?: GoalMilestone) {
+  openFloatingEditor({ id: `goals:${milestone?.id ?? 'new'}`, paneType: 'goals', title: milestone ? `Revise ${milestone.title}` : 'Add milestone', width: 680, render: (close) => <MilestoneDrawer milestone={milestone} onClose={close} /> });
+}
+
+function SessionTargetForm({ target: savedTarget, saving, setSaving }: { target: SessionTarget; saving: boolean; setSaving: (saving: boolean) => void }) {
+  const recovery = useRecoverableDraft('goals-session', 'target', () => sessionDraftFrom(savedTarget));
+  const { draft: target, setDraft } = recovery;
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (saving) return;
+    const checkpoint = recovery.checkpoint();
+    setSaving(true);
+    try {
+      const saved = await useStore.getState().updateGoals({ sessionTarget: {
+        focus: target.focus.trim(), wordTarget: nonNegativeInteger(target.wordTarget), minutesTarget: nonNegativeInteger(target.minutesTarget),
+      } });
+      if (saved) recovery.completeSave(checkpoint, sessionDraftFrom(saved.sessionTarget));
+    } finally { setSaving(false); }
+  };
+  return <>
+    {recovery.restored && <DraftRecoveryNotice recovery={recovery} />}
+    <form className="session-target-form" onSubmit={submit}>
+      <label className="session-focus">Focus<input value={target.focus} onChange={(event) => setDraft({ ...target, focus: event.target.value })} placeholder="Draft council reversal" /></label>
+      <label className="session-target-metric"><span>Words</span><input type="number" min="0" step="1" inputMode="numeric" value={target.wordTarget} onChange={(event) => setDraft({ ...target, wordTarget: event.target.value })} placeholder="750" /></label>
+      <label className="session-target-metric"><span>Minutes</span><input type="number" min="0" step="1" inputMode="numeric" value={target.minutesTarget} onChange={(event) => setDraft({ ...target, minutesTarget: event.target.value })} placeholder="45" /></label>
+      <button className="btn" aria-label="Save session target" disabled={saving}>{saving ? 'Saving…' : 'Save session target'}</button>
+    </form>
+  </>;
+}
+
 export function GoalsPane() {
   const goals = useStore((state) => state.goals);
   const progress = useStore((state) => state.progress);
   const project = useStore((state) => state.project);
-  const [sessionDraft, setSessionDraft] = useState<SessionDraft | null>(null);
   const [sessionSaving, setSessionSaving] = useState(false);
   const [routeSaving, setRouteSaving] = useState(false);
   const saving = sessionSaving || routeSaving;
-  const openDrawer = (milestone?: GoalMilestone) => openFloatingEditor({ id: `goals:${milestone?.id ?? 'new'}`, paneType: 'goals', title: milestone ? `Revise ${milestone.title}` : 'Add milestone', width: 680, render: (close) => <MilestoneDrawer milestone={milestone} onClose={close} /> });
+  const openDrawer = openMilestoneEditor;
 
   useEffect(() => { void Promise.all([useStore.getState().loadGoals(), useStore.getState().loadProgress()]); }, []);
-  useEffect(() => {
-    if (goals && !sessionDraft) setSessionDraft(sessionDraftFrom(goals.sessionTarget));
-  }, [goals, sessionDraft]);
 
   if (!goals) return <div className="pane-body pane-loading">Setting writing route…</div>;
 
   const milestones = ordered(goals.milestones);
   const currentWords = progress?.currentWords ?? 0;
   const completed = milestones.filter((milestone) => milestone.status === 'completed').length;
-  const target = sessionDraft ?? sessionDraftFrom(goals.sessionTarget);
-
-  const saveSession = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const sessionTarget: SessionTarget = {
-      focus: target.focus.trim(),
-      wordTarget: nonNegativeInteger(target.wordTarget),
-      minutesTarget: nonNegativeInteger(target.minutesTarget),
-    };
-    setSessionSaving(true);
-    try {
-      const saved = await useStore.getState().updateGoals({ sessionTarget });
-      if (saved) setSessionDraft(sessionDraftFrom(saved.sessionTarget));
-    } finally {
-      setSessionSaving(false);
-    }
-  };
 
   const persistMilestones = async (transform: (milestones: GoalMilestone[]) => GoalMilestone[]): Promise<boolean> => {
     setRouteSaving(true);
@@ -190,12 +205,7 @@ export function GoalsPane() {
 
       <section className="session-target-card" aria-labelledby="session-target-heading">
         <header><div><span>Next session</span><h3 id="session-target-heading">Set one finish line</h3></div><p>Keep target close enough to change today’s draft.</p></header>
-        <form className="session-target-form" onSubmit={saveSession}>
-          <label className="session-focus">Focus<input value={target.focus} onChange={(event) => setSessionDraft({ ...target, focus: event.target.value })} placeholder="Draft council reversal" /></label>
-          <label className="session-target-metric"><span>Words</span><input type="number" min="0" step="1" inputMode="numeric" value={target.wordTarget} onChange={(event) => setSessionDraft({ ...target, wordTarget: event.target.value })} placeholder="750" /></label>
-          <label className="session-target-metric"><span>Minutes</span><input type="number" min="0" step="1" inputMode="numeric" value={target.minutesTarget} onChange={(event) => setSessionDraft({ ...target, minutesTarget: event.target.value })} placeholder="45" /></label>
-          <button className="btn" disabled={saving}>{sessionSaving ? 'Saving…' : 'Save session target'}</button>
-        </form>
+        <SessionTargetForm target={goals.sessionTarget} saving={saving} setSaving={setSessionSaving} />
       </section>
 
       <main className="goal-route-section">

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { ReactNode } from 'react';
 import { api } from './api';
 import { reconcileDeskPanes, type DeskPane } from './desks';
+import { draftJournal, draftKey, documentDraftScope, type DraftEntry } from './draftRecovery';
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   FloatingPanel, GoalStore, ProgressProjection, ReferenceStore, StoryReference,
@@ -15,6 +16,10 @@ interface DocState {
   dirty: boolean;
   savedAt?: string;
   title: string;
+  baseContent?: string;
+  journalRevision?: string;
+  recovery?: DraftEntry<string>;
+  applyingPatch?: boolean;
 }
 
 interface State {
@@ -61,6 +66,7 @@ interface State {
   loadDoc: (docId: string) => Promise<void>;
   editDoc: (docId: string, content: string) => void;
   flushDoc: (docId: string) => Promise<void>;
+  resolveDocRecovery: (docId: string, choice: 'restore' | 'discard') => void;
 
   openPane: (type: PaneType, opts?: { bindingId?: string; title?: string; region?: Region; focus?: boolean }) => void;
   closePane: (paneId: string) => void;
@@ -131,6 +137,8 @@ interface State {
 }
 
 const saveTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+const docSaveQueues = new Map<string, Promise<void>>();
+let projectOpenRequest = 0;
 let paneSeq = 0;
 let projectSession = 0;
 export const getProjectSession = () => projectSession;
@@ -192,7 +200,8 @@ export const useStore = create<State>((set, get) => ({
     try {
       const [{ projects }, cfg] = await Promise.all([api.listProjects(), api.settings()]);
       set({ projects, settings: cfg.settings, providers: cfg.providers });
-      const last = localStorage.getItem('muse:lastProject');
+      let last: string | null = null;
+      try { last = localStorage.getItem('muse:lastProject'); } catch { /* Loading a project must work without browser storage. */ }
       const target = projects.find((p) => p.id === last) ?? projects[0];
       if (target) await get().openProject(target.id);
       set({ ready: true });
@@ -208,10 +217,22 @@ export const useStore = create<State>((set, get) => ({
   },
 
   async openProject(id) {
+    const request = ++projectOpenRequest;
     try {
+      if (get().project && draftJournal.hasProjectIssues(get().project!.id)) {
+        set({ error: 'Browser recovery is unavailable for some edits. Save or copy your unfinished writing before switching projects.' });
+        return;
+      }
       const { project, agents, workspaces } = await api.openProject(id);
+      if (request !== projectOpenRequest) return;
+      if (get().project && draftJournal.hasProjectIssues(get().project!.id)) {
+        set({ error: 'Browser recovery failed while opening the next project. Your current writing remains open; save it before switching.' });
+        return;
+      }
+      Object.values(saveTimers).forEach(clearTimeout);
+      Object.keys(saveTimers).forEach((key) => delete saveTimers[key]);
       projectSession += 1;
-      localStorage.setItem('muse:lastProject', id);
+      try { localStorage.setItem('muse:lastProject', id); } catch { /* Recovery reports unavailable browser storage when writing. */ }
       set({ project, agents, workspaces, docs: {}, panes: [], floatingPanels: [], floatingEditorContents: {}, runs: {}, events: [], canon: null, plot: null, sceneBoard: null, references: null, goals: null, progress: null, worldMap: null, worldFocusEntityId: null, plotFocusNodeId: null, sceneFocusId: null, selection: null, error: null });
       const drafting = workspaces.find((w) => w.id === 'drafting') ?? workspaces[0];
       if (drafting) await get().applyWorkspace(drafting.id);
@@ -221,7 +242,7 @@ export const useStore = create<State>((set, get) => ({
       }
       await get().refreshEvents();
     } catch (err: any) {
-      set({ error: err.message });
+      if (request === projectOpenRequest) set({ error: err.message });
     }
   },
 
@@ -242,33 +263,77 @@ export const useStore = create<State>((set, get) => ({
     // Opening a saved desk can mount and request the same document together.
     // A later read must not overwrite the first loaded/edited draft or cross stories.
     if (get().project !== project || projectSession !== session || get().docs[docId]) return;
-    set({ docs: { ...get().docs, [docId]: { content, dirty: false, title: meta.title } } });
+    const scope = documentDraftScope(project.id, docId);
+    const entry = draftJournal.read<string>(scope);
+    const recovery = entry && typeof entry.value === 'string' && typeof entry.base === 'string' && entry.value !== content ? entry : undefined;
+    if (entry?.value === content) draftJournal.clear(scope, entry.revision);
+    set({ docs: { ...get().docs, [docId]: { content, baseContent: content, dirty: false, title: meta.title, recovery } } });
   },
 
   /** Autosave. The draft is sovereign: we never block typing on the network. */
   editDoc(docId, content) {
+    const project = get().project;
     const cur = get().docs[docId];
-    set({ docs: { ...get().docs, [docId]: { ...(cur ?? { title: docId }), content, dirty: true } } });
-    clearTimeout(saveTimers[docId]);
-    saveTimers[docId] = setTimeout(() => void get().flushDoc(docId), 900);
+    if (!project || !cur || cur.recovery) return;
+    const session = projectSession;
+    const scope = documentDraftScope(project.id, docId);
+    const entry = draftJournal.write(scope, cur.baseContent ?? cur.content, content);
+    set({ docs: { ...get().docs, [docId]: { ...cur, content, dirty: true, journalRevision: entry.revision } } });
+    const key = draftKey(scope);
+    clearTimeout(saveTimers[key]);
+    saveTimers[key] = setTimeout(() => {
+      delete saveTimers[key];
+      if (get().project === project && projectSession === session) void get().flushDoc(docId);
+    }, 900);
   },
 
   async flushDoc(docId) {
     const { project, docs } = get();
     const doc = docs[docId];
-    if (!project || !doc || !doc.dirty) return;
-    try {
-      const { savedAt } = await api.writeDoc(project.id, docId, doc.content);
-      const latest = get().docs[docId];
-      set({
-        docs: {
-          ...get().docs,
-          [docId]: { ...latest, dirty: latest.content !== doc.content, savedAt },
-        },
-      });
-    } catch (err: any) {
-      set({ error: `Could not save: ${err.message}` });
+    if (!project || !doc || !doc.dirty || doc.recovery || doc.applyingPatch) return;
+    const session = projectSession;
+    const scope = documentDraftScope(project.id, docId);
+    const key = draftKey(scope);
+    clearTimeout(saveTimers[key]);
+    delete saveTimers[key];
+    const save = async () => {
+      // A queued save may outlive the desk that requested it. Its journal remains recoverable.
+      if (get().project !== project || projectSession !== session) return;
+      try {
+        const { savedAt } = await api.writeDoc(project.id, docId, doc.content);
+        if (get().project !== project || projectSession !== session) {
+          if (doc.journalRevision) draftJournal.clear(scope, doc.journalRevision);
+          return;
+        }
+        const latest = get().docs[docId];
+        if (!latest) return;
+        const unchanged = latest.journalRevision === doc.journalRevision && latest.content === doc.content;
+        if (unchanged && doc.journalRevision) draftJournal.clear(scope, doc.journalRevision);
+        else if (latest.journalRevision) draftJournal.rebase(scope, latest.journalRevision, doc.content);
+        set({ docs: { ...get().docs, [docId]: { ...latest, baseContent: doc.content, dirty: !unchanged, savedAt } } });
+      } catch (err: any) {
+        if (get().project === project && projectSession === session) set({ error: `Could not save: ${err.message}` });
+      }
+    };
+    const previous = docSaveQueues.get(key);
+    const queued = previous ? previous.then(save) : save();
+    docSaveQueues.set(key, queued);
+    await queued;
+    if (docSaveQueues.get(key) === queued) docSaveQueues.delete(key);
+  },
+
+  resolveDocRecovery(docId, choice) {
+    const { project, docs } = get();
+    const doc = docs[docId];
+    if (!project || !doc?.recovery) return;
+    const recovery = doc.recovery;
+    if (choice === 'discard') {
+      draftJournal.clear(documentDraftScope(project.id, docId), recovery.revision);
+      set({ docs: { ...docs, [docId]: { ...doc, recovery: undefined } } });
+      return;
     }
+    set({ docs: { ...docs, [docId]: { ...doc, recovery: undefined } } });
+    get().editDoc(docId, recovery.value);
   },
 
   openPane(type, opts = {}) {
@@ -504,21 +569,43 @@ export const useStore = create<State>((set, get) => ({
   async acceptPatch(patch, override) {
     const s = get();
     if (!s.project) return;
+    const session = projectSession;
+    const current = () => get().project === s.project && projectSession === session;
     const applied = override !== undefined ? { ...patch, afterText: override } : patch;
-    // Flush pending keystrokes first, or the server would apply to a stale file.
-    await get().flushDoc(patch.documentId);
     try {
+      if (!get().docs[patch.documentId]) await get().loadDoc(patch.documentId);
+      if (!current()) return;
+      await get().flushDoc(patch.documentId);
+      if (!current()) return;
+      const before = get().docs[patch.documentId];
+      if (!before || before.dirty || before.recovery || before.applyingPatch) {
+        set({ error: 'Save your writing and resolve recovered drafts before applying a patch.' });
+        return;
+      }
+      set({ docs: { ...get().docs, [patch.documentId]: { ...before, applyingPatch: true } } });
       const { content } = await api.applyPatch(s.project.id, patch.documentId, applied);
+      if (!current()) return;
       const cur = get().docs[patch.documentId];
+      if (!cur) return;
+      const scope = documentDraftScope(s.project.id, patch.documentId);
+      clearTimeout(saveTimers[draftKey(scope)]);
+      delete saveTimers[draftKey(scope)];
+      const changed = cur.content !== before.content || cur.journalRevision !== before.journalRevision;
+      const recovery = changed ? draftJournal.write(scope, before.content, cur.content) : undefined;
+      if (!changed && cur.journalRevision) draftJournal.clear(scope, cur.journalRevision);
       set({
-        docs: { ...get().docs, [patch.documentId]: { ...(cur ?? { title: patch.documentId }), content, dirty: false } },
+        docs: { ...get().docs, [patch.documentId]: { ...cur, content, baseContent: content, dirty: false, applyingPatch: false, recovery, journalRevision: undefined } },
         runs: markPatch(get().runs, patch.id, 'accepted'),
-        notice: 'Patch applied.',
+        notice: changed ? 'Patch applied. Review the keystrokes made during acceptance in draft recovery.' : 'Patch applied.',
       });
     } catch (err: any) {
+      if (!current()) return;
+      const cur = get().docs[patch.documentId];
+      if (cur) set({ docs: { ...get().docs, [patch.documentId]: { ...cur, applyingPatch: false } } });
       set({ runs: markPatch(get().runs, patch.id, 'stale'), error: err.message });
+      if (cur?.dirty) void get().flushDoc(patch.documentId);
     }
-    await get().refreshEvents();
+    if (current()) await get().refreshEvents();
   },
 
   async rejectPatch(_agentId, patch) {
