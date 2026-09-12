@@ -15,6 +15,7 @@ const TOOLS: WorkbenchTool[] = [
   { type: 'goals', label: 'Goals', title: 'Writing Goals', icon: Icon.Target },
   { type: 'progress', label: 'Progress', title: 'Manuscript Progress', icon: Icon.Bars },
   { type: 'canon', label: 'Canon', title: 'Canon', icon: Icon.Book },
+  { type: 'sources', label: 'Sources', title: 'Sources', icon: Icon.Note },
   { type: 'review', label: 'Review', title: 'Review', icon: Icon.List },
   { type: 'events', label: 'Activity', title: 'Activity', icon: Icon.Clock },
 ];

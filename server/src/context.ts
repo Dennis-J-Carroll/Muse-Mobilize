@@ -1,5 +1,7 @@
 import { projectDir, readDocument, readManifest } from './projects.js';
 import { readCanon, renderCanonContext } from './canon.js';
+import { searchSources, readSourceChunk } from './sources.js';
+import type { SourceCitation } from './types.js';
 import type { AgentDef, Selection } from './types.js';
 
 /**
@@ -20,6 +22,46 @@ export interface ContextSection {
 export interface ContextBundle {
   sections: ContextSection[];
   summary: string[]; // human-readable, shown in the UI beside the answer
+  sourceCitations?: SourceCitation[]; // real retrieved chunks only — never invented
+}
+
+/** Sources retrieval runs BEFORE prompt assembly and only for scoped agents. */
+export const SOURCE_QUERY_BUDGET = 4000;
+async function retrieveSourceSections(
+  projectId: string,
+  question: string,
+  selection: Selection | null | undefined,
+): Promise<{ body: string; citations: SourceCitation[]; used: number } | null> {
+  // The writer's question drives retrieval; a selection without a question
+  // adds its own words so "check this passage" still finds related material.
+  const query = [question, selection?.text?.slice(0, 400) ?? ''].join(' ').trim();
+  if (!query) return null;
+  const dir = await projectDir(projectId);
+  const hits = await searchSources(dir, { query, limit: 6 });
+  if (!hits.length) return null;
+  const citations: SourceCitation[] = [];
+  const parts: string[] = [];
+  let used = 0;
+  for (const hit of hits) {
+    const chunk = await readSourceChunk(dir, hit.sourceId, hit.chunkId);
+    if (!chunk) continue; // never cite a chunk we cannot actually read
+    if (used + chunk.text.length > SOURCE_QUERY_BUDGET) break;
+    used += chunk.text.length;
+    const where = [
+      hit.location.heading ? `section “${hit.location.heading}”` : null,
+      hit.location.page ? `page ${hit.location.page}` : null,
+    ].filter(Boolean).join(', ');
+    parts.push(`From “${hit.title}”${where ? ` (${where})` : ''}:\n${chunk.text}`);
+    citations.push({
+      sourceId: hit.sourceId,
+      title: hit.title,
+      chunkId: hit.chunkId,
+      location: hit.location,
+      snippet: hit.snippet,
+    });
+  }
+  if (!parts.length) return null;
+  return { body: parts.join('\n\n'), citations, used };
 }
 
 function clip(text: string, max = SECTION_BUDGET): string {
@@ -42,10 +84,16 @@ export function sceneAround(doc: string, start: number, end: number): string {
     cursor = s + raw.length;
   }
   if (!blocks.length) return doc;
+  // Containment: the selection belongs to the block(s) it actually fills —
+  // a selection ending exactly at a block's end must not spill into the next.
   let first = blocks.findIndex((b) => b.end >= start);
-  let last = blocks.findIndex((b) => b.start >= end);
   if (first === -1) first = blocks.length - 1;
-  if (last === -1) last = blocks.length - 1;
+  let last = -1;
+  for (let i = 0; i < blocks.length; i++) {
+    if (blocks[i].start < end) last = i;
+    else break;
+  }
+  if (last === -1 || last < first) last = first;
   const from = Math.max(0, first - 1);
   const to = Math.min(blocks.length - 1, last + 1);
   return blocks.slice(from, to + 1).map((b) => b.text).join('\n\n');
@@ -54,7 +102,7 @@ export function sceneAround(doc: string, start: number, end: number): string {
 export async function buildContext(
   projectId: string,
   agent: AgentDef,
-  opts: { documentId?: string; selection?: Selection | null; attachments?: string[] },
+  opts: { documentId?: string; selection?: Selection | null; attachments?: string[]; question?: string },
 ): Promise<ContextBundle> {
   const scope = new Set(agent.context?.scope ?? []);
   const sections: ContextSection[] = [];
@@ -145,6 +193,18 @@ export async function buildContext(
     if (rendered) push('canon', rendered, `canon (${canon.entities.length} entities, ${canon.facts.length} facts)`);
   }
 
+  // Sources: retrieved passages only — never a whole file dump (handoff §30).
+  // Agents without the `sources` scope receive no Source text at all.
+  let sourceCitations: SourceCitation[] | undefined;
+  if (scope.has('sources')) {
+    const retrieved = await retrieveSourceSections(projectId, opts.question ?? '', opts.selection ?? null);
+    if (retrieved) {
+      push('sources', retrieved.body, `sources — ${retrieved.citations.length} passage${retrieved.citations.length === 1 ? '' : 's'} from ${new Set(retrieved.citations.map((c) => c.sourceId)).size} document(s)`);
+      sourceCitations = retrieved.citations;
+      spent += retrieved.used;
+    }
+  }
+
   for (const attachId of opts.attachments ?? []) {
     try {
       const { meta, content } = await readDocument(projectId, attachId);
@@ -158,7 +218,7 @@ export async function buildContext(
     summary.push(`withheld: ${agent.context.forbidden.join(', ')}`);
   }
 
-  return { sections, summary };
+  return { sections, summary, sourceCitations };
 }
 
 export function renderContext(bundle: ContextBundle): string {

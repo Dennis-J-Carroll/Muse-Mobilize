@@ -12,6 +12,7 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:5277',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    acceptDownloads: true,
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {

@@ -10,6 +10,7 @@ import type {
   PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
   ProviderCheckResult, ProviderStatus, Region, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, StoryImage, WorkspaceDef, WorldMap, WorldProfile,
 } from './types';
+import type { StorySource, SourceSearchHit, SourceClassification, SourceAuthority } from './sources';
 
 interface DocState {
   content: string;
@@ -54,6 +55,10 @@ interface State {
   worldFocusEntityId: string | null;
   plotFocusNodeId: string | null;
   sceneFocusId: string | null;
+  sources: StorySource[] | null;
+  sourceHits: SourceSearchHit[] | null;
+  sourceHitsFor: string | null;
+  sourcesBusy: boolean;
 
   settings: SettingsView | null;
   providers: ProviderStatus[];
@@ -127,6 +132,11 @@ interface State {
   loadWorldMap: () => Promise<void>;
   updateWorldMap: (patch: Partial<Omit<WorldMap, 'version'>>) => Promise<WorldMap | null>;
   loadProgress: () => Promise<void>;
+  loadSources: () => Promise<void>;
+  importSource: (file: File, meta?: { classification?: SourceClassification; authority?: SourceAuthority }) => Promise<StorySource | null>;
+  updateSource: (sourceId: string, patch: { title?: string; classification?: SourceClassification; authority?: SourceAuthority }) => Promise<void>;
+  deleteSource: (sourceId: string) => Promise<boolean>;
+  searchSources: (query: string, filters?: { classifications?: SourceClassification[]; authorities?: SourceAuthority[] }) => Promise<void>;
 
   refreshEvents: () => Promise<void>;
   loadSettings: () => Promise<void>;
@@ -159,6 +169,7 @@ const titleFor = (type: PaneType, s: State, bindingId?: string): string => {
   if (type === 'references') return 'Reference Board';
   if (type === 'goals') return 'Writing Goals';
   if (type === 'progress') return 'Manuscript Progress';
+  if (type === 'sources') return 'Sources';
   return s.docs[bindingId ?? '']?.title ?? s.project?.documents.find((d) => d.id === bindingId)?.title ?? 'Document';
 };
 
@@ -191,6 +202,10 @@ export const useStore = create<State>((set, get) => ({
   worldFocusEntityId: null,
   plotFocusNodeId: null,
   sceneFocusId: null,
+  sources: null,
+  sourceHits: null,
+  sourceHitsFor: null,
+  sourcesBusy: false,
   settings: null,
   providers: [],
 
@@ -233,7 +248,14 @@ export const useStore = create<State>((set, get) => ({
       Object.keys(saveTimers).forEach((key) => delete saveTimers[key]);
       projectSession += 1;
       try { localStorage.setItem('muse:lastProject', id); } catch { /* Recovery reports unavailable browser storage when writing. */ }
-      set({ project, agents, workspaces, docs: {}, panes: [], floatingPanels: [], floatingEditorContents: {}, runs: {}, events: [], canon: null, plot: null, sceneBoard: null, references: null, goals: null, progress: null, worldMap: null, worldFocusEntityId: null, plotFocusNodeId: null, sceneFocusId: null, selection: null, error: null });
+      set({ project, agents, workspaces, docs: {}, panes: [], floatingPanels: [], floatingEditorContents: {}, runs: {}, events: [], canon: null, plot: null, sceneBoard: null, references: null, goals: null, progress: null,  worldMap: null,
+  worldFocusEntityId: null,
+  plotFocusNodeId: null,
+  sceneFocusId: null,
+  sources: null,
+  sourceHits: null,
+  sourceHitsFor: null,
+  sourcesBusy: false, selection: null, error: null });
       const drafting = workspaces.find((w) => w.id === 'drafting') ?? workspaces[0];
       if (drafting) await get().applyWorkspace(drafting.id);
       else {
@@ -344,7 +366,7 @@ export const useStore = create<State>((set, get) => ({
       set({ panes: s.panes.map((p) => (p.id === existing.id ? { ...p, sizeMode: opts.focus ? 'maximized' : 'normal' } : opts.focus && p.sizeMode === 'maximized' ? { ...p, sizeMode: 'normal' } : p)) });
       return;
     }
-    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' || type === 'world' || type === 'plot' || type === 'scenes' || type === 'dialogue' || type === 'themes' || type === 'references' || type === 'goals' || type === 'progress' ? 'main' : 'bottom');
+    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' || type === 'world' || type === 'plot' || type === 'scenes' || type === 'dialogue' || type === 'themes' || type === 'references' || type === 'goals' || type === 'progress' || type === 'sources' ? 'main' : 'bottom');
     const pane: Pane = {
       id: `pane-${++paneSeq}-${type}-${bindingId ?? ''}`,
       type,
@@ -1035,6 +1057,96 @@ export const useStore = create<State>((set, get) => ({
     } catch (err: any) {
       if (get().project !== s.project || projectSession !== session) return;
       set({ error: `Could not load progress: ${err.message}` });
+    }
+  },
+
+  async loadSources() {
+    const session = projectSession;
+    const s = get();
+    if (!s.project) return;
+    try {
+      const { sources } = await api.sources(s.project.id);
+      if (get().project !== s.project || projectSession !== session) return;
+      set({ sources });
+    } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return;
+      set({ error: `Could not load sources: ${err.message}` });
+    }
+  },
+
+  async importSource(file, meta = {}) {
+    const session = projectSession;
+    const s = get();
+    if (!s.project) return null;
+    set({ sourcesBusy: true });
+    try {
+      const { source, duplicate } = await api.importSource(s.project.id, file, meta);
+      if (get().project !== s.project || projectSession !== session) return null;
+      const sources = get().sources;
+      set({
+        sources: sources?.some((item) => item.id === source.id)
+          ? sources.map((item) => (item.id === source.id ? source : item))
+          : [...(sources ?? []), source],
+        sourcesBusy: false,
+        notice: duplicate ? `Already in Sources: “${source.title}” was added earlier and was not duplicated.` : null,
+      });
+      await get().refreshEvents();
+      return source;
+    } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return null;
+      set({ error: err.message, sourcesBusy: false });
+      return null;
+    }
+  },
+
+  async updateSource(sourceId, patch) {
+    const session = projectSession;
+    const s = get();
+    if (!s.project) return;
+    try {
+      const { source } = await api.updateSource(s.project.id, sourceId, patch);
+      if (get().project !== s.project || projectSession !== session) return;
+      set({ sources: (get().sources ?? []).map((item) => (item.id === sourceId ? source : item)) });
+    } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return;
+      set({ error: err.message });
+    }
+  },
+
+  async deleteSource(sourceId) {
+    const session = projectSession;
+    const s = get();
+    if (!s.project) return false;
+    try {
+      await api.deleteSource(s.project.id, sourceId);
+      if (get().project !== s.project || projectSession !== session) return false;
+      set({ sources: (get().sources ?? []).filter((item) => item.id !== sourceId) });
+      await get().refreshEvents();
+      return true;
+    } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return false;
+      set({ error: err.message });
+      return false;
+    }
+  },
+
+  async searchSources(query, filters = {}) {
+    const session = projectSession;
+    const s = get();
+    if (!s.project) return;
+    const trimmed = query.trim();
+    if (!trimmed) {
+      set({ sourceHits: null, sourceHitsFor: null });
+      return;
+    }
+    set({ sourcesBusy: true });
+    try {
+      const { hits } = await api.searchSources(s.project.id, { query: trimmed, ...filters });
+      if (get().project !== s.project || projectSession !== session) return;
+      set({ sourceHits: hits, sourceHitsFor: trimmed, sourcesBusy: false });
+    } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return;
+      set({ error: `Search failed: ${err.message}`, sourcesBusy: false });
     }
   },
 

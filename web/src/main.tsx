@@ -18,6 +18,7 @@ import './styles/writing-page.css';
 import './styles/tool-drawer.css';
 import './styles/workspace-layout.css';
 import './styles/connections.css';
+import './styles/sources.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

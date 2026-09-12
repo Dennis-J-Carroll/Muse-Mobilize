@@ -39,6 +39,7 @@ const openThemes = () => useStore.getState().openPane('themes', { title: 'Theme 
 const openReferences = () => useStore.getState().openPane('references', { title: 'Reference Board', region: 'main', focus: true });
 const openGoals = () => useStore.getState().openPane('goals', { title: 'Writing Goals', region: 'main', focus: true });
 const openProgress = () => useStore.getState().openPane('progress', { title: 'Manuscript Progress', region: 'main', focus: true });
+const openSources = () => useStore.getState().openPane('sources', { title: 'Sources', region: 'main', focus: true });
 
 const newDoc = (title: string, kind: 'manuscript' | 'notes' | 'canon' | 'outline'): Item => ({
   label: title,
@@ -123,6 +124,15 @@ const CARDS: Card[] = [
       ...(s.project?.documents.filter((d) => d.kind === 'notes').map((d) => docItem(d.title, d.id)) ?? []),
       newDoc('New note', 'notes'),
       { label: 'Decision Log', run: () => useStore.getState().openPane('events') },
+    ],
+  },
+  {
+    key: 'sources', title: 'Sources', blurb: 'Search the story material you brought with you.', tone: 'stone',
+    icon: <Icon.Note />,
+    launch: openSources,
+    items: () => [
+      { label: 'Open Sources workspace', run: openSources },
+      canonItem(),
     ],
   },
   {
