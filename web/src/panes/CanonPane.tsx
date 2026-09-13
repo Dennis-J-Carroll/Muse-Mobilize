@@ -115,7 +115,7 @@ export function CanonPane() {
               {canon.entities.map((entity) => <option key={entity.id} value={entity.id}>{entity.name}</option>)}
             </select>
           </label>
-          {!subjectId && <label>Subject<input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Kiala" /></label>}
+          {!subjectId && <label>Subject<input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Senna" /></label>}
           <label>Relationship<input value={predicate} onChange={(e) => setPredicate(e.target.value)} placeholder="birthplace" /></label>
           <label>Value<input value={value} onChange={(e) => setValue(e.target.value)} placeholder="Veyr" /></label>
           <label>Status<select value={status} onChange={(e) => setStatus(e.target.value as CanonStatus)}>{STATUSES.map((item) => <option key={item}>{item}</option>)}</select></label>

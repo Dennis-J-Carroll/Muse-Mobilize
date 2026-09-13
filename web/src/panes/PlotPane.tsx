@@ -98,7 +98,7 @@ function PlotDrawer({
               <label className="span-2">Title<input ref={titleRef} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Imperial seal revealed" /></label>
               <label>Kind<select value={kind} onChange={(event) => setKind(event.target.value as PlotNodeKind)}>{NODE_KINDS.map((item) => <option key={item} value={item}>{KIND_LABEL[item]}</option>)}</select></label>
               <label>Section<input value={section} onChange={(event) => setSection(event.target.value)} placeholder="Act I" /></label>
-              <label className="span-2">What changes?<textarea rows={4} value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="Recognition changes Kiala’s objective." /></label>
+              <label className="span-2">What changes?<textarea rows={4} value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="Recognition changes Senna’s objective." /></label>
             </div>
           </section>
           <section className="drawer-section">

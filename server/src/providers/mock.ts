@@ -82,7 +82,7 @@ export const mockProvider: ModelProvider = {
         text:
           `Checked against the text I can see. Nothing in the supplied passage settles ` +
           `"${firstSentence(asked)}" — the seal is recognised here, but the text does not say ` +
-          `when Kiala first learned it. Treat it as unestablished rather than contradicted.\n\n` +
+          `when Senna first learned it. Treat it as unestablished rather than contradicted.\n\n` +
           `(Offline mock reply — add a real provider in Settings for a genuine check.)`,
       };
     }
@@ -137,7 +137,7 @@ export const mockProvider: ModelProvider = {
       ``,
       `One thing I cannot answer myself, so I am asking Continuity:`,
       ``,
-      `<consult agent="continuity">Does Kiala already recognise the imperial seal at this point in the story, or is this the first time she sees it?</consult>`,
+      `<consult agent="continuity">Does Senna already recognise the imperial seal at this point in the story, or is this the first time she sees it?</consult>`,
       ``,
       `Here is the change I would make:`,
       ``,
