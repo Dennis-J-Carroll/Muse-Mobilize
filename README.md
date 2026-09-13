@@ -8,6 +8,25 @@ A local-first, artifact-centered multi-agent creative workspace. The manuscript
 is a plain Markdown file on your disk; agents orbit it and propose reviewable
 patches. Nothing is written into your draft without your explicit accept.
 
+## Why this exists
+
+Before anything becomes a page, it starts as an idea. I've always been someone
+with a lot of them — the follow-through and total execution has, honestly,
+sometimes lagged behind, maybe even without meaning to. But the ideas never
+stop, and I always want to be *making* something.
+
+Muse · Mobilize is for that kind of person: someone who has the ideas and
+loves to create, and wants tools that meet them where they are instead of
+forcing one workflow on everyone. If you want to strategize — lay your whole
+story out in front of you, arrange your desk and your workspace exactly how
+your head works, see the world you're building instead of scrolling through
+it — you can do that here. And if a blank Google Doc just isn't cutting it
+and you'd rather have the world of your story visibly around you as you go,
+this gives you that too. If you just want to write, plain and simple, you can
+do that too.
+
+The whole point of MM is to get the idea moving, and to let the story grow.
+
 ## Screenshots
 
 | Workspace + Muse consult | Writing focus |
@@ -342,6 +361,17 @@ and screenshots appear in `test-results/`; HTML report is in `playwright-report/
 
 See [acceptance results](docs/acceptance-2026-09-04.md) for tested behavior,
 regressions fixed, and remaining coverage limits.
+
+## Contributing
+
+Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup, PR
+expectations, and testing. Participation is governed by the
+[Code of Conduct](CODE_OF_CONDUCT.md). External contributors sign the
+[CLA](CLA.md) once, via a bot comment on their first pull request.
+
+## License
+
+AGPL-3.0. See [LICENSE](LICENSE).
 
 ## What is not built yet
 

@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "A writers' room you can assemble around the page.",
+  "license": "AGPL-3.0-or-later",
   "workspaces": [
     "server",
     "web"
