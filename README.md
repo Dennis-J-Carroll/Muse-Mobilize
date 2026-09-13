@@ -1,3 +1,5 @@
+![Muse · Mobilize](docs/images/banner.png)
+
 # Muse · Mobilize
 
 > A writers' room you can assemble around the page.
