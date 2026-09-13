@@ -613,7 +613,7 @@ const WORD = /[^\s]+/g;
 
 /**
  * Function words drown out names in natural-language questions ("Did I ever
- * establish how old Kiala was here?"). Retrieval runs on content words.
+ * establish how old Senna was here?"). Retrieval runs on content words.
  */
 const STOP_WORDS = new Set([
   'about', 'after', 'again', 'all', 'also', 'am', 'an', 'and', 'any', 'are', 'as', 'at', 'be',

@@ -63,7 +63,7 @@ function SceneDrawer({ scene, onClose }: { scene?: Scene; onClose: () => void })
       <div className="scene-drawer-scroll">
         <DraftRecoveryNotice recovery={recovery} />
         <section><h3>Story position</h3><div className="scene-form-grid">
-          <label className="span-2">Scene title<input ref={titleRef} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Council summons Kiala" /></label>
+          <label className="span-2">Scene title<input ref={titleRef} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Council summons Senna" /></label>
           <label>Section<input value={section} onChange={(event) => setSection(event.target.value)} placeholder="Act I" /></label>
           <label>Status<select value={status} onChange={(event) => setStatus(event.target.value as SceneStatus)}>{STATUSES.map((item) => <option key={item}>{item}</option>)}</select></label>
           <label className="span-2">What happens?<textarea rows={3} value={summary} onChange={(event) => setSummary(event.target.value)} /></label>

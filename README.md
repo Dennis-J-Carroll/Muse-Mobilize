@@ -119,7 +119,7 @@ testing, and the separation between project archives and future novel/comic outp
 
 1. A project is created for you on first run, seeded with a short chapter.
 2. Highlight a few sentences in the centre pane.
-3. The bar above the draft lights up: **Ask → Muse / Continuity / Editor / Architect / Kiala**.
+3. The bar above the draft lights up: **Ask → Muse / Continuity / Editor / Architect / Senna**.
 4. The agent reads only its declared scope, and may consult another agent —
    you see the consultation, the question, and the reply.
 5. A **Proposed revision** card appears: before, after, and the reason.
