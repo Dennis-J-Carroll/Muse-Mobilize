@@ -16,6 +16,7 @@ import { ThemesPane } from '../panes/ThemesPane';
 import { ReferencesPane } from '../panes/ReferencesPane';
 import { GoalsPane } from '../panes/GoalsPane';
 import { ProgressPane } from '../panes/ProgressPane';
+import { SourcesPane } from '../panes/SourcesPane';
 import type { Pane } from '../types';
 import * as Icon from './icons';
 import { useWritingView } from '../writingView';
@@ -63,6 +64,8 @@ function PaneBody({ pane }: { pane: Pane }) {
       return <GoalsPane />;
     case 'progress':
       return <ProgressPane />;
+    case 'sources':
+      return <SourcesPane />;
     default:
       return <div className="pane-body">Unknown pane type.</div>;
   }
@@ -75,6 +78,7 @@ function PaneFrame({ pane, tiled, viewport, onFloat }: { pane: Pane; tiled: bool
   const resizePane = useStore((s) => s.resizePane);
   const doc = useStore((s) => (pane.binding?.type === 'document' ? s.docs[pane.binding.id] : undefined));
   const minimized = pane.sizeMode === 'minimized';
+  const maximized = pane.sizeMode === 'maximized';
   const ref = useRef<HTMLElement>(null);
   const move = (dx: number, dy: number) => {
     if (!ref.current || (!dx && !dy)) return;
@@ -94,11 +98,18 @@ function PaneFrame({ pane, tiled, viewport, onFloat }: { pane: Pane; tiled: bool
   };
   const onResizeDrag = useDrag(resize);
 
+  // Expand/restore stays usable from the keyboard: Enter or Space on the
+  // header toggle behaves like a click, and the control announces its state.
+  const toggleMaximized = () => setPaneSize(pane.id, maximized ? 'normal' : 'maximized');
+  const onToggleKey = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleMaximized(); }
+  };
+
   return (
     <section
       ref={ref}
       id={`workspace-${pane.id}`}
-      className={`pane pane-${pane.type} ${minimized ? 'is-min' : ''} ${focusPaneId === pane.id ? 'is-writing-focus' : ''}`}
+      className={`pane pane-${pane.type} ${minimized ? 'is-min' : ''} ${maximized ? 'pane-maximized' : ''} ${focusPaneId === pane.id ? 'is-writing-focus' : ''}`}
       onPointerDownCapture={() => useStore.getState().raisePane(pane.id)}
       onFocusCapture={() => useStore.getState().raisePane(pane.id)}
     >
@@ -115,7 +126,8 @@ function PaneFrame({ pane, tiled, viewport, onFloat }: { pane: Pane; tiled: bool
           <button title={minimized ? `Restore ${pane.title} to workspace` : 'Minimize'} onClick={() => setPaneSize(pane.id, minimized ? 'normal' : 'minimized')}>
             {minimized ? <Icon.Expand /> : <Icon.Minus />}
           </button>
-          {!minimized && <button title="Maximize" onClick={() => setPaneSize(pane.id, pane.sizeMode === 'maximized' ? 'normal' : 'maximized')}>
+          {!minimized && <button type="button" className="pane-expand" onClick={toggleMaximized} onKeyDown={onToggleKey}
+            aria-pressed={maximized} aria-label={maximized ? `Restore ${pane.title} to workspace` : `Expand ${pane.title} to full workspace`} title={maximized ? 'Restore' : 'Expand'}>
             <Icon.Expand />
           </button>}
           <button title="Close" onClick={() => closePane(pane.id)}>
@@ -310,6 +322,26 @@ export function WorkspaceCanvas() {
   const rw = active.some((pane) => pane.region === 'right' && !isTiled(pane)) ? rightWidth : 0;
   const bh = active.some((pane) => pane.region === 'bottom' && !isTiled(pane)) ? bottomHeight : 0;
 
+  // Expanded panes restore with Escape. This stays out of the way of writing
+  // focus (App owns that Escape), browser fullscreen (the browser owns it),
+  // and focus layers, modals, and the tool drawer, which each consume their
+  // own Escape first. Ordering: layer → drawer → maximized pane → focus.
+  const focusLayerOpen = useWritingView((s) => Boolean(s.focusLayer));
+  const maximizedId = maximized?.id ?? null;
+  useEffect(() => {
+    if (!maximizedId || focusPaneId || focusLayerOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
+      if (event.target instanceof Element && event.target.closest('.floating-drawer, .modal-backdrop')) return;
+      if (document.fullscreenElement) return;
+      if (document.querySelector('.modal-backdrop') || document.querySelector('.tool-drawer:not([hidden])')) return;
+      event.preventDefault();
+      useStore.getState().setPaneSize(maximizedId, 'normal');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [maximizedId, focusPaneId, focusLayerOpen]);
+
   return (
     <>
     <WorkspaceToolbar layout={layout} workbench={workbench} onWorkbench={toggleWorkbench} captureDesk={captureDesk} restoreDesk={restoreDesk} onLayout={(next) => { setLayout(next); if (next !== 'workspace') useStore.getState().tileDocuments(); }} />
@@ -317,7 +349,9 @@ export function WorkspaceCanvas() {
       className={`canvas ${maximized ? 'canvas-single' : ''}`}
       style={{
         gridTemplateColumns: `minmax(0,1fr) ${rw ? '7px' : '0px'} ${rw}px`,
-        gridTemplateRows: `minmax(0,1fr) ${bh ? '7px' : '0px'} ${bh}px`,
+        // min-content floors let the desk grow past one viewport and scroll
+        // (Phase A) instead of crushing every docked pane into view.
+        gridTemplateRows: `minmax(min-content,1fr) ${bh ? '7px' : '0px'} ${bh}px`,
       }}
     >
       <div ref={mainRef} className="region region-main" hidden={Boolean(maximized)}>

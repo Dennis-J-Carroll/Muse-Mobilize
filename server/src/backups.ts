@@ -35,9 +35,9 @@ interface BackupOptions { workspaceRoot?: string }
 
 const stores = new Set([
   'canon/canon.json', 'plot/plot.json', 'scenes/scenes.json', 'references/references.json',
-  'goals/goals.json', 'world/map.json', 'connections/connections.json',
+  'goals/goals.json', 'world/map.json', 'connections/connections.json', 'sources/index.json',
 ]);
-const broadDirectories = new Set(['manuscript', 'outline', 'notes', 'canon', 'assets', 'agents', 'workspaces']);
+const broadDirectories = new Set(['manuscript', 'outline', 'notes', 'canon', 'assets', 'agents', 'workspaces', 'sources']);
 const rootDirectories = new Set([...broadDirectories, 'plot', 'scenes', 'references', 'goals', 'world', 'connections', '.muse']);
 function invalid(message: string): never { throw new BackupError(400, 'INVALID_BACKUP', message); }
 function tooLarge(): never { throw new BackupError(413, 'BACKUP_TOO_LARGE', 'Backup exceeds 80 MiB encoded, 50 MiB saved files, or 10,000 files.'); }
@@ -70,10 +70,16 @@ function documentPath(file: string): boolean {
   return /^(manuscript|outline|notes|canon)\/.+\.(md|markdown|txt)$/i.test(file);
 }
 
+/** Imported Source artifacts: original bytes, extracted text, chunk index. */
+function sourcePath(file: string): boolean {
+  return /^sources\/(originals|extracted|search)\/[a-zA-Z0-9][a-zA-Z0-9_-]*(\.(txt|json))?$/.test(file)
+    || file === 'sources/index.json';
+}
+
 function allowedFile(file: string): boolean {
   if (file === 'project.json' || stores.has(file) || file === '.muse/events.jsonl') return true;
   if (file.split('/').slice(1).some((part) => part.toLowerCase() === 'project.json')) return false;
-  return documentPath(file) || file.startsWith('assets/')
+  return documentPath(file) || sourcePath(file) || file.startsWith('assets/')
     || /^agents\/.+\.ya?ml$/i.test(file) || /^workspaces\/.+\.json$/i.test(file)
     || /^\.muse\/snapshots\/.+\.(md|markdown|txt)$/i.test(file);
 }
@@ -181,6 +187,25 @@ function validateManifest(value: unknown, sourceId: string, files: Set<string>):
   return value as unknown as ProjectManifest;
 }
 
+/** Source records must reference the originals that actually travel in the backup. */
+function validateSourcesIndex(files: Map<string, Buffer>): void {
+  const indexBytes = files.get('sources/index.json');
+  if (!indexBytes) return;
+  const value = parseJson(indexBytes, 'sources/index.json');
+  if (!record(value) || value.version !== 1 || !Array.isArray(value.sources)) invalid('Malformed sources index.');
+  const seen = new Set<string>();
+  for (const source of value.sources) {
+    if (!record(source) || typeof source.id !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$/.test(source.id)
+      || typeof source.sourceHash !== 'string' || !/^[a-f0-9]{64}$/.test(source.sourceHash)
+      || typeof source.title !== 'string' || typeof source.originalName !== 'string'
+      || !source.id || seen.has(source.id)) invalid('Malformed source record.');
+    seen.add(source.id);
+    if (!files.has(`sources/originals/${source.id}`)) invalid(`Source original missing from backup: ${source.id}.`);
+    const hash = createHash('sha256').update(files.get(`sources/originals/${source.id}`)!).digest('hex');
+    if (hash !== source.sourceHash) invalid(`Source original does not match its recorded hash: ${source.id}.`);
+  }
+}
+
 function readStores(files: Map<string, Buffer>): Map<string, Record<string, unknown>> {
   const parsed = new Map<string, Record<string, unknown>>();
   for (const file of stores) {
@@ -245,6 +270,7 @@ function validateBackup(input: unknown): { backup: ProjectBackup; files: Map<str
   if (!manifestBytes) invalid('Backup is missing project.json.');
   const manifest = validateManifest(parseJson(manifestBytes, 'project.json'), input.sourceProjectId, new Set(files.keys()));
   const parsedStores = readStores(files);
+  validateSourcesIndex(files);
   return { backup: { format: 'muse-project-backup', version: 1, sourceProjectId: input.sourceProjectId, capturedAt: input.capturedAt, files: metadata }, files, manifest, parsedStores };
 }
 

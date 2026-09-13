@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
+import { api } from '../api';
 import type { Pane } from '../types';
 import * as Icon from '../components/icons';
 import { useWritingView, WRITING_FONTS, type WritingFont } from '../writingView';
@@ -42,6 +43,35 @@ export function EditorPane({ pane }: { pane: Pane }) {
   const font = WRITING_FONTS.find((item) => item.id === fontId) ?? WRITING_FONTS[0];
   const wasFocused = useRef(focused);
   const bang = useRef<BangSnapshot | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  // Quick Export (handoff Phase F): the visible draft is what leaves. When
+  // the editor holds unsaved text we send it explicitly; otherwise the saved
+  // revision is exported. Either way the downloaded file matches the page.
+  const exportAs = async (format: 'markdown' | 'txt' | 'docx') => {
+    const project = useStore.getState().project;
+    if (!project || exporting) return;
+    setExporting(true);
+    try {
+      const visible = doc?.dirty ? doc.content : undefined;
+      if (doc?.dirty) await useStore.getState().flushDoc(docId);
+      const blob = await api.exportDocument(project.id, docId, format, visible);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${doc?.title.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'document'}.${format === 'markdown' ? 'md' : format}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      useStore.getState().setNotice(`Exported ${format === 'markdown' ? 'Markdown' : format.toUpperCase()}.`);
+    } catch (err: any) {
+      useStore.setState({ error: `${err.message} Your manuscript was not changed.` });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useLayoutEffect(() => {
     if (wasFocused.current === focused) return;
@@ -126,6 +156,16 @@ export function EditorPane({ pane }: { pane: Pane }) {
           </select>
         </div>
         <button type="button" aria-label="Tag or link selection" title="Connect selected text, or type !#" disabled={Boolean(doc.recovery)} onPointerDown={(event) => event.preventDefault()} onClick={connectSelection}>Tag / link</button>
+        {isManuscript && <div className="export-menu" data-testid="export-menu">
+          <button type="button" aria-label="Export document" aria-haspopup="menu" aria-expanded={exportOpen}
+            disabled={exporting} onPointerDown={(event) => event.preventDefault()}
+            onClick={() => setExportOpen((open) => !open)}>{exporting ? 'Exporting…' : 'Export'}</button>
+          {exportOpen && <div className="export-menu-list" role="menu" aria-label="Export formats">
+            {([['docx', 'Word (.docx)'], ['markdown', 'Markdown (.md)'], ['txt', 'Plain text (.txt)']] as const).map(([format, label]) => (
+              <button key={format} role="menuitem" onClick={() => { setExportOpen(false); void exportAs(format); }}>{label}</button>
+            ))}
+          </div>}
+        </div>}
         {focused && <div className="writing-focus-actions">
           <button type="button" aria-label="Open story cards" aria-keyshortcuts="Alt+Shift+K" title="Open story cards (Alt+Shift+K)" onPointerDown={(event) => event.preventDefault()}
             onClick={() => useWritingView.getState().setFocusLayer({ kind: 'cards' })}>Story cards</button>

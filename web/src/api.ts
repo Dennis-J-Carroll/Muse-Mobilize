@@ -5,7 +5,19 @@ import type {
   LocalModelInstallResult, LocalModelProgress, PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
   ProviderCheckResult, ProviderStatus, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, StoryImage, WorkspaceDef, WorldMap, WorldProfile,
 } from './types';
+import type { StorySource, SourceSearchHit, SourceClassification, SourceAuthority } from './sources';
 import type { ConnectionStore, ConnectionTarget, StoryAttachment, StoryTag } from '../../shared/connections';
+
+async function filePayload(file: File, meta: Record<string, unknown> = {}): Promise<{ name: string; data: string } & Record<string, unknown>> {
+  const buffer = await file.arrayBuffer();
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return { name: file.name, data: btoa(binary), ...meta };
+}
 
 function imagePayload(file: File): Promise<{ name: string; mimeType: string; data: string }> {
   return new Promise((resolve, reject) => {
@@ -122,6 +134,37 @@ export const api = {
     req<{ reference: StoryReference }>(`/api/projects/${id}/references/${referenceId}`, { method: 'PUT', body: JSON.stringify(patch) }),
   deleteReference: (id: string, referenceId: string) =>
     req<{ reference: StoryReference }>(`/api/projects/${id}/references/${referenceId}`, { method: 'DELETE' }),
+
+  sources: (id: string) => req<{ sources: StorySource[] }>(`/api/projects/${id}/sources`),
+  importSource: async (id: string, file: File, meta: { classification?: SourceClassification; authority?: SourceAuthority }) =>
+    req<{ source: StorySource; duplicate: boolean }>(`/api/projects/${id}/sources`, {
+      method: 'POST',
+      body: JSON.stringify(await filePayload(file, meta)),
+    }),
+  updateSource: (id: string, sourceId: string, patch: { title?: string; classification?: SourceClassification; authority?: SourceAuthority }) =>
+    req<{ source: StorySource }>(`/api/projects/${id}/sources/${sourceId}`, { method: 'PUT', body: JSON.stringify(patch) }),
+  deleteSource: (id: string, sourceId: string) =>
+    req<{ source: StorySource }>(`/api/projects/${id}/sources/${sourceId}`, { method: 'DELETE' }),
+  sourceText: async (id: string, sourceId: string) => {
+    const res = await fetch(`/api/projects/${id}/sources/${sourceId}/text`);
+    if (!res.ok) throw new Error(`Could not open source (${res.status})`);
+    return res.text();
+  },
+  searchSources: (id: string, body: { query: string; classifications?: SourceClassification[]; authorities?: SourceAuthority[]; sourceIds?: string[]; limit?: number }) =>
+    req<{ hits: SourceSearchHit[] }>(`/api/projects/${id}/sources/search`, { method: 'POST', body: JSON.stringify(body) }),
+  exportDocument: async (id: string, documentId: string, format: 'markdown' | 'txt' | 'docx', visibleContent?: string) => {
+    const res = await fetch(`/api/projects/${id}/export`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ documentId, format, ...(visibleContent !== undefined ? { content: visibleContent } : {}) }),
+    });
+    if (!res.ok) {
+      let message = `Export failed (${res.status})`;
+      try { message = (await res.json()).error ?? message; } catch { /* keep default */ }
+      throw new Error(message);
+    }
+    return res.blob();
+  },
 
   goals: (id: string) => req<{ goals: GoalStore }>(`/api/projects/${id}/goals`),
   updateGoals: (id: string, patch: Partial<Pick<GoalStore, 'sessionTarget' | 'milestones'>>) =>

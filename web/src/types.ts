@@ -358,6 +358,7 @@ export interface AgentRun {
   startedAt: string;
   ms: number;
   contextSummary: string[];
+  sourceCitations?: import('./sources').SourceCitation[];
   error?: string;
 }
 
@@ -376,7 +377,7 @@ export interface Selection {
   text: string;
 }
 
-export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline' | 'canon' | 'characters' | 'world' | 'plot' | 'scenes' | 'dialogue' | 'themes' | 'references' | 'goals' | 'progress';
+export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline' | 'canon' | 'characters' | 'world' | 'plot' | 'scenes' | 'dialogue' | 'themes' | 'references' | 'goals' | 'progress' | 'sources';
 export type Region = 'main' | 'right' | 'bottom';
 
 export interface Pane {

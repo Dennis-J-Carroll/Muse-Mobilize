@@ -1,6 +1,7 @@
 import express from 'express';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import {
   listProjects, createProject, readManifest, readDocument, writeDocument, createDocument,
   readAgents, setAgentState, readWorkspaces, saveWorkspace, projectDir, snapshot,
@@ -22,6 +23,11 @@ import { readProgress } from './progress.js';
 import { readWorldMap, writeWorldMap } from './world-map.js';
 import { readConnections, createTag, renameTag, attachConnection, removeConnection } from './connections.js';
 import { exportProjectBackup, restoreProjectBackup, BackupError } from './backups.js';
+import {
+  readSources, importSource, updateSourceMetadata, deleteSource, readSourceText, readSourceOriginal,
+  searchSources, rebuildSourceIndexes,
+} from './sources.js';
+import { renderExport } from './export.js';
 
 const app = express();
 
@@ -415,6 +421,111 @@ app.post('/api/projects/:id/patches/apply', wrap(async (req, res) => {
 app.post('/api/projects/:id/patches/reject', wrap(async (req, res) => {
   await emit(await projectDir(req.params.id), 'patch.rejected', { patchId: req.body?.patchId });
   res.json({ ok: true });
+}));
+
+/* ------------------------------------------------- quick manuscript export */
+
+app.post('/api/projects/:id/export', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const documentId = String(req.body?.documentId ?? '');
+  const format = String(req.body?.format ?? 'markdown');
+  let content: string;
+  let meta: { id: string; title: string };
+  if (req.body?.content !== undefined) {
+    // Explicit visible-draft export: the browser sends the exact text it shows.
+    // The document must exist, but nothing on disk is ever written or changed.
+    meta = await readManifest(req.params.id).then((m) => {
+      const found = m.documents.find((d) => d.id === documentId);
+      if (!found) throw new Error(`No such document: ${documentId}`);
+      return { id: found.id, title: found.title };
+    });
+    content = String(req.body.content);
+  } else {
+    const doc = await readDocument(req.params.id, documentId);
+    meta = { id: doc.meta.id, title: doc.meta.title };
+    content = doc.content;
+  }
+  const rendered = renderExport(meta.title, content, format);
+  const hash = createHash('sha256').update(content, 'utf8').digest('hex');
+  await emit(dir, 'document.exported', {
+    documentId: meta.id,
+    title: meta.title,
+    format,
+    rendererVersion: 1,
+    sourceRevisionHash: hash,
+    bytes: Buffer.byteLength(rendered.body, 'utf8'),
+    visibleDraft: req.body?.content !== undefined,
+  });
+  res.set('content-type', rendered.mimeType);
+  res.set('content-disposition', `attachment; filename="${encodeURIComponent(rendered.fileName)}"`);
+  res.send(rendered.body);
+}));
+
+/* ------------------------------------------------------------------ sources */
+
+app.get('/api/projects/:id/sources', wrap(async (req, res) => {
+  res.json({ sources: await readSources(await projectDir(req.params.id)) });
+}));
+
+app.post('/api/projects/:id/sources', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { source, duplicate } = await importSource(dir, {
+    name: String(req.body?.name ?? ''),
+    data: String(req.body?.data ?? ''),
+    classification: req.body?.classification,
+    authority: req.body?.authority,
+  });
+  await emit(dir, duplicate ? 'source.import.duplicate' : 'source.imported', {
+    sourceId: source.id,
+    title: source.title,
+    sourceType: source.sourceType,
+    sourceHash: source.sourceHash,
+    extractionStatus: source.extractionStatus,
+    chunks: source.chunkCount,
+  });
+  res.json({ source, duplicate });
+}));
+
+app.put('/api/projects/:id/sources/:sourceId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const source = await updateSourceMetadata(dir, req.params.sourceId, {
+    title: req.body?.title,
+    classification: req.body?.classification,
+    authority: req.body?.authority,
+  });
+  await emit(dir, 'source.metadata.updated', {
+    sourceId: source.id,
+    title: source.title,
+    classification: source.classification,
+    authority: source.authority,
+  });
+  res.json({ source });
+}));
+
+app.delete('/api/projects/:id/sources/:sourceId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const source = await deleteSource(dir, req.params.sourceId);
+  await emit(dir, 'source.deleted', { sourceId: source.id, title: source.title });
+  res.json({ source });
+}));
+
+// Extracted text only: the pane's reading view never exposes original bytes.
+app.get('/api/projects/:id/sources/:sourceId/text', wrap(async (req, res) => {
+  res.set('content-type', 'text/plain; charset=utf-8');
+  res.send(await readSourceText(await projectDir(req.params.id), req.params.sourceId));
+}));
+
+app.post('/api/projects/:id/sources/search', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const hits = await searchSources(dir, {
+    query: String(req.body?.query ?? ''),
+    sourceIds: Array.isArray(req.body?.sourceIds) ? req.body.sourceIds.map(String) : undefined,
+    classifications: Array.isArray(req.body?.classifications) ? req.body.classifications : undefined,
+    authorities: Array.isArray(req.body?.authorities) ? req.body.authorities : undefined,
+    limit: Number(req.body?.limit) || undefined,
+  });
+  await emit(dir, 'source.searched', { query: String(req.body?.query ?? ''), results: hits.length });
+  res.json({ hits });
 }));
 
 /* ------------------------------------------------------- events, workspaces */

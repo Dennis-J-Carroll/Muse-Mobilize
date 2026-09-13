@@ -259,6 +259,30 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .goal-route-controls button { width: 27px; height: 27px; border: 1px solid var(--line); background: transparent; color: var(--ink-mid); }
 .goal-empty { min-width: 520px; }
 
+/* Expanded (maximized) domain workspaces: use the extra width instead of
+   stretching the same narrow layouts indefinitely. */
+@container references (min-width: 1100px) {
+  .reference-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 22px; }
+  .reference-board { padding: 28px 40px 56px; }
+}
+@container progress (min-width: 1100px) {
+  .progress-ledger-grid { grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; }
+  .progress-scroll { padding: 28px 44px 60px; }
+  .progress-score > div { padding: 20px 26px; }
+}
+@container themes (min-width: 1000px) {
+  .theme-scene-head, .theme-cell-wrap { width: 168px; min-width: 168px; }
+  .theme-corner, .theme-identity { width: 280px; min-width: 280px; max-width: 280px; }
+}
+@container goals (min-width: 1000px) {
+  .session-target-card, .goal-route-heading { margin-left: 44px; margin-right: 44px; }
+}
+@container dialogue (min-width: 1000px) {
+  .dialogue-table-head, .dialogue-row { grid-template-columns: minmax(420px, 1.5fr) minmax(240px, 1fr) minmax(240px, 1fr); }
+  .dialogue-row > div { padding: 16px 26px; }
+  .dialogue-scene-context p { max-width: 760px; }
+}
+
 @container references (max-width: 650px) {
   .story-toolbar > p { display: none; }
   .reference-filter { align-items: stretch; flex-direction: column; gap: 7px; padding: 8px 12px; }

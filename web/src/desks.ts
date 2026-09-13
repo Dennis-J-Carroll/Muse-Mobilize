@@ -34,7 +34,7 @@ export function reconcileDeskPanes(current: Pane[], saved: DeskPane[], nextId: (
   return [...restored, ...current.filter((pane) => !used.has(pane.id)).map((pane) => ({ ...pane, sizeMode: 'minimized' as const }))];
 }
 
-const types = new Set(['editor', 'agent', 'notes', 'events', 'review', 'outline', 'canon', 'characters', 'world', 'plot', 'scenes', 'dialogue', 'themes', 'references', 'goals', 'progress']);
+const types = new Set(['editor', 'agent', 'notes', 'events', 'review', 'outline', 'canon', 'characters', 'world', 'plot', 'scenes', 'dialogue', 'themes', 'references', 'goals', 'progress', 'sources']);
 const object = (value: unknown): value is Record<string, any> => Boolean(value && typeof value === 'object' && !Array.isArray(value));
 const text = (value: unknown, max = 200): value is string => typeof value === 'string' && value.length > 0 && value.length <= max;
 const number = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 100_000;

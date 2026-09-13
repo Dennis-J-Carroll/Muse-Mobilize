@@ -1,0 +1,37 @@
+/* Short screens need page scrolling as well as the individual tool scrollers.
+   Otherwise shell controls can consume the entire fixed-height canvas. */
+@media (max-width: 1100px) and (max-height: 700px) {
+  .app:not(.is-writing-focus) { height: auto; min-height: 100dvh; }
+  .app:not(.is-writing-focus) .canvas { flex: 1 0 420px; min-height: 420px; }
+  .app:not(.is-writing-focus) .workspace-head { padding: 10px 12px; gap: 8px; }
+  .workspace-head > div:first-child { max-width: 100%; }
+  .workspace-head h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .modal-backdrop { padding: 10px; }
+  .settings-modal { height: calc(100dvh - 20px); }
+  .engine-layout { overflow-y: auto; }
+  .credential-deck { flex: 0 0 auto; overflow: visible; }
+}
+
+@media (pointer: coarse) {
+  /* Controls used while writing, navigating, and saving get a full finger target. */
+  :is(.brand-dot, .sidebar-toggle, .ws-btn, .btn, .pane-tools button,
+      .workspace-toolbar button, .workspace-toolbar select,
+      .writing-toolbar button, .writing-toolbar select,
+      .writing-controls-reveal, .settings-close, .engine-choice,
+      .floating-drawer-dock, .floating-panel-tab, .workbench-tabs button,
+      .tool-drawer-trigger, .tool-drawer-head button, .tool-drawer-tabs button,
+      .focus-cards header button, .scene-rail-toggle) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .sidebar-toggle { flex-basis: 44px; }
+  .floating-drawer-grip { flex-basis: 48px; }
+  /* Keep iOS form focus readable without browser auto-zoom. */
+  :is(.writing-appearance select, .story-form-grid input, .story-form-grid select,
+      .story-form-grid textarea, .drawer-grid input, .drawer-grid select,
+      .drawer-grid textarea, .scene-form-grid input, .scene-form-grid select,
+      .scene-form-grid textarea, .field input, .agent-compose textarea,
+      .focus-cards > input, .session-target-form input) { font-size: 16px; }
+  .pane.is-writing-focus .writing-focus-button { font-size: 12px; }
+  .pane.is-writing-focus .writing-focus-button kbd { display: none; }
+}

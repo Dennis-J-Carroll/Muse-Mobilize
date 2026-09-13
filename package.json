@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "dev": "concurrently -n server,web -c blue,green \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:phone": "concurrently --kill-others -n server,web -c blue,green \"npm:dev:server\" \"npm -w web run dev -- --host 0.0.0.0\"",
     "dev:server": "npm -w server run dev",
     "dev:web": "npm -w web run dev",
     "test": "npm -w server run test",

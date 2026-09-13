@@ -42,6 +42,11 @@ function Consultation({ c }: { c: AgentRun['consultations'][number] }) {
 }
 
 function RunView({ run }: { run: AgentRun }) {
+  const openSource = (sourceId: string) => {
+    useStore.getState().openPane('sources', { title: 'Sources', region: 'main', focus: true });
+    useStore.setState({ sceneFocusId: null });
+    window.dispatchEvent(new CustomEvent('muse:open-source', { detail: { sourceId } }));
+  };
   return (
     <div className="run">
       <div className="run-q">{run.question}</div>
@@ -56,6 +61,19 @@ function RunView({ run }: { run: AgentRun }) {
         <Consultation key={c.id} c={c} />
       ))}
       {run.error ? <div className="run-error">{run.error}</div> : <div className="run-text">{run.text}</div>}
+      {run.sourceCitations?.length ? (
+        <div className="source-citations">
+          <span className="source-citations-title">Sources used</span>
+          {run.sourceCitations.map((citation) => (
+            <button key={citation.chunkId} className="source-citation" onClick={() => openSource(citation.sourceId)}
+              title={`${citation.title} — ${citation.location.heading ? `${citation.location.heading}, ` : ''}${citation.location.page ? `page ${citation.location.page}` : 'passage'}`}>
+              <b>{citation.title}</b>
+              <em>{[citation.location.heading, citation.location.page ? `page ${citation.location.page}` : null].filter(Boolean).join(' · ') || 'passage'}</em>
+              <span>{citation.snippet}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       {run.patches.map((p) => (
         <PatchCard key={p.id} patch={p} agentId={run.agentId} />
       ))}

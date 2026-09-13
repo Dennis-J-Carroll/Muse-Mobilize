@@ -76,9 +76,11 @@ test('story material collapse reclaims board space and pane resize survives maxi
   await page.getByRole('button', { name: 'Expand story material', exact: true }).click();
   const pane = page.locator('.pane-scenes');
   // Dedicated story panes start maximized; restore exposes generic resize.
-  await pane.getByRole('button', { name: 'Maximize', exact: true }).click();
+  await pane.getByRole('button', { name: 'Restore Scene Board to workspace', exact: true }).click();
   const size = await pane.boundingBox();
   const handle = pane.getByRole('button', { name: /^Resize / });
+  await handle.scrollIntoViewIfNeeded();
+  await expect(handle).toBeInViewport();
   const grip = await handle.boundingBox();
   await page.mouse.move(grip!.x + 8, grip!.y + 8);
   await page.mouse.down();
@@ -87,8 +89,8 @@ test('story material collapse reclaims board space and pane resize survives maxi
   const resized = await pane.boundingBox();
   expect(resized!.width).toBeLessThan(size!.width - 80);
   expect(resized!.height).toBeGreaterThan(size!.height + 70);
-  await pane.getByRole('button', { name: 'Maximize', exact: true }).click();
-  await pane.getByRole('button', { name: 'Maximize', exact: true }).click();
+  await pane.getByRole('button', { name: 'Expand Scene Board to full workspace', exact: true }).click();
+  await pane.getByRole('button', { name: 'Restore Scene Board to workspace', exact: true }).click();
   expect((await pane.boundingBox())!.width).toBeCloseTo(resized!.width, 0);
   expect((await pane.boundingBox())!.height).toBeCloseTo(resized!.height, 0);
   await page.setViewportSize({ width: 390, height: 844 });

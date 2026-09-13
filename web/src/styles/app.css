@@ -133,11 +133,15 @@ input, textarea, select { font-family: var(--font-ui); }
 
 /* ----------------------------------------------------------------- canvas */
 
-.canvas { flex: 1; min-height: 0; display: grid; padding: 0 14px 4px; gap: 0; }
-.canvas-single { display: flex; padding: 0 14px 4px; }
+/* The desk is a workspace, not a single viewport: docked panes keep a usable
+   minimum height, and the canvas scrolls vertically when their combined
+   minimums exceed the visible region (Phase A). Maximized/focus views stay
+   fixed to the viewport. */
+.canvas { flex: 1; min-height: 0; display: grid; padding: 0 14px 16px; gap: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+.canvas-single { display: flex; padding: 0 14px 4px; overflow: hidden; }
 .canvas-empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 8px; color: var(--accent-soft);
+  gap: 8px; color: var(--accent-soft); min-height: 100%;
 }
 .empty-title { font-size: 17px; color: var(--ink-mid); margin: 12px 0 0; }
 .empty-sub { color: var(--ink-soft); margin: 0; text-align: center; max-width: 260px; line-height: 1.5; }
@@ -146,6 +150,13 @@ input, textarea, select { font-family: var(--font-ui); }
 .region-main { grid-column: 1; grid-row: 1; flex-direction: column; }
 .region-right { grid-column: 3; grid-row: 1; flex-direction: column; }
 .region-bottom { grid-column: 1 / -1; grid-row: 3; flex-direction: row; }
+
+/* Scrollable desk: a docked pane never shrinks below its usable minimum.
+   content remeasured via CSS only — no JS measurement to drift. */
+.region-main > .pane-slot { min-height: 320px; }
+.region-right > .pane-slot { min-height: 300px; }
+.region-bottom > .pane-slot { min-height: 240px; }
+.region > .pane-slot { flex-shrink: 0; }
 
 .split { background: transparent; position: relative; }
 .split::after {
@@ -160,7 +171,7 @@ input, textarea, select { font-family: var(--font-ui); }
 
 /* ------------------------------------------------------------------ panes */
 
-.pane {
+.pane { 
   position: relative;
   flex: 1; min-width: 0; min-height: 0;
   display: flex; flex-direction: column;
@@ -170,6 +181,9 @@ input, textarea, select { font-family: var(--font-ui); }
   border-radius: var(--r-md);
   overflow: hidden;
 }
+/* Expanded workspace: a maximized pane fills the whole application canvas.
+   Applied via a class (not :has) so it works in Chromium and Firefox alike. */
+.pane.pane-maximized { flex: 1; width: 100%; height: 100%; min-height: 0; }
 .pane-resize-handle {
   position: absolute; right: 2px; bottom: 2px; width: 14px; height: 14px; cursor: nwse-resize; z-index: 5;
   background: linear-gradient(135deg, transparent 0 50%, var(--line-strong) 50% 58%, transparent 58% 66%, var(--line-strong) 66% 74%, transparent 74%);
@@ -1433,6 +1447,23 @@ input, textarea, select { font-family: var(--font-ui); }
 .dialogue-empty > span { color: var(--scene-gold); font: 46px var(--font-prose); line-height: .6; }
 .scene-workspace button:focus-visible, .scene-workspace input:focus-visible, .scene-workspace textarea:focus-visible, .scene-workspace select:focus-visible,
 .dialogue-workspace button:focus-visible, .dialogue-workspace input:focus-visible, .dialogue-workspace textarea:focus-visible, .dialogue-workspace select:focus-visible { outline: 2px solid var(--accent-soft); outline-offset: 2px; }
+
+/* Expanded scenes: longer lanes breathe; the board keeps its rail. */
+@container scenes (min-width: 1100px) {
+  .scene-board { padding: 26px 40px 60px; }
+  .scene-lane { grid-template-columns: 300px minmax(520px, 1fr) 74px; }
+  .scene-lane-head h3 { font-size: 17px; }
+}
+@container dialogue (min-width: 1000px) {
+  .dialogue-first-line p { max-width: 560px; }
+}
+@container characters (min-width: 1100px) {
+  .character-dossier { grid-template-columns: 360px minmax(0, 1fr); }
+  .dossier-body { padding: 0 44px 40px; }
+}
+@container world (min-width: 1100px) {
+  .world-inspector { width: 380px; }
+}
 
 @container scenes (max-width: 760px) {
   .scene-workspace { grid-template-columns: 1fr; grid-template-rows: 57px auto minmax(0,1fr); }

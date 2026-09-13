@@ -125,6 +125,7 @@ export async function runAgent(
     documentId: input.documentId,
     selection: input.selection,
     attachments: input.attachments,
+    question: input.question,
   });
 
   const roster = (await readAgents(projectId))
@@ -148,6 +149,7 @@ export async function runAgent(
     startedAt,
     ms: 0,
     contextSummary: bundle.summary,
+    sourceCitations: bundle.sourceCitations,
   };
 
   try {
