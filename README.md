@@ -6,6 +6,16 @@ A local-first, artifact-centered multi-agent creative workspace. The manuscript
 is a plain Markdown file on your disk; agents orbit it and propose reviewable
 patches. Nothing is written into your draft without your explicit accept.
 
+## Screenshots
+
+| Workspace + Muse consult | Writing focus |
+|---|---|
+| ![Workspace with drafting pane and Muse agent consult](docs/images/workspace-drafting.png) | ![Distraction-free writing focus mode](docs/images/writing-focus.png) |
+
+| World Atlas | Characters |
+|---|---|
+| ![Living Atlas world map with placed landmarks](docs/images/world-atlas.png) | ![Cast workspace with character dossier](docs/images/characters-cast.png) |
+
 ## Run it
 
 ```bash
@@ -16,9 +26,9 @@ npm run dev
 Then open **http://localhost:5177** (Vite opens it for you).
 
 Port `5177` is frontend; `5178` is runtime API. Vite uses strict port binding so
-duplicate `npm run dev` commands fail clearly instead of moving frontend onto
-API port and creating a proxy-loop 500. If `5177` is already in use, use
-existing Muse tab or stop duplicate dev process before restarting.
+duplicate `npm run dev` commands fail clearly instead of moving the frontend
+onto the API port and creating a proxy-loop 500. If `5177` is already in use,
+use the existing Muse tab, or stop the duplicate dev process before restarting.
 
 Two processes start:
 
@@ -41,6 +51,17 @@ workspace is narrow without changing the saved desktop arrangement.
 Reduced-motion and transparency preferences have explicit CSS fallbacks.
 
 See [design and responsive verification](docs/design-2026-09-05.md).
+
+Short phone and landscape screens now scroll vertically to preserve the working
+canvas. Touch devices get larger primary controls and a visible writing-focus
+exit. See [mobile audit and device-testing limits](docs/mobile-audit-2026-09-12.md).
+Run the touch-enabled checks with `npm run test:browser -- e2e/mobile.spec.ts`.
+
+To test on your own phone, stop any existing `npm run dev`, run
+`npm run dev:phone`, and open the terminal's **Network** URL in Safari or Chrome
+on the same trusted Wi-Fi. Keep the computer running. This serves the existing
+web app; Expo Go is not needed. See [phone testing steps](docs/testing-on-your-phone.md)
+for setup, troubleshooting, and the hands-on checklist.
 
 Manuscript **Focus** also offers **Hide controls** for a quiet page and optional
 browser **Fullscreen**. A small feather restores controls. **Story cards** or
@@ -97,9 +118,10 @@ Open **Settings** (cloud icon top-right). Fast lane puts common hosted engines f
 
 Choose an engine, use **Create key**, paste one key, choose a preset, then
 **Save & check**. Checks are explicit because they send a tiny billable request.
-Keys stay in `~/.muse-mobilize/settings.json` on this machine, never inside story
-folder or git, with owner-only file permissions. Server returns only key-present
-flags to browser. Hosted calls set `store: false` where vendor API supports it.
+Keys stay in `~/.muse-mobilize/settings.json` on this machine, never inside the
+story folder or git, with owner-only file permissions. The server returns only
+key-present flags to the browser. Hosted calls set `store: false` where the
+vendor API supports it.
 
 Developers and CI can skip paste flow with standard environment variables:
 

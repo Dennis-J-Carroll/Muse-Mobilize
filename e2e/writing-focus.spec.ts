@@ -39,7 +39,7 @@ test('writing focus suspends floating recall and restores maximized layout and c
   await page.getByRole('button', { name: 'Drafting', exact: true }).click();
   await page.getByRole('button', { name: 'Collapse tool menu', exact: true }).click();
   const pane = page.locator('.pane-editor');
-  await pane.getByRole('button', { name: 'Maximize', exact: true }).click();
+  await pane.getByRole('button', { name: 'Expand Chapter One to full workspace', exact: true }).click();
   const before = await pane.boundingBox();
   await page.getByRole('button', { name: 'Focus writing', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Recall New character', exact: true })).toBeHidden();
