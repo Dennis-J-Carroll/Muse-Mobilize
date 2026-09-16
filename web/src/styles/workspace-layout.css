@@ -69,6 +69,28 @@ body:has(.app.is-workbench) .floating-panel-strip { top: auto; bottom: 64px; tra
 .desk-note { margin-bottom: 0; }
 .desk-error { color: var(--danger); font-size: 13px; }
 @container writing-space (max-width: 650px) {
+  .workspace-toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "tiles documents"
+      "history history"
+      "desks connections"
+      "backups workbench";
+    align-items: stretch;
+  }
+  .workspace-toolbar > .tile-picker { grid-area: tiles; }
+  .workspace-toolbar > .document-picker { grid-area: documents; }
+  .workspace-toolbar > .undo-controls { grid-area: history; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .workspace-toolbar > .saved-desks-trigger { grid-area: desks; }
+  .workspace-toolbar > .connections-trigger { grid-area: connections; }
+  .workspace-toolbar > .project-backups-trigger { grid-area: backups; }
+  .workspace-toolbar > .workbench-toggle { grid-area: workbench; margin-left: 0; }
+  .workspace-toolbar > :is(.tile-picker, .document-picker, .saved-desks-trigger, .connections-trigger, .project-backups-trigger, .workbench-toggle),
+  .workspace-toolbar > .undo-controls > button,
+  .workspace-toolbar > .document-picker > button { width: 100%; min-width: 0; }
+  .workspace-toolbar > .tile-picker > select { flex: 1; min-width: 0; max-width: none; width: 100%; }
+  .workspace-toolbar > .undo-controls > .undo-message { grid-column: 1 / -1; }
   .document-tiles { flex: 0 0 auto; grid-template-columns: minmax(0, 1fr); grid-auto-flow: row; grid-auto-columns: auto; grid-auto-rows: 400px; overflow: visible; }
   .document-tiles > .pane-slot { height: 400px; }
 }

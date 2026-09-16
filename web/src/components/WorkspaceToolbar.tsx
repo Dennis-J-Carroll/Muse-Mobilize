@@ -42,7 +42,7 @@ export function WorkspaceToolbar({ layout, onLayout, workbench, onWorkbench, cap
     </div>
     <UndoControls />
     <SavedDesks capture={captureDesk} restore={restoreDesk} />
-    <button type="button" aria-label="Open connections" onClick={() => openConnections()}>Connections</button>
+    <button type="button" className="connections-trigger" aria-label="Open connections" onClick={() => openConnections()}>Connections</button>
     <ProjectBackups />
     <button type="button" className="workbench-toggle" aria-pressed={workbench} onClick={onWorkbench}><Icon.Layers size={16} /> Workbench</button>
   </div>;

@@ -365,7 +365,9 @@ export function WorkspaceCanvas() {
       {!active.length && <div className="canvas-empty workspace-empty-message">
         <Icon.Feather size={56} />
         <p className="empty-title">{docked.length ? 'Your tools are tucked away.' : 'Start writing your story…'}</p>
-        <p className="empty-sub">{docked.length ? 'Open the tool drawer to bring one back.' : 'Use the cards on the left to bring your ideas to life.'}</p>
+        <p className="empty-sub">{docked.length
+          ? 'Open the tool drawer to bring one back.'
+          : `Use the cards ${viewport.width <= 700 ? 'above' : 'on the left'} to bring your ideas to life.`}</p>
       </div>}
     </div>
     {createPortal(<div ref={floatingRef} className="workspace-floating-layer" hidden={Boolean(focusPaneId)} />, document.body)}

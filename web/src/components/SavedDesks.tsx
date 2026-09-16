@@ -37,7 +37,7 @@ export function SavedDesks({ capture, restore }: { capture: (name: string) => Sa
     catch { setError('Browser storage is unavailable or full. Changes were not saved; existing desks are unchanged.'); return false; }
   };
   return <>
-    <button ref={trigger} type="button" aria-label="Saved desks" aria-haspopup="dialog" onClick={() => setOpen(true)}><Icon.Layers size={16} /> Desks</button>
+    <button ref={trigger} type="button" className="saved-desks-trigger" aria-label="Saved desks" aria-haspopup="dialog" onClick={() => setOpen(true)}><Icon.Layers size={16} /> Desks</button>
     {open && createPortal(<div className="desk-backdrop" onPointerDown={(event) => { if (event.target === event.currentTarget) close(); }}>
       <section ref={dialog} className="saved-desks" role="dialog" aria-modal="true" aria-labelledby="saved-desks-title" onKeyDown={(event) => {
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); }
