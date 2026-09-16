@@ -13,7 +13,7 @@ export function ProjectBackups() {
   useEffect(() => { setOpen(false); }, [projectId]);
   const close = () => { setOpen(false); requestAnimationFrame(() => trigger.current?.focus()); };
   return <>
-    <button ref={trigger} type="button" aria-label="Project backups" onClick={() => setOpen(true)}>Backups</button>
+    <button ref={trigger} type="button" className="project-backups-trigger" aria-label="Project backups" onClick={() => setOpen(true)}>Backups</button>
     {open && <BackupDialog onClose={close} />}
   </>;
 }

@@ -39,11 +39,14 @@ The restore input may be a Buffer, JSON string, or parsed object. Buffer/string 
 | Plot | `plot/plot.json` |
 | Scenes and themes | `scenes/scenes.json` |
 | References | `references/references.json` |
+| Sources | `sources/index.json` and supported files under `sources/originals/`, `sources/extracted/`, and `sources/search/` |
 | Goals | `goals/goals.json` |
 | World map | `world/map.json` |
 | Tags and connections | `connections/connections.json` |
 | Managed/local assets | Regular files under `assets/` |
 | Project agents | YAML files under `agents/` |
+| Agent arrangements | `studio/arrangements.json` |
+| Project Binder recipe | `binder/recipe.json` |
 | Saved layouts | JSON files under `workspaces/` |
 | Progress and revision history | `.muse/events.jsonl`, document files under `.muse/snapshots/` |
 

@@ -64,6 +64,16 @@ consultation with another agent, and proposes a real patch anchored to your text
 
 ## Writing surface
 
+**Agent Studio** creates and duplicates agents, assigns individual records or
+whole categories, previews model context, and saves groups as reusable
+arrangements. Managed agents use enforced assignments and writer-mediated
+excerpt sharing. Existing agents remain labeled as legacy until configured.
+
+**Project Binder** arranges documents, story cards, and Sources into a readable
+HTML presentation with PDF print styles. Save or edit its JSON recipe, or
+download a ZIP containing the presentation and a restorable saved-project
+backup. See [Agent Studio and Project Binder](docs/using-agent-studio-and-project-binder.md).
+
 The original blue, mist, sage, and sand palette now has an etched-glass treatment:
 subtle inset edges, frosted drawers, recessed fields, and locally bundled Inter
 Variable. Headings are light; manuscript text keeps a readable regular weight.
@@ -378,3 +388,5 @@ AGPL-3.0. See [LICENSE](LICENSE).
 Semantic retrieval, watchers, Writers' Room orchestration, frozen readers,
 version-control branches, plugins, and desktop packaging. The seams are in
 place for all of them; see `muse-mobilize-handoff/MUSE_MOBILIZE_HANDOFF.md` §32.
+
+Mobile atlas gestures and Undo/Redo: [usage and history limits](docs/mobile-editing-and-undo.md).

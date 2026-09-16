@@ -1,4 +1,5 @@
 import express from 'express';
+import { historyStatus, recordEdit, restoreEdit, withProjectEdit } from './history.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -28,12 +29,52 @@ import {
   searchSources, rebuildSourceIndexes,
 } from './sources.js';
 import { renderExport } from './export.js';
+import { saveAgent, saveArrangement, readArrangements, loadArrangement, withAgentLock, parseManagedAgent } from './agent-config.js';
+import { projectResources, resourceInfo } from './project-resources.js';
+import { buildContext } from './context.js';
+import { readBinder, saveBinder, previewBinder, verifyBinderSnapshot, packageBinder } from './binder.js';
 
 const app = express();
 
+function historySession(req: express.Request): string | null {
+  const value = req.get('x-muse-history-session');
+  return value && /^[a-zA-Z0-9-]{8,100}$/.test(value) ? value : null;
+}
+
+async function editScope(req: express.Request): Promise<{ label: string; paths: string[] } | null> {
+  if (!req.params.id || !['POST', 'PUT', 'DELETE'].includes(req.method)) return null;
+  const route = String(req.route?.path ?? '').replace('/api/projects/:id/', '');
+  const stores: Record<string, string> = { canon: 'canon/canon.json', plot: 'plot/plot.json', scenes: 'scenes/scenes.json', references: 'references/references.json', goals: 'goals/goals.json', connections: 'connections/connections.json', 'world-map': 'world/map.json' };
+  const kind = route.split('/')[0];
+  const verb = req.method === 'DELETE' ? 'Remove' : req.method === 'POST' ? 'Add' : 'Edit';
+  if (stores[kind]) return { label: `${verb} ${kind === 'canon' ? 'story card' : kind === 'world-map' ? 'atlas background' : kind}`, paths: [stores[kind], ...((kind === 'references' && req.method === 'DELETE') || kind === 'world-map' ? ['assets'] : [])] };
+  if (route === 'documents/:docId' || route === 'patches/apply') {
+    const doc = await readDocument(req.params.id, req.params.docId ?? req.body?.documentId);
+    return { label: route === 'patches/apply' ? 'Accept suggested edit' : `Write ${doc.meta.title}`, paths: [doc.meta.path] };
+  }
+  if (route === 'documents') return { label: 'Create document', paths: ['project.json', 'manuscript', 'outline', 'notes', 'canon'] };
+  if (route === 'sources' || route === 'sources/:sourceId') return { label: `${verb} Source`, paths: [req.method === 'PUT' ? 'sources/index.json' : 'sources'] };
+  if (route === 'agents/save' || route === 'agents/:agentId/state') return { label: 'Save agent', paths: ['agents'] };
+  if (route === 'agent-arrangements' || route === 'agent-arrangements/:arrangementId/load') return { label: route.endsWith('/load') ? 'Load agent arrangement' : 'Save agent arrangement', paths: ['agents', 'studio'] };
+  if (route === 'binder' && req.method === 'PUT') return { label: 'Save binder recipe', paths: ['binder'] };
+  if (route === 'workspaces') return { label: 'Save workspace', paths: ['workspaces'] };
+  return null;
+}
+
 const wrap = (fn: express.RequestHandler): express.RequestHandler => async (req, res, next) => {
   try {
-    await fn(req, res, next);
+    const scope = await editScope(req);
+    if (!scope) { await fn(req, res, next); return; }
+    const dir = await projectDir(req.params.id);
+    const session = historySession(req);
+    // Do not acknowledge the mutation until its undo entry is captured.
+    const sendJson = res.json.bind(res); let payload: unknown;
+    res.json = ((body: unknown) => { payload = body; return res; }) as typeof res.json;
+    try {
+      await withProjectEdit(dir, () => recordEdit(dir, session, scope.label, scope.paths, async () => { await fn(req, res, next); }));
+      if (session) res.set('x-muse-history', encodeURIComponent(JSON.stringify(historyStatus(dir, session))));
+    } finally { res.json = sendJson; }
+    res.json(payload);
   } catch (err: any) {
     res.status(err instanceof BackupError ? err.status : 400).json({ error: String(err?.message ?? err) });
   }
@@ -92,6 +133,20 @@ app.post('/api/local-models/:id/install', async (req, res) => {
 });
 
 /* ---------------------------------------------------------------- projects */
+
+app.get('/api/projects/:id/history', wrap(async (req, res) => {
+  const session = historySession(req);
+  if (!session) throw new Error('A browser history session is required.');
+  res.json({ history: historyStatus(await projectDir(req.params.id), session) });
+}));
+app.post('/api/projects/:id/history/:direction', wrap(async (req, res) => {
+  const session = historySession(req); const direction = req.params.direction;
+  if (!session || !['undo', 'redo'].includes(direction) || typeof req.body?.expectedId !== 'string') throw new Error('A current undo or redo action is required.');
+  const dir = await projectDir(req.params.id);
+  const result = await restoreEdit(dir, session, direction as 'undo' | 'redo', req.body.expectedId);
+  await emit(dir, `project.${direction}`, { label: result.label, files: result.files });
+  res.json(result);
+}));
 
 app.get('/api/projects/:id/backup', wrap(async (req, res) => {
   const backup = await exportProjectBackup(req.params.id);
@@ -375,14 +430,36 @@ app.get('/api/projects/:id/progress', wrap(async (req, res) => {
 
 app.get('/api/projects/:id/agents', wrap(async (req, res) => res.json({ agents: await readAgents(req.params.id) })));
 
+app.get('/api/projects/:id/resources', wrap(async (req, res) => res.json({ resources: (await projectResources(req.params.id)).map(resourceInfo) })));
+app.post('/api/projects/:id/agents/save', wrap(async (req, res) => res.json({ agent: await saveAgent(req.params.id, req.body?.agent, req.body?.expectedRevision) })));
+app.post('/api/projects/:id/agents/preview', wrap(async (req, res) => {
+  const agent = parseManagedAgent(req.body?.agent);
+  res.json({ context: await buildContext(req.params.id, agent, { question: String(req.body?.question ?? ''), documentId: req.body?.documentId }) });
+}));
+app.get('/api/projects/:id/agent-arrangements', wrap(async (req, res) => res.json({ arrangements: await readArrangements(req.params.id) })));
+app.post('/api/projects/:id/agent-arrangements', wrap(async (req, res) => res.json({ arrangement: await saveArrangement(req.params.id, req.body?.name, req.body?.agentIds) })));
+app.post('/api/projects/:id/agent-arrangements/:arrangementId/load', wrap(async (req, res) => res.json({ agents: await loadArrangement(req.params.id, req.params.arrangementId) })));
+
+app.get('/api/projects/:id/binder', wrap(async (req, res) => res.json({ recipe: await readBinder(req.params.id) })));
+app.put('/api/projects/:id/binder', wrap(async (req, res) => res.json({ recipe: await saveBinder(req.params.id, req.body?.recipe) })));
+app.post('/api/projects/:id/binder/preview', wrap(async (req, res) => res.json({ preview: await previewBinder(req.params.id, req.body?.recipe) })));
+app.post('/api/projects/:id/binder/verify', wrap(async (req, res) => { await verifyBinderSnapshot(req.params.id, req.body?.snapshotHash); res.json({ ok: true }); }));
+app.post('/api/projects/:id/binder/package', wrap(async (req, res) => {
+  if (typeof req.body?.snapshotHash !== 'string') throw new Error('Preview the project before packaging.');
+  const zip = await packageBinder(req.params.id, req.body?.recipe, req.body.snapshotHash);
+  res.set('content-type', 'application/zip');
+  res.set('content-disposition', 'attachment; filename="muse-project.zip"');
+  res.send(zip);
+}));
+
 app.put('/api/projects/:id/agents/:agentId/state', wrap(async (req, res) => {
   const mode = req.body?.mode;
   if (!['live', 'idle', 'frozen'].includes(mode)) throw new Error('mode must be live | idle | frozen');
-  res.json({ agent: await setAgentState(req.params.id, req.params.agentId, mode) });
+  res.json({ agent: await withAgentLock(req.params.id, () => setAgentState(req.params.id, req.params.agentId, mode)) });
 }));
 
 app.post('/api/projects/:id/ask', wrap(async (req, res) => {
-  const { agentId, documentId, selection, question, attachments } = req.body ?? {};
+  const { agentId, documentId, selection, question, attachments, sharedExcerpt } = req.body ?? {};
   if (!agentId) throw new Error('agentId is required');
   const run = await runAgent(req.params.id, {
     agentId,
@@ -390,6 +467,7 @@ app.post('/api/projects/:id/ask', wrap(async (req, res) => {
     selection: selection && selection.text ? selection : null,
     question: String(question ?? '').trim() || 'Read this passage and tell me what you see.',
     attachments,
+    sharedExcerpt,
   });
   res.json({ run });
 }));

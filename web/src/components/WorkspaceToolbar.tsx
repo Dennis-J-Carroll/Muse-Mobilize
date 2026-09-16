@@ -1,3 +1,4 @@
+import { UndoControls } from './UndoControls';
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import type { TileLayout } from '../workspaceLayout';
@@ -39,8 +40,9 @@ export function WorkspaceToolbar({ layout, onLayout, workbench, onWorkbench, cap
         }}><span>{doc.title}</span><small>{doc.kind}</small></button>)}
       </div>}
     </div>
+    <UndoControls />
     <SavedDesks capture={captureDesk} restore={restoreDesk} />
-    <button type="button" aria-label="Open connections" onClick={() => openConnections()}>Connections</button>
+    <button type="button" className="connections-trigger" aria-label="Open connections" onClick={() => openConnections()}>Connections</button>
     <ProjectBackups />
     <button type="button" className="workbench-toggle" aria-pressed={workbench} onClick={onWorkbench}><Icon.Layers size={16} /> Workbench</button>
   </div>;

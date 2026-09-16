@@ -274,7 +274,7 @@ ${titleStyle}${styles}${quoteStyle}
 /* -------------------------------------------------------------------- zip */
 
 /** Minimal ZIP writer (stored entries + CRC-32). DOCX accepts these fine. */
-function buildZip(files: { name: string; data: Buffer }[]): Buffer {
+export function buildZip(files: { name: string; data: Buffer }[]): Buffer {
   const crcTable = (() => {
     const table = new Uint32Array(256);
     for (let n = 0; n < 256; n++) {
@@ -342,6 +342,17 @@ function buildZip(files: { name: string; data: Buffer }[]): Buffer {
   eocd.writeUInt32LE(offset, 16);
   eocd.writeUInt16LE(0, 20);
   return Buffer.concat([...localParts, ...centralParts, eocd]);
+}
+
+/** Safe HTML uses the same paragraph/heading parser as Quick Export. No raw HTML executes. */
+export function markdownToHtml(markdown: string): string {
+  const inline = (text: string) => xmlEscape(text).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`([^`]+)`/g, '<code>$1</code>');
+  return parseBlocks(markdown).map((block) => {
+    if (block.type === 'rule') return '<hr>';
+    if (block.type === 'list') { const tag = block.ordered ? 'ol' : 'ul'; return `<${tag}>${block.items.map((item) => `<li>${inline(item)}</li>`).join('')}</${tag}>`; }
+    const tag = block.type === 'heading' ? `h${Math.min(6, (block.level ?? 1) + 2)}` : block.type === 'quote' ? 'blockquote' : 'p';
+    return `<${tag}>${inline(block.text ?? '').replace(/\n/g, '<br>')}</${tag}>`;
+  }).join('\n');
 }
 
 /* ----------------------------------------------------------------- render */

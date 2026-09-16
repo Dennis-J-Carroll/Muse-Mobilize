@@ -79,7 +79,7 @@ function ReferenceDrawer({ reference, onClose }: {
   };
   const remove = async () => {
     if (!reference || busy || savingRef.current) return;
-    if (!window.confirm(`Remove "${reference.title}" from references? This cannot be undone.`)) return;
+    if (!window.confirm(`Remove "${reference.title}" from references?`)) return;
     savingRef.current = true;
     setDeleting(true);
     try {

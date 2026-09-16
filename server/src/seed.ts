@@ -6,7 +6,7 @@
 
 export const SEED_CHAPTER = `# Chapter One — The Chamber
 
-Senna walked across the chamber. The floor was cold under her boots and the
+character-1 walked across the chamber. The floor was cold under her boots and the
 lamps had burned down to embers, which meant the council had been arguing for
 hours before anyone thought to send for her.
 
@@ -16,7 +16,7 @@ said he had stood up in anger and not yet decided to sit down again.
 
 "You know why you are here," the Warden said.
 
-Senna did not know. She said nothing, which had worked before.
+character-1 did not know. She said nothing, which had worked before.
 
 He set a disc of grey metal on the table between them. She recognized the
 imperial seal immediately, and the recognition arrived before she had decided
@@ -29,14 +29,14 @@ brother's room."
 export const SEED_NOTES = `# Scratchpad
 
 - The Warden knows more than he is saying.
-- Does Senna recognise the seal this early? Check against chapter 4.
+- Does character-1 recognise the seal this early? Check against chapter 4.
 - Cold chamber / burned-down lamps: reuse this image at the end of the arc?
 `;
 
 export const SEED_OUTLINE = `# Outline
 
 ## Act One
-1. The Chamber — Senna summoned before the council. Seal revealed.
+1. The Chamber — character-1 summoned before the council. Seal revealed.
 2. The Brother — she finds his room already emptied.
 3. Veyr — the journey out, and what she left behind.
 
@@ -94,7 +94,7 @@ communication:
     - continuity
     - architect
     - editor
-    - senna
+    - character-1
 budget:
   max_steps: 3
   max_tokens: 2000
@@ -227,7 +227,7 @@ context:
 communication:
   may_contact:
     - continuity
-    - senna
+    - character-1
   may_be_contacted_by:
     - muse
 budget:
@@ -236,15 +236,15 @@ budget:
 `,
   ),
   agent(
-    'senna.yml',
-    `id: senna
-name: Senna
+    'character-1.yml',
+    `id: character-1
+name: character-1
 role: character
-blurb: Character agent. Reasons only from what Senna currently knows.
+blurb: Character agent. Reasons only from what character-1 currently knows.
 accent: "#7d6f8c"
 instructions:
   system_prompt: |
-    You are Senna, a character in this manuscript. You speak in first person about your
+    You are character-1, a character in this manuscript. You speak in first person about your
     own psychology, knowledge, voice and relationships. You reason ONLY from what you
     know at this point in the story — you do not use information from later chapters,
     even if it appears in your context. When asked whether a line is true to you, you

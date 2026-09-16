@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
+import { pinchCamera, zoomCamera } from '../atlasCamera';
 import { ImageGalleryEditor, StoryImageStrip } from '../components/ImageGalleryEditor';
 import { preflightImageFiles } from '../components/ImageGalleryEditor';
 import { openFloatingEditor } from '../components/floatingEditors';
@@ -182,7 +183,9 @@ export function WorldPane({ pane }: { pane: Pane }) {
   const [filter, setFilter] = useState<string>('all');
   const [selectedId, setSelectedId] = useState('');
   const [positions, setPositions] = useState<Record<string, Point>>({});
-  const [view, setView] = useState<View>({ x: 85, y: 82, scale: 1 });
+  const [view, updateView] = useState<View>({ x: 85, y: 82, scale: 1 });
+  const viewRef = useRef(view);
+  const setView = (next: View | ((current: View) => View)) => { const value = typeof next === 'function' ? next(viewRef.current) : next; viewRef.current = value; updateView(value); };
   const [relationship, setRelationship] = useState('');
   const [targetId, setTargetId] = useState('');
   const [panning, setPanning] = useState(false);
@@ -193,7 +196,9 @@ export function WorldPane({ pane }: { pane: Pane }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const mapFileRef = useRef<HTMLInputElement>(null);
   const panRef = useRef<{ pointerId: number; clientX: number; clientY: number; origin: View } | null>(null);
-  const dragRef = useRef<{ id: string; clientX: number; clientY: number; origin: Point; scale: number } | null>(null);
+  const dragRef = useRef<{ pointerId: number; id: string; clientX: number; clientY: number; origin: Point; scale: number } | null>(null);
+  const touches = useRef(new Map<number, Point>());
+  const pinch = useRef<{ origin: View; points: [Point, Point] } | null>(null);
   const initializedSelection = useRef(false);
   const openDrawer = (point: Point, entity?: CanonEntity) => openWorldEditor(point, entity, (saved) => setSelectedId(saved.id));
 
@@ -285,38 +290,81 @@ export function WorldPane({ pane }: { pane: Pane }) {
   }, [focusEntityId, positions, selectedId, worldEntities]);
 
   useEffect(() => {
-    const move = (event: PointerEvent) => {
-      const drag = dragRef.current;
-      if (!drag) return;
-      setPositions((current) => ({
-        ...current,
-        [drag.id]: {
-          x: drag.origin.x + (event.clientX - drag.clientX) / drag.scale,
-          y: drag.origin.y + (event.clientY - drag.clientY) / drag.scale,
-        },
-      }));
+    const local = (event: PointerEvent) => {
+      const rect = viewportRef.current!.getBoundingClientRect();
+      return { x: event.clientX - rect.left, y: event.clientY - rect.top };
     };
-    const up = (event: PointerEvent) => {
+    const cancelDrag = () => {
       const drag = dragRef.current;
-      if (!drag) return;
+      if (drag) setPositions((current) => ({ ...current, [drag.id]: drag.origin }));
       dragRef.current = null;
-      const point = {
+    };
+    const move = (event: PointerEvent) => {
+      if (touches.current.has(event.pointerId)) touches.current.set(event.pointerId, local(event));
+      if (pinch.current && touches.current.size >= 2) {
+        setView(pinchCamera(pinch.current.origin, pinch.current.points, [...touches.current.values()].slice(0, 2) as [Point, Point]));
+        return;
+      }
+      const pan = panRef.current;
+      if (pan?.pointerId === event.pointerId) {
+        setView({ ...pan.origin, x: pan.origin.x + event.clientX - pan.clientX, y: pan.origin.y + event.clientY - pan.clientY });
+      }
+      const drag = dragRef.current;
+      if (drag?.pointerId !== event.pointerId) return;
+      setPositions((current) => ({ ...current, [drag.id]: {
         x: drag.origin.x + (event.clientX - drag.clientX) / drag.scale,
         y: drag.origin.y + (event.clientY - drag.clientY) / drag.scale,
-      };
-      setPositions((current) => ({ ...current, [drag.id]: point }));
-      const entity = useStore.getState().canon?.entities.find((item) => item.id === drag.id);
-      if (entity) void useStore.getState().updateCanonEntity(entity.id, { world: profileAt(entity, point) });
+      } }));
     };
+    const up = (event: PointerEvent) => {
+      const wasPinching = Boolean(pinch.current);
+      touches.current.delete(event.pointerId);
+      const drag = dragRef.current;
+      if (drag?.pointerId === event.pointerId) {
+        dragRef.current = null;
+        const point = { x: drag.origin.x + (event.clientX - drag.clientX) / drag.scale, y: drag.origin.y + (event.clientY - drag.clientY) / drag.scale };
+        if (Math.hypot(event.clientX - drag.clientX, event.clientY - drag.clientY) > 3) {
+          setPositions((current) => ({ ...current, [drag.id]: point }));
+          const entity = useStore.getState().canon?.entities.find((item) => item.id === drag.id);
+          if (entity) void useStore.getState().updateCanonEntity(entity.id, { world: profileAt(entity, point) });
+        } else setPositions((current) => ({ ...current, [drag.id]: drag.origin }));
+      }
+      if (panRef.current?.pointerId === event.pointerId) panRef.current = null;
+      if (wasPinching) {
+        pinch.current = touches.current.size >= 2 ? { origin: viewRef.current, points: [...touches.current.values()].slice(0, 2) as [Point, Point] } : null;
+        if (touches.current.size === 1 && viewportRef.current) {
+          const [pointerId, point] = [...touches.current][0];
+          const rect = viewportRef.current.getBoundingClientRect();
+          panRef.current = { pointerId, clientX: point.x + rect.left, clientY: point.y + rect.top, origin: viewRef.current };
+        }
+      }
+      setPanning(Boolean(panRef.current || pinch.current));
+    };
+    const cancel = (event: PointerEvent) => {
+      if (!touches.current.has(event.pointerId) && dragRef.current?.pointerId !== event.pointerId && panRef.current?.pointerId !== event.pointerId) return;
+      cancelDrag(); touches.current.clear(); pinch.current = null; panRef.current = null; setPanning(false);
+    };
+    const wheel = (event: WheelEvent) => {
+      if ((event.target as Element).closest('.world-inspector, .world-nav, .world-map-panel')) return;
+      event.preventDefault();
+      const rect = viewportRef.current!.getBoundingClientRect();
+      setView(zoomCamera(viewRef.current, Math.exp(-Math.max(-100, Math.min(100, event.deltaY)) * .002), { x: event.clientX - rect.left, y: event.clientY - rect.top }));
+    };
+    const viewport = viewportRef.current;
+    viewport?.addEventListener('wheel', wheel, { passive: false });
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', up);
+    window.addEventListener('pointercancel', cancel);
+    window.addEventListener('lostpointercapture', cancel);
     return () => {
+      viewport?.removeEventListener('wheel', wheel);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', up);
+      window.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('lostpointercapture', cancel);
+      cancelDrag(); touches.current.clear(); pinch.current = null; panRef.current = null;
     };
-  }, []);
+  }, [mode, Boolean(canon)]);
 
   const visible = filter === 'all' ? worldEntities : worldEntities.filter((entity) => entity.type === filter);
   const visibleIds = new Set(visible.map((entity) => entity.id));
@@ -391,12 +439,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
   const zoom = (factor: number) => {
     const rect = viewportRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const nextScale = Math.max(.001, Math.min(2, view.scale * factor));
-    const cx = rect.width / 2;
-    const cy = rect.height / 2;
-    const worldX = (cx - view.x) / view.scale;
-    const worldY = (cy - view.y) / view.scale;
-    setView({ scale: nextScale, x: cx - worldX * nextScale, y: cy - worldY * nextScale });
+    setView(zoomCamera(viewRef.current, factor, { x: rect.width / 2, y: rect.height / 2 }));
   };
 
   const moveNode = (entity: CanonEntity, dx: number, dy: number) => {
@@ -443,32 +486,24 @@ export function WorldPane({ pane }: { pane: Pane }) {
           ref={viewportRef}
           className={`world-viewport ${panning ? 'is-panning' : ''}`}
           style={{ backgroundPosition: `${view.x}px ${view.y}px`, backgroundSize: `${34 * view.scale}px ${34 * view.scale}px` }}
+          onPointerDownCapture={(event) => {
+            if (event.pointerType !== 'touch' || (event.target as Element).closest('.world-inspector, .world-nav, .world-map-panel, .world-empty button')) return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            touches.current.set(event.pointerId, { x: event.clientX - rect.left, y: event.clientY - rect.top });
+            event.currentTarget.setPointerCapture(event.pointerId);
+            if (touches.current.size >= 2) {
+              const drag = dragRef.current;
+              if (drag) setPositions((current) => ({ ...current, [drag.id]: drag.origin }));
+              dragRef.current = null; panRef.current = null;
+              pinch.current = { origin: viewRef.current, points: [...touches.current.values()].slice(0, 2) as [Point, Point] };
+              setPanning(true);
+            }
+          }}
           onPointerDown={(event) => {
-            if (event.button !== 0 || (event.target as Element).closest('.world-node, .world-inspector, .world-nav, .world-map-panel')) return;
-            panRef.current = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, origin: view };
+            if (event.button !== 0 || touches.current.size >= 2 || (event.target as Element).closest('.world-node, .world-inspector, .world-nav, .world-map-panel, .world-empty button')) return;
+            panRef.current = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, origin: viewRef.current };
             event.currentTarget.setPointerCapture(event.pointerId);
             setPanning(true);
-          }}
-          onPointerMove={(event) => {
-            const pan = panRef.current;
-            if (!pan || pan.pointerId !== event.pointerId) return;
-            setView({ ...pan.origin, x: pan.origin.x + event.clientX - pan.clientX, y: pan.origin.y + event.clientY - pan.clientY });
-          }}
-          onPointerUp={(event) => {
-            if (panRef.current?.pointerId !== event.pointerId) return;
-            panRef.current = null;
-            setPanning(false);
-            event.currentTarget.releasePointerCapture(event.pointerId);
-          }}
-          onWheel={(event) => {
-            event.preventDefault();
-            const rect = event.currentTarget.getBoundingClientRect();
-            const nextScale = Math.max(.001, Math.min(2, view.scale * (event.deltaY > 0 ? .9 : 1.1)));
-            const mouseX = event.clientX - rect.left;
-            const mouseY = event.clientY - rect.top;
-            const worldX = (mouseX - view.x) / view.scale;
-            const worldY = (mouseY - view.y) / view.scale;
-            setView({ scale: nextScale, x: mouseX - worldX * nextScale, y: mouseY - worldY * nextScale });
           }}
           onDoubleClick={(event) => {
             if ((event.target as Element).closest('.world-node, .world-inspector, .world-nav, .world-map-panel')) return;
@@ -506,8 +541,9 @@ export function WorldPane({ pane }: { pane: Pane }) {
                   aria-label={`${TYPE_LABEL[entity.type]}: ${entity.name}`}
                   onPointerDown={(event) => {
                     event.stopPropagation();
+                    if (event.button !== 0 || touches.current.size >= 2) return;
                     setSelectedId(entity.id);
-                    dragRef.current = { id: entity.id, clientX: event.clientX, clientY: event.clientY, origin: point, scale: view.scale };
+                    dragRef.current = { pointerId: event.pointerId, id: entity.id, clientX: event.clientX, clientY: event.clientY, origin: point, scale: view.scale };
                   }}
                   onClick={() => setSelectedId(entity.id)}
                   onKeyDown={(event) => {
@@ -531,8 +567,9 @@ export function WorldPane({ pane }: { pane: Pane }) {
             <button onClick={() => zoom(.87)} aria-label="Zoom out">−</button>
             <button onClick={fitWorld} aria-label="Fit landmarks">◎</button>
             <button className={mapPanelOpen ? 'is-on' : ''} aria-pressed={mapPanelOpen} onClick={() => setMapPanelOpen((open) => !open)} aria-label="Atlas background controls">▤</button>
-            <span>{Math.round(view.scale * 100)}%</span>
+            <span aria-live="off">{Math.round(view.scale * 100)}%</span>
           </nav>
+          <p className="world-gesture-hint">Drag to pan · Pinch to zoom</p>
           <div className="world-compass" aria-hidden><b>N</b><i /><span /></div>
 
           {mapPanelOpen && (

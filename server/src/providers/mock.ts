@@ -82,7 +82,7 @@ export const mockProvider: ModelProvider = {
         text:
           `Checked against the text I can see. Nothing in the supplied passage settles ` +
           `"${firstSentence(asked)}" — the seal is recognised here, but the text does not say ` +
-          `when Senna first learned it. Treat it as unestablished rather than contradicted.\n\n` +
+          `when character-1 first learned it. Treat it as unestablished rather than contradicted.\n\n` +
           `(Offline mock reply — add a real provider in Settings for a genuine check.)`,
       };
     }
@@ -113,6 +113,8 @@ export const mockProvider: ModelProvider = {
     }
 
     if (!material) {
+      const assigned = section(user, 'assigned-record') || section(user, 'sources');
+      if (assigned) return { model: 'mock-writer-1', text: `Assigned material received:\n\n${assigned.slice(0, 500)}\n\nThis offline check confirms your context reached the agent. Choose a configured provider for writing advice.` };
       return {
         model: 'mock-writer-1',
         text:
@@ -137,7 +139,7 @@ export const mockProvider: ModelProvider = {
       ``,
       `One thing I cannot answer myself, so I am asking Continuity:`,
       ``,
-      `<consult agent="continuity">Does Senna already recognise the imperial seal at this point in the story, or is this the first time she sees it?</consult>`,
+      `<consult agent="continuity">Does character-1 already recognise the imperial seal at this point in the story, or is this the first time she sees it?</consult>`,
       ``,
       `Here is the change I would make:`,
       ``,
