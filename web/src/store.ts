@@ -1,3 +1,4 @@
+import { emptyValueHistory, rememberValue, travelValue, updateHistory, useEditHistory, type ValueHistory } from './editHistory';
 import { create } from 'zustand';
 import type { ReactNode } from 'react';
 import { api } from './api';
@@ -21,6 +22,7 @@ interface DocState {
   journalRevision?: string;
   recovery?: DraftEntry<string>;
   applyingPatch?: boolean;
+  history?: ValueHistory<string>;
 }
 
 interface State {
@@ -69,7 +71,9 @@ interface State {
   uploadStoryImage: (file: File) => Promise<StoryImage>;
 
   loadDoc: (docId: string) => Promise<void>;
-  editDoc: (docId: string, content: string) => void;
+  editDoc: (docId: string, content: string, history?: ValueHistory<string>) => void;
+  travelDoc: (docId: string, direction: 'undo' | 'redo') => void;
+  restoreSavedEdit: (direction: 'undo' | 'redo') => Promise<void>;
   flushDoc: (docId: string) => Promise<void>;
   resolveDocRecovery: (docId: string, choice: 'restore' | 'discard') => void;
 
@@ -94,7 +98,7 @@ interface State {
   saveWorkspaceAs: (name: string) => Promise<void>;
 
   setSelection: (sel: Selection | null) => void;
-  ask: (agentId: string, question: string, useSelection: boolean) => Promise<void>;
+  ask: (agentId: string, question: string, useSelection: boolean, sharedExcerpt?: string) => Promise<void>;
   acceptPatch: (patch: Patch, override?: string) => Promise<void>;
   rejectPatch: (agentId: string, patch: Patch) => Promise<void>;
   cycleAgentState: (agentId: string) => Promise<void>;
@@ -293,20 +297,69 @@ export const useStore = create<State>((set, get) => ({
   },
 
   /** Autosave. The draft is sovereign: we never block typing on the network. */
-  editDoc(docId, content) {
+  editDoc(docId, content, history) {
     const project = get().project;
     const cur = get().docs[docId];
-    if (!project || !cur || cur.recovery) return;
+    if (!project || !cur || cur.recovery || useEditHistory.getState().restoring || cur.content === content) return;
     const session = projectSession;
     const scope = documentDraftScope(project.id, docId);
     const entry = draftJournal.write(scope, cur.baseContent ?? cur.content, content);
-    set({ docs: { ...get().docs, [docId]: { ...cur, content, dirty: true, journalRevision: entry.revision } } });
+    set({ docs: { ...get().docs, [docId]: { ...cur, content, dirty: true, journalRevision: entry.revision, history: history ?? rememberValue(cur.history ?? emptyValueHistory(), cur.content, Date.now(), Math.abs(content.length - cur.content.length) > 1) } } });
     const key = draftKey(scope);
     clearTimeout(saveTimers[key]);
     saveTimers[key] = setTimeout(() => {
       delete saveTimers[key];
       if (get().project === project && projectSession === session) void get().flushDoc(docId);
     }, 900);
+  },
+
+  travelDoc(docId, direction) {
+    const doc = get().docs[docId];
+    if (!doc || doc.recovery || doc.applyingPatch) return;
+    const next = travelValue<string>(doc.history ?? emptyValueHistory(), doc.content, direction);
+    if (next) { get().editDoc(docId, next.value, next.history); set({ selection: null }); }
+  },
+
+  async restoreSavedEdit(direction) {
+    const state = get(); const project = state.project;
+    if (!project || useEditHistory.getState().restoring || useEditHistory.getState().pending) return;
+    if (state.floatingPanels.length || Object.values(state.docs).some((doc) => doc.recovery || doc.applyingPatch) || draftJournal.hasProjectIssues(project.id)) {
+      set({ error: 'Save or cancel open card forms and resolve recovered drafts before undoing saved changes.' }); return;
+    }
+    // Discard reads started before restoration so they cannot paint stale cards
+    // over the restored project after the fresh reads finish.
+    const session = ++projectSession;
+    const current = () => get().project === project && projectSession === session;
+    useEditHistory.setState({ restoring: true });
+    try {
+      for (const id of Object.keys(state.docs)) await get().flushDoc(id);
+      if (!current()) return;
+      if (Object.values(get().docs).some((doc) => doc.dirty)) throw new Error('Save your writing before undoing saved changes.');
+      const { history } = await api.history(project.id); updateHistory(project.id, history);
+      const entry = history[direction]; if (!entry || !current()) return;
+      const result = await api.restoreEdit(project.id, direction, entry.id);
+      updateHistory(project.id, result.history);
+      if (!current()) return;
+      const [opened, canon, plot, scenes, references, goals, world, sources] = await Promise.all([
+        api.openProject(project.id), api.canon(project.id), api.plot(project.id), api.scenes(project.id), api.references(project.id), api.goals(project.id), api.worldMap(project.id), api.sources(project.id),
+      ]);
+      const docs = { ...get().docs };
+      for (const id of Object.keys(docs)) {
+        const meta = opened.project.documents.find((doc) => doc.id === id);
+        if (!meta) { delete docs[id]; continue; }
+        if (result.files.includes(meta.path)) {
+          const saved = await api.readDoc(project.id, id);
+          docs[id] = { title: saved.meta.title, content: saved.content, baseContent: saved.content, dirty: false };
+        }
+      }
+      if (!current()) return;
+      set({ docs, project: result.files.includes('project.json') ? opened.project : project, agents: opened.agents, workspaces: opened.workspaces,
+        canon: canon.canon, plot: plot.plot, sceneBoard: scenes.board, references: references.references, goals: goals.goals, worldMap: world.worldMap, sources: sources.sources, selection: null,
+        panes: get().panes.filter((pane) => pane.binding?.type !== 'document' || opened.project.documents.some((doc) => doc.id === pane.binding?.id)),
+        notice: `${direction === 'undo' ? 'Undid' : 'Redid'}: ${result.label}.`, error: null });
+      await get().refreshEvents();
+    } catch (error: any) { if (current()) set({ error: error.message }); }
+    finally { useEditHistory.setState({ restoring: false }); }
   },
 
   async flushDoc(docId) {
@@ -566,25 +619,34 @@ export const useStore = create<State>((set, get) => ({
     set({ selection });
   },
 
-  async ask(agentId, question, useSelection) {
+  async ask(agentId, question, useSelection, sharedExcerpt) {
     const s = get();
-    if (!s.project) return;
+    if (!s.project || s.busy[agentId]) return;
+    const session = projectSession;
+    const current = () => get().project?.id === s.project?.id && projectSession === session;
     const editorPane = s.panes.find((p) => p.type === 'editor' || p.type === 'notes');
-    const documentId = editorPane?.binding?.id ?? s.project.documents[0]?.id;
+    const documentId = (useSelection ? s.selection?.documentId : undefined) ?? editorPane?.binding?.id ?? s.project.documents[0]?.id;
     set({ busy: { ...s.busy, [agentId]: true }, error: null });
     try {
+      if (s.agents.find((a) => a.id === agentId)?.access && useSelection && s.selection) {
+        await get().flushDoc(s.selection.documentId);
+        if (!current()) return;
+        const doc = get().docs[s.selection.documentId];
+        if (doc?.dirty || doc?.recovery) throw new Error('Save the selected document and resolve recovered drafts before asking.');
+      }
       const { run } = await api.ask(s.project.id, {
         agentId,
         documentId,
         selection: useSelection ? s.selection : null,
         question,
+        sharedExcerpt,
       });
+      if (!current()) return;
       set({ runs: { ...get().runs, [agentId]: [...(get().runs[agentId] ?? []), run] } });
     } catch (err: any) {
-      set({ error: err.message });
+      if (current()) set({ error: err.message });
     } finally {
-      set({ busy: { ...get().busy, [agentId]: false } });
-      await get().refreshEvents();
+      if (current()) { set({ busy: { ...get().busy, [agentId]: false } }); await get().refreshEvents(); }
     }
   },
 
@@ -616,7 +678,7 @@ export const useStore = create<State>((set, get) => ({
       const recovery = changed ? draftJournal.write(scope, before.content, cur.content) : undefined;
       if (!changed && cur.journalRevision) draftJournal.clear(scope, cur.journalRevision);
       set({
-        docs: { ...get().docs, [patch.documentId]: { ...cur, content, baseContent: content, dirty: false, applyingPatch: false, recovery, journalRevision: undefined } },
+        docs: { ...get().docs, [patch.documentId]: { ...cur, content, baseContent: content, dirty: false, applyingPatch: false, recovery, journalRevision: undefined, history: rememberValue(cur.history ?? emptyValueHistory(), before.content, Date.now(), true) } },
         runs: markPatch(get().runs, patch.id, 'accepted'),
         notice: changed ? 'Patch applied. Review the keystrokes made during acceptance in draft recovery.' : 'Patch applied.',
       });

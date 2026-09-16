@@ -61,8 +61,16 @@ ports through your router or publish this server through a public tunnel.**
    In Sources, choose a text/Markdown file and try searching its contents.
 6. Use **Export → Markdown** and **Export → Word**. Open the downloads through
    the phone's file/download interface. Try **Backups → Download saved project**.
-7. Try moving a World landmark and Plot beat with a finger. Note any gesture
-   that scrolls the page when you expected to move an item, or vice versa.
+7. Try moving a World landmark and Plot beat with a finger. In World Atlas,
+   pinch to zoom in and out, then lift one finger and keep panning. Use workspace
+   Undo/Redo after a landmark move. See [mobile editing and undo](mobile-editing-and-undo.md)
+   for history scope, lifetime, and a focused gesture checklist.
+8. Open **Agent Studio**. Create an agent, assign one character, preview its
+   context, and save. Open its conversation and verify the context receipt.
+9. Open **Project Binder**. Choose Reader manuscript, preview it, and download
+   HTML. Try **Print / Save PDF** and inspect the phone's available destinations.
+   See [the feature guide](using-agent-studio-and-project-binder.md) for editable
+   recipes, selected sections, and private project packages.
 
 Native keyboards, file pickers, text selection, and gestures are the main reasons
 for this device check: desktop browser emulation does not fully reproduce them.

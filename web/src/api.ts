@@ -1,3 +1,4 @@
+import { historySession, updateHistory, useEditHistory, type HistoryStatus } from './editHistory';
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   DocumentMeta, MuseEvent, Patch, ProjectManifest,
@@ -7,6 +8,10 @@ import type {
 } from './types';
 import type { StorySource, SourceSearchHit, SourceClassification, SourceAuthority } from './sources';
 import type { ConnectionStore, ConnectionTarget, StoryAttachment, StoryTag } from '../../shared/connections';
+import type { ResourceInfo, BinderRecipe } from '../../shared/project-tools';
+
+export interface AgentArrangement { id: string; name: string; agents: AgentDef[] }
+export interface BinderPreview { html: string; included: number; omitted: number; warnings: string[]; receipt: { snapshotHash: string; capturedAt: string } }
 
 async function filePayload(file: File, meta: Record<string, unknown> = {}): Promise<{ name: string; data: string } & Record<string, unknown>> {
   const buffer = await file.arrayBuffer();
@@ -34,9 +39,12 @@ function imagePayload(file: File): Promise<{ name: string; mimeType: string; dat
 }
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  const mutating = Boolean(init?.method && init.method !== 'GET');
+  if (mutating) useEditHistory.setState((s) => ({ pending: s.pending + 1 }));
+  try {
   const res = await fetch(path, {
     ...init,
-    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
+    headers: { 'content-type': 'application/json', 'x-muse-history-session': historySession(), ...(init?.headers ?? {}) },
   });
   const text = await res.text();
   let json: any = {};
@@ -46,10 +54,26 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(`Runtime returned non-JSON (${res.status}). Is the server running?`);
   }
   if (!res.ok) throw Object.assign(new Error(json.error ?? `Request failed (${res.status})`), json);
+  const captured = res.headers?.get?.('x-muse-history');
+  const projectId = /^\/api\/projects\/([^/]+)/.exec(path)?.[1];
+  if (captured && projectId) updateHistory(projectId, JSON.parse(decodeURIComponent(captured)));
   return json as T;
+  } finally { if (mutating) useEditHistory.setState((s) => ({ pending: Math.max(0, s.pending - 1) })); }
 }
 
 export const api = {
+  history: (id: string) => req<{ history: HistoryStatus }>(`/api/projects/${id}/history`),
+  restoreEdit: (id: string, direction: 'undo' | 'redo', expectedId: string) => req<{ history: HistoryStatus; label: string; files: string[] }>(`/api/projects/${id}/history/${direction}`, { method: 'POST', body: JSON.stringify({ expectedId }) }),
+  resources: (id: string) => req<{ resources: ResourceInfo[] }>(`/api/projects/${id}/resources`),
+  saveAgent: (id: string, agent: AgentDef, expectedRevision: string | null) => req<{ agent: AgentDef }>(`/api/projects/${id}/agents/save`, { method: 'POST', body: JSON.stringify({ agent, expectedRevision }) }),
+  previewAgent: (id: string, agent: AgentDef, question: string) => req<{ context: { sections: { name: string; body: string }[]; summary: string[] } }>(`/api/projects/${id}/agents/preview`, { method: 'POST', body: JSON.stringify({ agent, question }) }),
+  arrangements: (id: string) => req<{ arrangements: AgentArrangement[] }>(`/api/projects/${id}/agent-arrangements`),
+  saveArrangement: (id: string, name: string, agentIds: string[]) => req<{ arrangement: AgentArrangement }>(`/api/projects/${id}/agent-arrangements`, { method: 'POST', body: JSON.stringify({ name, agentIds }) }),
+  loadArrangement: (id: string, arrangementId: string) => req<{ agents: AgentDef[] }>(`/api/projects/${id}/agent-arrangements/${arrangementId}/load`, { method: 'POST' }),
+  binder: (id: string) => req<{ recipe: BinderRecipe | null }>(`/api/projects/${id}/binder`),
+  saveBinder: (id: string, recipe: BinderRecipe) => req<{ recipe: BinderRecipe }>(`/api/projects/${id}/binder`, { method: 'PUT', body: JSON.stringify({ recipe }) }),
+  previewBinder: (id: string, recipe: BinderRecipe) => req<{ preview: BinderPreview }>(`/api/projects/${id}/binder/preview`, { method: 'POST', body: JSON.stringify({ recipe }) }),
+  verifyBinder: (id: string, snapshotHash: string) => req<{ ok: true }>(`/api/projects/${id}/binder/verify`, { method: 'POST', body: JSON.stringify({ snapshotHash }) }),
   connections: (id: string) => req<{ connections: ConnectionStore }>(`/api/projects/${id}/connections`),
   createTag: (id: string, label: string) => req<{ tag: StoryTag }>(`/api/projects/${id}/connections/tags`, { method: 'POST', body: JSON.stringify({ label }) }),
   renameTag: (id: string, tagId: string, label: string) => req<{ tag: StoryTag }>(`/api/projects/${id}/connections/tags/${tagId}`, { method: 'PUT', body: JSON.stringify({ label }) }),
@@ -180,7 +204,7 @@ export const api = {
       body: JSON.stringify({ mode }),
     }),
 
-  ask: (id: string, body: { agentId: string; documentId?: string; selection?: Selection | null; question: string }) =>
+  ask: (id: string, body: { agentId: string; documentId?: string; selection?: Selection | null; question: string; sharedExcerpt?: string }) =>
     req<{ run: AgentRun }>(`/api/projects/${id}/ask`, { method: 'POST', body: JSON.stringify(body) }),
 
   applyPatch: (id: string, documentId: string, patch: Patch) =>

@@ -20,6 +20,7 @@ import './styles/workspace-layout.css';
 import './styles/connections.css';
 import './styles/sources.css';
 import './styles/mobile.css';
+import './styles/project-tools.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

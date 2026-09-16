@@ -1,3 +1,5 @@
+import { DocumentUndo } from '../components/UndoControls';
+import { useEditHistory } from '../editHistory';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { api } from '../api';
@@ -25,6 +27,7 @@ export function revealRange(documentId: string, start: number, end: number) {
 
 export function EditorPane({ pane }: { pane: Pane }) {
   const docId = pane.binding?.id ?? '';
+  const restoring = useEditHistory((s) => s.restoring);
   const doc = useStore((s) => s.docs[docId]);
   const agents = useStore((s) => s.agents);
   const selection = useStore((s) => s.selection);
@@ -144,6 +147,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
         onPointerDown={(event) => event.preventDefault()} onClick={toggleControls}><Icon.Feather size={16} /></button>}
       {isManuscript && <div className="writing-toolbar" hidden={quiet}>
         <span className="writing-focus-title">{doc.title}</span>
+        <DocumentUndo documentId={docId} />
         <div className="writing-appearance">
           <select aria-label="Page surface" value={surface} onChange={(event) => useWritingView.getState().setSurface(event.target.value as 'glass' | 'paper')}>
             <option value="glass">Glass</option><option value="paper">Paper</option>
@@ -187,6 +191,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
       </div>}
       {focused && browserScreen.message && <p className="writing-font-note" role="status" hidden={quiet}>{browserScreen.message}</p>}
       {isManuscript && font.id === 'times' && <p className="writing-font-note" hidden={quiet}>Uses installed Times New Roman; otherwise a serif fallback.</p>}
+      {!isManuscript && <div className="document-history"><DocumentUndo documentId={docId} /></div>}
       <div className={`ask-bar ${mine ? 'is-live' : ''}`}>
         {mine ? (
           <>
@@ -218,7 +223,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
         className={`draft ${pane.type === 'notes' ? 'draft-notes' : ''}`}
         style={isManuscript ? { fontFamily: font.family, fontWeight: font.variable ? Number(weight) : 400 } : undefined}
         spellCheck
-        readOnly={Boolean(doc.recovery)}
+        readOnly={Boolean(doc.recovery) || restoring}
         aria-label={doc.recovery ? `${doc.title} — choose a recovered version to continue` : undefined}
         value={doc.content}
         onChange={(e) => editDoc(docId, e.target.value)}
@@ -226,12 +231,17 @@ export function EditorPane({ pane }: { pane: Pane }) {
         onPaste={() => { bang.current = null; }}
         onCompositionStart={() => { bang.current = null; }}
         onKeyDown={(event) => {
+          if (!event.nativeEvent.isComposing && (event.ctrlKey || event.metaKey) && !event.altKey && ['z', 'y'].includes(event.key.toLowerCase())) {
+            event.preventDefault(); event.stopPropagation(); bang.current = null;
+            useStore.getState().travelDoc(docId, event.key.toLowerCase() === 'y' || event.shiftKey ? 'redo' : 'undo'); return;
+          }
           if (event.nativeEvent.isComposing || event.ctrlKey || event.metaKey || event.altKey) { bang.current = null; return; }
           if (event.key.length === 1 && typedCommand(event.key)) event.preventDefault();
           else if (event.key.length !== 1) bang.current = null;
         }}
         onBeforeInput={(event) => {
           const native = event.nativeEvent as InputEvent;
+          if (native.inputType === 'historyUndo' || native.inputType === 'historyRedo') { event.preventDefault(); useStore.getState().travelDoc(docId, native.inputType === 'historyUndo' ? 'undo' : 'redo'); return; }
           if (!native.isComposing && native.inputType !== 'insertFromPaste' && native.data && typedCommand(native.data)) event.preventDefault();
         }}
         onKeyUp={syncSelection}

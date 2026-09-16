@@ -399,6 +399,7 @@ export interface SourceCitation {
 }
 
 export interface AgentDef {
+  access?: import('../../shared/project-tools.js').AgentAccess;
   id: string;
   name: string;
   role: string;
@@ -440,6 +441,7 @@ export interface Consultation {
 }
 
 export interface AgentRun {
+  contextReceipt?: { policyRevision?: string; records: { kind: string; id: string; sha256: string; trimmed: boolean }[]; sharedExcerpt?: boolean };
   runId: string;
   agentId: string;
   agentName: string;

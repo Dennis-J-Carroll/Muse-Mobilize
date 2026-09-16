@@ -36,9 +36,10 @@ interface BackupOptions { workspaceRoot?: string }
 const stores = new Set([
   'canon/canon.json', 'plot/plot.json', 'scenes/scenes.json', 'references/references.json',
   'goals/goals.json', 'world/map.json', 'connections/connections.json', 'sources/index.json',
+  'studio/arrangements.json', 'binder/recipe.json',
 ]);
 const broadDirectories = new Set(['manuscript', 'outline', 'notes', 'canon', 'assets', 'agents', 'workspaces', 'sources']);
-const rootDirectories = new Set([...broadDirectories, 'plot', 'scenes', 'references', 'goals', 'world', 'connections', '.muse']);
+const rootDirectories = new Set([...broadDirectories, 'plot', 'scenes', 'references', 'goals', 'world', 'connections', 'studio', 'binder', '.muse']);
 function invalid(message: string): never { throw new BackupError(400, 'INVALID_BACKUP', message); }
 function tooLarge(): never { throw new BackupError(413, 'BACKUP_TOO_LARGE', 'Backup exceeds 80 MiB encoded, 50 MiB saved files, or 10,000 files.'); }
 function changed(): never { throw new BackupError(409, 'PROJECT_CHANGED', 'Project changed during backup. Save your work and retry.'); }

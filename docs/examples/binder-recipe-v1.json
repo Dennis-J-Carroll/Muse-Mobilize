@@ -1,0 +1,16 @@
+{
+  "format": "muse-project-binder",
+  "version": 1,
+  "title": "My Story — Project Binder",
+  "introduction": "A presentation of my story and its supporting material.",
+  "pageSize": "letter",
+  "includeImages": true,
+  "sections": [
+    { "id": "story", "title": "Manuscript", "kind": "document", "selection": { "mode": "selected", "ids": ["chapter-01"] } },
+    { "id": "plot", "title": "Plot", "kind": "plot", "selection": { "mode": "all" } },
+    { "id": "cast", "title": "Characters", "kind": "character", "selection": { "mode": "all" } },
+    { "id": "world", "title": "World", "kind": "world", "selection": { "mode": "all" } },
+    { "id": "scenes", "title": "Scenes and Dialogue", "kind": "scene", "selection": { "mode": "all" } },
+    { "id": "sources", "title": "Source Appendix", "kind": "source", "selection": { "mode": "selected", "ids": [] } }
+  ]
+}

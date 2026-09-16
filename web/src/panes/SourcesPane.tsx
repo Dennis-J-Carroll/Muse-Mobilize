@@ -113,7 +113,7 @@ function MetadataEditor({ source }: { source: StorySource }) {
       <div className="source-remove">
         {confirming ? (
           <>
-            <button className="btn btn-danger" aria-label={`Confirm delete source ${source.title}`} onClick={() => void deleteSource(source.id)}>Delete permanently</button>
+            <button className="btn btn-danger" aria-label={`Confirm delete source ${source.title}`} onClick={() => void deleteSource(source.id)}>Delete Source</button>
             <button className="linkish" onClick={() => setConfirming(false)}>Keep it</button>
           </>
         ) : (

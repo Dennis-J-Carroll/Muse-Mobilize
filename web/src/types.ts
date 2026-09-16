@@ -309,6 +309,8 @@ export interface ProgressProjection {
 }
 
 export interface AgentDef {
+  access?: import('../../shared/project-tools').AgentAccess;
+  instructions: { system_prompt: string; goals?: string[] };
   id: string;
   name: string;
   role: string;
@@ -346,6 +348,7 @@ export interface Consultation {
 }
 
 export interface AgentRun {
+  contextReceipt?: { policyRevision?: string; records: { kind: string; id: string; sha256: string; trimmed: boolean }[]; sharedExcerpt?: boolean };
   runId: string;
   agentId: string;
   agentName: string;

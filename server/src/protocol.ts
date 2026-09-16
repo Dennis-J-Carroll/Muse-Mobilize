@@ -5,11 +5,11 @@
  * definition runs on Anthropic, Ollama, or the mock provider unchanged
  * (handoff §5, §19). The model writes prose and may embed blocks:
  *
- *   <consult agent="continuity">Does Senna know the seal yet?</consult>
+ *   <consult agent="continuity">Does character-1 know the seal yet?</consult>
  *
  *   <patch>
- *   <before>Senna walked across the chamber.</before>
- *   <after>Senna crossed the chamber without looking back.</after>
+ *   <before>character-1 walked across the chamber.</before>
+ *   <after>character-1 crossed the chamber without looking back.</after>
  *   <reason>Movement signals emotional withdrawal.</reason>
  *   </patch>
  *

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { PatchCard } from '../components/PatchCard';
 import type { AgentRun, Pane } from '../types';
+import { openProjectTool } from '../components/ProjectTools';
 
 // A fresh [] from a selector makes useSyncExternalStore re-render forever.
 const NO_RUNS: AgentRun[] = [];
@@ -77,8 +78,18 @@ function RunView({ run }: { run: AgentRun }) {
       {run.patches.map((p) => (
         <PatchCard key={p.id} patch={p} agentId={run.agentId} />
       ))}
+      {!run.error && run.text && <ShareAdvice run={run} />}
+      {run.contextReceipt && <details className="share-advice"><summary>Context receipt</summary><p>Policy revision: {run.contextReceipt.policyRevision}</p><p>{run.contextReceipt.records.map((r) => `${r.kind}: ${r.id}${r.trimmed ? ' (trimmed)' : ''}`).join(' · ') || 'No saved records sent'}</p>{run.contextReceipt.sharedExcerpt && <p>Writer shared an excerpt for this run.</p>}</details>}
     </div>
   );
+}
+
+function ShareAdvice({ run }: { run: AgentRun }) {
+  const agents = useStore((s) => s.agents);
+  const busy = useStore((s) => s.busy);
+  const [target, setTarget] = useState('');
+  const [excerpt, setExcerpt] = useState(run.text.slice(0, 12000));
+  return <details className="share-advice"><summary>Share advice with another agent</summary><p>Only the excerpt below is shared, for one run. Edit it to choose what the other agent learns.</p><label>Recipient<select value={target} onChange={(e) => setTarget(e.target.value)}><option value="">Choose agent</option>{agents.filter((a) => a.id !== run.agentId).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label><label>Excerpt to share<textarea rows={5} maxLength={12000} value={excerpt} onChange={(e) => setExcerpt(e.target.value)} /></label><button disabled={!target || !excerpt.trim() || busy[target]} onClick={() => { void useStore.getState().ask(target, `Consider this advice from ${run.agentName} and give your own view.`, false, excerpt); useStore.getState().openPane('agent', { bindingId: target }); }}>Share excerpt and ask</button></details>;
 }
 
 export function AgentPane({ pane }: { pane: Pane }) {
@@ -109,8 +120,9 @@ export function AgentPane({ pane }: { pane: Pane }) {
       </div>
 
       <div className="agent-scope">
-        sees: {agent.context?.scope?.join(' · ') || 'nothing yet'}
-        {agent.context?.forbidden?.length ? ` · withheld: ${agent.context.forbidden.join(', ')}` : ''}
+        {agent.access ? 'Explicit assignments · automatic consultation off' : `Legacy scopes: ${agent.context?.scope?.join(' · ') || 'nothing yet'}`}
+        {!agent.access && agent.context?.forbidden?.length ? ` · withheld: ${agent.context.forbidden.join(', ')}` : ''}
+        <button className="linkish" onClick={() => openProjectTool('agents', agentId)}>Configure in Agent Studio</button>
       </div>
 
       <div className="agent-scroll">
@@ -133,7 +145,7 @@ export function AgentPane({ pane }: { pane: Pane }) {
       <div className="agent-compose">
         <label className={`sel-toggle ${selection ? '' : 'is-off'}`}>
           <input type="checkbox" checked={useSel && Boolean(selection)} disabled={!selection} onChange={(e) => setUseSel(e.target.checked)} />
-          attach selection{selection ? ` (${selection.text.split(/\s+/).filter(Boolean).length}w)` : ''}
+          attach selection{selection ? ` (${selection.text.split(/\s+/).filter(Boolean).length}w)` : ''}{agent.access ? ' · assignments apply' : ''}
         </label>
         <div className="compose-row">
           <textarea

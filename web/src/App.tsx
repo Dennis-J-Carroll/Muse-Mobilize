@@ -1,3 +1,4 @@
+import { useEditHistory } from './editHistory';
 import { useEffect, useState } from 'react';
 import { useStore } from './store';
 import { Sidebar } from './components/Sidebar';
@@ -9,11 +10,18 @@ import { FocusStoryCards } from './components/FocusStoryCards';
 import { ConnectionsPanel } from './components/ConnectionsPanel';
 import { RecoveryPanel } from './useRecoverableDraft';
 import { ProjectBackups } from './components/ProjectBackups';
+import { ProjectTools, type ProjectTool } from './components/ProjectTools';
 import { dismissFocusLayer } from './focusLayers';
 import { useWritingView } from './writingView';
 import * as Icon from './components/icons';
 
 export default function App() {
+  const restoring = useEditHistory((s) => s.restoring);
+  useEffect(() => {
+    const app = document.querySelector<HTMLElement>('.app');
+    if (app) app.inert = restoring;
+    return () => { if (app) app.inert = false; };
+  }, [restoring]);
   const ready = useStore((s) => s.ready);
   const project = useStore((s) => s.project);
   const projects = useStore((s) => s.projects);
@@ -27,6 +35,13 @@ export default function App() {
   const workbench = useWritingView((s) => s.workbench);
   const writingFocused = panes.some((pane) => pane.id === focusPaneId);
   const [showSettings, setShowSettings] = useState(false);
+  const [projectTool, setProjectTool] = useState<{ tool: ProjectTool; agentId?: string } | null>(null);
+  useEffect(() => { setProjectTool(null); }, [project?.id]);
+  useEffect(() => {
+    const open = (event: Event) => { const detail = (event as CustomEvent).detail; if (detail?.tool === 'agents' || detail?.tool === 'binder') setProjectTool(detail); };
+    window.addEventListener('muse:project-tool', open);
+    return () => window.removeEventListener('muse:project-tool', open);
+  }, []);
   const sidebarCollapsed = useWritingView((s) => s.sidebarCollapsed);
 
   useEffect(() => {
@@ -145,6 +160,7 @@ export default function App() {
       <FocusStoryCards />
       <ConnectionsPanel />
       <RecoveryPanel />
+      {projectTool && <ProjectTools key={`${project.id}-${projectTool.tool}`} {...projectTool} projectId={project.id} projectName={project.name} onClose={() => setProjectTool(null)} />}
     </div>
   );
 }

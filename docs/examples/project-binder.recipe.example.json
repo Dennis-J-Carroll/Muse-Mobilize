@@ -1,0 +1,30 @@
+{
+  "format": "muse-binder-recipe-proposal",
+  "version": 1,
+  "status": "design-example-not-importable",
+  "title": "My Project — Writer's Binder",
+  "introduction": "A working presentation of the story and its supporting material.",
+  "defaultSelection": "none",
+  "sections": [
+    { "id": "story", "title": "Manuscript", "resource": "document", "kind": "manuscript", "selection": { "mode": "all", "order": "document-order" } },
+    { "id": "structure", "title": "Plot", "resource": "plot", "selection": { "mode": "all", "order": "title-then-id" } },
+    { "id": "cast", "title": "Characters", "resource": "character", "selection": { "mode": "all", "order": "title-then-id" } },
+    { "id": "world", "title": "World", "resource": "world", "selection": { "mode": "all", "order": "title-then-id" } },
+    { "id": "scenes", "title": "Scenes and Dialogue", "resource": "scene", "selection": { "mode": "all", "order": "title-then-id" } },
+    { "id": "themes", "title": "Themes", "resource": "theme", "selection": { "mode": "all", "order": "title-then-id" } },
+    { "id": "references", "title": "References", "resource": "reference", "selection": { "mode": "all", "order": "title-then-id" } },
+    { "id": "evidence", "title": "Source Appendix", "resource": "source", "selection": { "mode": "selected", "ids": ["example-source-story-notes"] }, "presentation": "extracted-text-with-attribution" }
+  ],
+  "linkedRecords": "include-only-if-selected",
+  "presentation": {
+    "theme": "quiet-editorial",
+    "contents": true,
+    "pageSize": "letter",
+    "sectionPageBreaks": true,
+    "includeImages": true
+  },
+  "download": {
+    "format": "html",
+    "includePrivateProjectArchive": false
+  }
+}

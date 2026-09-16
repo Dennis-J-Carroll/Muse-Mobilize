@@ -19,11 +19,12 @@ Installation copies the package into each host's personal skills folder. Keep th
 3. Add managed-asset inclusion and link resolution with source-relative mapping evidence; never silently rewrite prose or follow arbitrary remote URLs.
 4. Design previewed updates: prior receipt + source hash + current Muse hash, unchanged/no-op detection, source-only changes, target-only changes, two-sided conflicts, explicit batch approval, and rollback. No automatic overwrite or bidirectional sync.
 
-## Export seed: three separate products
+## Export products and boundaries
 
 | Output | Purpose | Status / boundary |
 | --- | --- | --- |
-| Project archive | Restore editable Muse project data | Existing saved-project JSON backup includes saved documents, lore/tool stores, images, connections, and saved workspace files. It excludes unsaved browser drafts, provider settings, and browser-local Saved Desks. |
+| Project archive | Restore editable Muse project data | Existing saved-project JSON backup includes saved documents, lore/tool stores, Sources, images, connections, project agents, and saved workspace files. It excludes unsaved browser drafts, provider settings, and browser-local Saved Desks. |
+| Project binder | Present the project and its supporting material | Implemented first version: ordered sections and selected records, editable JSON recipe, HTML preview/download, PDF print styles, and a ZIP containing presentation plus existing saved-project backup. See [the usage guide](using-agent-studio-and-project-binder.md). |
 | Reader edition | Present selected story material to readers | Proposed: ordered manuscript selection, title/credits, section breaks, front/back matter, and preview; then Markdown/text, DOCX, EPUB, and PDF renderers. Private lore, seeds, revision notes, and spoilers stay excluded unless explicitly selected. |
 | Adaptation project | Build a comic, screenplay, illustrated edition, or other presentation | Proposed: separate editable adaptation linked to source passages/scenes. Comic pages/panels, captions, dialogue, images, alt text, and reading order need their own model—not an automatic relabeling of prose. |
 
@@ -43,4 +44,4 @@ Every output should carry an export receipt identifying source revision and rend
 - Comic/script adaptations preserve traceable source links, allow independent editing, and never present inferred details as original canon.
 - Re-export reports source changes rather than implying an old rendering is current. Output files are never silently overwritten.
 
-This document plants the product boundary and sequencing. Publication renderers, portable Saved Desks, structured extraction, and synchronization are not implemented by this slice.
+Current-document Markdown, text, and DOCX export are implemented in `server/src/export.ts`. Project Binder now provides ordered HTML/print presentation and a reader-manuscript preset. Dedicated publication typesetting, EPUB, whole-binder DOCX, portable Saved Desks, structured extraction, and synchronization remain proposed work.

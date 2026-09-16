@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { useStore } from '../store';
 import * as Icon from './icons';
+import { openProjectTool } from './ProjectTools';
 
 /**
  * Domain cards mobilize a tool into the workspace. Rich domains can launch a
@@ -55,6 +56,8 @@ const newDoc = (title: string, kind: 'manuscript' | 'notes' | 'canon' | 'outline
 });
 
 const CARDS: Card[] = [
+  { key: 'agent-studio', title: 'Agent Studio', blurb: 'Assign knowledge and arrange your agents.', tone: 'sage', icon: <Icon.Users />, launch: () => openProjectTool('agents'), items: () => [] },
+  { key: 'project-binder', title: 'Project Binder', blurb: 'Arrange and export your whole project.', tone: 'sand', icon: <Icon.Bookmark />, launch: () => openProjectTool('binder'), items: () => [] },
   {
     key: 'idea', title: 'Story Idea', blurb: 'Capture and develop your ideas.', tone: 'deep', wide: true,
     icon: <Icon.Feather size={22} />,
@@ -274,6 +277,8 @@ export function Sidebar({ collapsed, onToggleCollapsed, onOpenSettings }: {
           <button className="launcher-item" onClick={() => { onOpenSettings(); setMenu(false); }}>
             <span>Settings</span>
           </button>
+          <button className="launcher-item" onClick={() => { openProjectTool('agents'); setMenu(false); }}>Agent Studio</button>
+          <button className="launcher-item" onClick={() => { openProjectTool('binder'); setMenu(false); }}>Project Binder</button>
         </div>
       )}
 

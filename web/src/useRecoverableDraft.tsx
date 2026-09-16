@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useReducer, useSyncExternalStore, type Dispatch, type SetStateAction } from 'react';
+import { emptyValueHistory, rememberValue, travelValue } from './editHistory';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useSyncExternalStore, type Dispatch, type SetStateAction } from 'react';
 import { draftJournal, RecoverableDraft, type DraftCheckpoint } from './draftRecovery';
 import { getProjectSession, useStore } from './store';
 
@@ -7,12 +8,19 @@ export function useRecoverableDraft<T>(tool: string, entityId: string, initial: 
   const session = getProjectSession();
   const [, render] = useReducer((value: number) => value + 1, 0);
   const recovery = useMemo(() => new RecoverableDraft(draftJournal, { projectId: project?.id ?? '', tool, entityId }, initial()), [project, session, tool, entityId]);
+  const history = useMemo(() => ({ value: emptyValueHistory<T>() }), [recovery]);
   const current = () => useStore.getState().project === project && getProjectSession() === session;
   const setDraft: Dispatch<SetStateAction<T>> = useCallback((next) => {
     if (!current()) return;
+    history.value = rememberValue(history.value, structuredClone(recovery.value));
     recovery.update(next);
     render();
   }, [recovery]);
+  const travel = (direction: 'undo' | 'redo') => {
+    if (!current()) return;
+    const next = travelValue<T>(history.value, structuredClone(recovery.value), direction);
+    if (next) { history.value = next.history; recovery.update(next.value); render(); }
+  };
   const completeSave = (checkpoint: DraftCheckpoint<T>, canonicalValue?: T) => {
     const complete = recovery.completeSave(checkpoint, canonicalValue);
     if (current()) render();
@@ -25,15 +33,34 @@ export function useRecoverableDraft<T>(tool: string, entityId: string, initial: 
     window.addEventListener('beforeunload', leave);
     return () => window.removeEventListener('beforeunload', leave);
   }, [recovery]);
-  return { draft: recovery.value, setDraft, field, checkpoint: () => recovery.checkpoint(), completeSave, discard, restored: recovery.restored, conflict: recovery.conflict, recordId: recovery.recordId, rememberRecord: (id: string) => { recovery.rememberRecord(id); if (current()) render(); } };
+  return { canUndo: history.value.past.length > 0, canRedo: history.value.future.length > 0, undo: () => travel('undo'), redo: () => travel('redo'), draft: recovery.value, setDraft, field, checkpoint: () => recovery.checkpoint(), completeSave, discard, restored: recovery.restored, conflict: recovery.conflict, recordId: recovery.recordId, rememberRecord: (id: string) => { recovery.rememberRecord(id); if (current()) render(); } };
 }
 
-export function DraftRecoveryNotice({ recovery }: { recovery: { restored: boolean; conflict: boolean } }) {
-  return <p className="draft-recovery-note" role={recovery.conflict ? 'alert' : 'status'}>
-    {recovery.conflict ? 'Recovered unsaved changes. The saved record has also changed; review these fields before saving.'
-      : recovery.restored ? 'Recovered your unsaved changes for this form. Save to keep them in the project, or Cancel to discard them.'
-        : 'Unsaved changes are kept in this browser. Cancel discards them; closing or sending to the side keeps them.'}
-  </p>;
+export function DraftRecoveryNotice({ recovery }: { recovery: { restored: boolean; conflict: boolean; canUndo?: boolean; canRedo?: boolean; undo?: () => void; redo?: () => void } }) {
+  const root = useRef<HTMLDivElement>(null);
+  const current = useRef(recovery); current.current = recovery;
+  useEffect(() => {
+    const form = root.current?.closest('form');
+    const key = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing || event.altKey || !(event.ctrlKey || event.metaKey)) return;
+      const direction = event.key.toLowerCase() === 'z' ? (event.shiftKey ? 'redo' : 'undo') : event.key.toLowerCase() === 'y' ? 'redo' : null;
+      if (!direction) return;
+      event.preventDefault(); event.stopPropagation(); current.current[direction]?.();
+    };
+    form?.addEventListener('keydown', key);
+    return () => form?.removeEventListener('keydown', key);
+  }, []);
+  return <div ref={root}>
+    <div className="undo-controls" role="group" aria-label="Form history">
+      <button type="button" aria-label="Undo form edit" disabled={!recovery.canUndo} onPointerDown={(event) => event.preventDefault()} onClick={recovery.undo}>↶ Undo form edit</button>
+      <button type="button" aria-label="Redo form edit" disabled={!recovery.canRedo} onPointerDown={(event) => event.preventDefault()} onClick={recovery.redo}>↷ Redo form edit</button>
+    </div>
+    <p className="draft-recovery-note" role={recovery.conflict ? 'alert' : 'status'}>
+      {recovery.conflict ? 'Recovered unsaved changes. The saved record has also changed; review these fields before saving.'
+        : recovery.restored ? 'Recovered your unsaved changes for this form. Save to keep them in the project, or Cancel to discard them.'
+          : 'Unsaved changes are kept in this browser. Cancel discards them; closing or sending to the side keeps them.'}
+    </p>
+  </div>;
 }
 
 /** Render once in App, outside focus-only content so recovery remains reachable on reload. */

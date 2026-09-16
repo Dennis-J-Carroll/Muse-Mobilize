@@ -1,0 +1,43 @@
+{
+  "format": "muse-agent-arrangement-proposal",
+  "version": 1,
+  "status": "design-example-not-importable",
+  "id": "example-plot-and-character",
+  "name": "Plot and Character — Separate Perspectives",
+  "sharing": { "mode": "writer-mediated", "automaticConsultation": false },
+  "agents": [
+    {
+      "id": "example-muse-plot",
+      "name": "Muse — Plot",
+      "role": "Story structure adviser",
+      "instructions": "Explore structure and causality using assigned material. Distinguish source evidence from your suggestions.",
+      "knowledge": {
+        "default": "deny",
+        "allow": [
+          { "resource": "plot", "selection": { "mode": "all", "includesFutureRecords": true } },
+          { "resource": "source", "selection": { "mode": "selected", "ids": ["example-source-story-notes", "example-source-research"] } }
+        ],
+        "deny": [],
+        "followLinks": false,
+        "attachments": "require-permission-or-explicit-run-share"
+      },
+      "actions": { "advise": true, "proposeEdits": false, "writeDirectly": false }
+    },
+    {
+      "id": "example-muse-mara",
+      "name": "Muse B — Mara",
+      "role": "Character adviser",
+      "instructions": "Explore Mara's motivation and voice using her assigned character card. Identify unknowns; do not invent established plot knowledge.",
+      "knowledge": {
+        "default": "deny",
+        "allow": [
+          { "resource": "character", "selection": { "mode": "selected", "ids": ["example-character-mara"] } }
+        ],
+        "deny": [],
+        "followLinks": false,
+        "attachments": "require-permission-or-explicit-run-share"
+      },
+      "actions": { "advise": true, "proposeEdits": false, "writeDirectly": false }
+    }
+  ]
+}
