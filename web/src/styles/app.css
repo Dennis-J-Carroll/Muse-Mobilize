@@ -34,6 +34,8 @@ input, textarea, select { font-family: var(--font-ui); }
 .boot h1 { margin: 6px 0 0; font-size: 26px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); }
 .boot p { margin: 0; }
 .boot-error { color: var(--danger); max-width: 420px; text-align: center; }
+.boot-splash { width: 220px; height: auto; }
+.boot-mark { width: 96px; height: auto; border-radius: 50%; }
 
 /* ---------------------------------------------------------------- sidebar */
 
@@ -52,6 +54,7 @@ input, textarea, select { font-family: var(--font-ui); }
 .brand-text { display: flex; flex-direction: column; line-height: 1.15; }
 .brand-text strong { font-weight: var(--weight-display); font-size: 20px; letter-spacing: -.04em; }
 .brand-text span { color: var(--ink-soft); font-size: 12px; }
+.brand-logo { height: 60px; width: auto; display: block; object-fit: contain; }
 
 .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
 .card-slot { position: relative; }
