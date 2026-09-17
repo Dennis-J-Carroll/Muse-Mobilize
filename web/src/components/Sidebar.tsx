@@ -229,8 +229,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, onOpenSettings }: {
           <Icon.Dots />
         </button>
         <div className="brand-text">
-          <strong>Muse</strong>
-          <span>Mobilize</span>
+          <img className="brand-logo" src="/brand/muse-mobilize-logo.png" alt="Muse Mobilize" />
         </div>
         <button
           type="button"

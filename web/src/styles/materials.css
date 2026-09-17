@@ -145,7 +145,7 @@
   .sidebar.is-collapsed .sidebar-toggle { margin-left: auto; }
   .brand-dot { width: 32px; height: 32px; }
   .brand-text { flex-direction: row; align-items: baseline; gap: 5px; }
-  .brand-text strong { font-size: 18px; }
+  .brand-logo { height: 43px; }
   .cards {
     grid-auto-flow: column;
     grid-auto-columns: 116px;

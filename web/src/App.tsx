@@ -84,7 +84,7 @@ export default function App() {
   if (!ready) {
     return (
       <div className="boot">
-        <Icon.Feather size={40} />
+        <img className="boot-splash" src="/brand/muse-mobilize-splash.jpg" alt="" />
         <p>Opening the workspace…</p>
       </div>
     );
@@ -93,7 +93,7 @@ export default function App() {
   if (!project) {
     return (
       <div className="boot">
-        <Icon.Feather size={44} />
+        <img className="boot-mark" src="/brand/muse-mobilize-mark.jpg" alt="" />
         <h1>Muse · Mobilize</h1>
         <p>A writers' room you can assemble around the page.</p>
         {error && <p className="boot-error">{error}</p>}
