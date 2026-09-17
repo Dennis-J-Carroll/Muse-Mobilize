@@ -223,7 +223,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, onOpenSettings }: {
   }, []);
 
   return (
-    <aside className={`sidebar ${collapsed ? 'is-collapsed' : ''}`} ref={ref}>
+    <aside id="workspace-navigation" className={`sidebar ${collapsed ? 'is-collapsed' : ''}`} ref={ref}>
       <div className="brand-row">
         <button className="brand-dot" onClick={() => setMenu((m) => !m)} title="Project menu">
           <Icon.Dots />

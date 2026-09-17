@@ -19,7 +19,7 @@ export function WorkspaceToolbar({ layout, onLayout, workbench, onWorkbench, cap
     document.addEventListener('pointerdown', outside);
     return () => document.removeEventListener('pointerdown', outside);
   }, [open]);
-  return <div className="workspace-toolbar" aria-label="Workspace arrangement">
+  return <div id="workspace-arrangement" className="workspace-toolbar" aria-label="Workspace arrangement">
     <label className="tile-picker"><Icon.Layers size={16} /><span>Tiles</span>
       <select aria-label="Document tiles" value={layout} onChange={(event) => onLayout(event.target.value as TileLayout)}>
         <option value="workspace">Workspace</option><option value="columns">Columns</option><option value="rows">Rows</option><option value="grid">Grid</option>

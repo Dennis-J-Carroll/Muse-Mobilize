@@ -1,5 +1,5 @@
 import { useEditHistory } from './editHistory';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { useStore } from './store';
 import { Sidebar } from './components/Sidebar';
 import { WorkspaceCanvas } from './components/WorkspaceCanvas';
@@ -13,6 +13,7 @@ import { ProjectBackups } from './components/ProjectBackups';
 import { ProjectTools, type ProjectTool } from './components/ProjectTools';
 import { dismissFocusLayer } from './focusLayers';
 import { useWritingView } from './writingView';
+import { useMobileWritingViewport } from './useMobileWritingViewport';
 import * as Icon from './components/icons';
 
 export default function App() {
@@ -34,6 +35,14 @@ export default function App() {
   const focusPaneId = useWritingView((s) => s.focusPaneId);
   const workbench = useWritingView((s) => s.workbench);
   const writingFocused = panes.some((pane) => pane.id === focusPaneId);
+  const appRef = useRef<HTMLDivElement>(null);
+  const [mobileControlsCollapsed, setMobileControlsCollapsed] = useState(false);
+  useMobileWritingViewport(appRef, writingFocused || mobileControlsCollapsed);
+  const collapseForWriting = (event: SyntheticEvent) => {
+    if (!writingFocused && window.matchMedia('(max-width: 700px)').matches && event.target instanceof HTMLTextAreaElement && event.target.matches('.draft')) {
+      setMobileControlsCollapsed(true);
+    }
+  };
   const [showSettings, setShowSettings] = useState(false);
   const [projectTool, setProjectTool] = useState<{ tool: ProjectTool; agentId?: string } | null>(null);
   useEffect(() => { setProjectTool(null); }, [project?.id]);
@@ -112,7 +121,8 @@ export default function App() {
   }
 
   return (
-    <div className={`app ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''} ${writingFocused ? 'is-writing-focus' : ''} ${workbench ? 'is-workbench' : ''}`}>
+    <div ref={appRef} className={`app ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''} ${writingFocused ? 'is-writing-focus' : ''} ${workbench ? 'is-workbench' : ''} ${mobileControlsCollapsed ? 'is-mobile-controls-collapsed' : ''}`}
+      onFocusCapture={collapseForWriting} onInputCapture={collapseForWriting}>
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggleCollapsed={() => useWritingView.getState().setSidebarCollapsed(!sidebarCollapsed)}
@@ -120,7 +130,21 @@ export default function App() {
       />
 
       <main className="workspace">
-        <header className="workspace-head">
+        <button type="button" className="mobile-workspace-toggle"
+          aria-label={mobileControlsCollapsed ? 'Show workspace controls' : 'Hide workspace controls'}
+          aria-expanded={!mobileControlsCollapsed}
+          aria-controls="workspace-navigation workspace-heading workspace-arrangement"
+          onPointerDown={(event) => {
+            // Keep the keyboard and caret when recalling tools from the draft.
+            if (document.activeElement instanceof HTMLTextAreaElement && document.activeElement.matches('.draft')) event.preventDefault();
+          }}
+          onClick={() => setMobileControlsCollapsed((collapsed) => !collapsed)}>
+          <Icon.Layers size={16} />
+          <span>Workspace</span>
+          <span className="mobile-workspace-project">{project.name}</span>
+          <span aria-hidden="true">{mobileControlsCollapsed ? '▾' : '▴'}</span>
+        </button>
+        <header id="workspace-heading" className="workspace-head">
           <div>
             <h1>{project.name}</h1>
             <p>

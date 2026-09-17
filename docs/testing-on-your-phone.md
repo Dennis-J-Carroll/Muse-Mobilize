@@ -50,8 +50,14 @@ ports through your router or publish this server through a public tunnel.**
 
 1. Open **Phone test**. Swipe the tool rail horizontally and visit Characters,
    Scenes, Sources, and Goals. Scroll inside each tool and rotate the phone.
-2. Open **Drafting → Focus → Hide controls**. Type several paragraphs with the
-   software keyboard. Try autocorrect, dictation, selection, copy, and paste.
+2. Open **Drafting** and tap into the manuscript. On narrow phone screens,
+   navigation and workspace controls collapse into the **Workspace** button.
+   Tap it to reopen them, or collapse them manually before writing. Check that
+   reopening preserves your text and selection. For a full-screen page, use
+   **Focus → Hide controls**. Type several paragraphs with the software keyboard;
+   check line spacing on both Paper and Glass, and that opening or closing the
+   keyboard keeps the draft and controls reachable. Try autocorrect, dictation,
+   selection, copy, and paste.
 3. Hide the keyboard, reveal controls using the feather, then choose
    **Back to workspace**. Reload and check that the saved text remains.
 4. Open **Story cards** in Focus. Create or edit a character, send the form to
