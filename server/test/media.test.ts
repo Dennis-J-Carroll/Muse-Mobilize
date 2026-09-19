@@ -89,10 +89,21 @@ test('camera updates persist and validate like node updates', async (t) => {
 
 test('concurrent node creations for the same project serialize instead of losing a write', async (t) => {
   const dir = await fixture(t);
-  const first = createMediaCanvasNode(dir, EMPTY_REVISION, { kind: 'image', assetSrc: 'a', x: 0, y: 0, width: 100, height: 100 });
-  // Fired before `first` resolves; the lock queue must serialize these so the
-  // second create reads the first create's result rather than clobbering it.
-  const second = first.then((r) => createMediaCanvasNode(dir, r.store.revision, { kind: 'image', assetSrc: 'b', x: 0, y: 0, width: 100, height: 100 }));
-  await second;
-  assert.equal((await readMediaCanvas(dir)).nodes.length, 2);
+  // Both calls are fired in the same tick, unchained, both starting from the
+  // same EMPTY_REVISION. Without the lock queue, both would read the empty
+  // store concurrently, both would pass the stale-revision check, and the
+  // later write would silently clobber the earlier one on disk (a lost write
+  // reported as success). With the queue, the second call is forced to read
+  // the first call's already-written store, so its expectedRevision is stale
+  // and it is rejected explicitly instead of silently losing data.
+  const results = await Promise.allSettled([
+    createMediaCanvasNode(dir, EMPTY_REVISION, { kind: 'image', assetSrc: 'a', x: 0, y: 0, width: 100, height: 100 }),
+    createMediaCanvasNode(dir, EMPTY_REVISION, { kind: 'image', assetSrc: 'b', x: 0, y: 0, width: 100, height: 100 }),
+  ]);
+  const fulfilled = results.filter((r) => r.status === 'fulfilled');
+  const rejected = results.filter((r) => r.status === 'rejected');
+  assert.equal(fulfilled.length, 1);
+  assert.equal(rejected.length, 1);
+  assert.match((rejected[0] as PromiseRejectedResult).reason.message, /changed since it was opened/);
+  assert.equal((await readMediaCanvas(dir)).nodes.length, 1);
 });
