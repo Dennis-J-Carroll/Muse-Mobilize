@@ -22,6 +22,12 @@ import { deleteOrphanedImages } from './imageGc.js';
 import { readGoals, writeGoals } from './goals.js';
 import { readProgress } from './progress.js';
 import { readWorldMap, writeWorldMap } from './world-map.js';
+import {
+  readMediaCanvas, createMediaCanvasNode, updateMediaCanvasNode, removeMediaCanvasNode,
+  createMediaCanvasEdge, removeMediaCanvasEdge, updateMediaCanvasCamera,
+} from './media.js';
+import { managedMediaFileName } from './mediaAssets.js';
+import { deleteOrphanedMedia } from './mediaGc.js';
 import { readConnections, createTag, renameTag, attachConnection, removeConnection } from './connections.js';
 import { exportProjectBackup, restoreProjectBackup, BackupError } from './backups.js';
 import {
@@ -44,10 +50,10 @@ function historySession(req: express.Request): string | null {
 async function editScope(req: express.Request): Promise<{ label: string; paths: string[] } | null> {
   if (!req.params.id || !['POST', 'PUT', 'DELETE'].includes(req.method)) return null;
   const route = String(req.route?.path ?? '').replace('/api/projects/:id/', '');
-  const stores: Record<string, string> = { canon: 'canon/canon.json', plot: 'plot/plot.json', scenes: 'scenes/scenes.json', references: 'references/references.json', goals: 'goals/goals.json', connections: 'connections/connections.json', 'world-map': 'world/map.json' };
+  const stores: Record<string, string> = { canon: 'canon/canon.json', plot: 'plot/plot.json', scenes: 'scenes/scenes.json', references: 'references/references.json', goals: 'goals/goals.json', connections: 'connections/connections.json', 'world-map': 'world/map.json', media: 'media/canvases/default.json' };
   const kind = route.split('/')[0];
   const verb = req.method === 'DELETE' ? 'Remove' : req.method === 'POST' ? 'Add' : 'Edit';
-  if (stores[kind]) return { label: `${verb} ${kind === 'canon' ? 'story card' : kind === 'world-map' ? 'atlas background' : kind}`, paths: [stores[kind], ...((kind === 'references' && req.method === 'DELETE') || kind === 'world-map' ? ['assets'] : [])] };
+  if (stores[kind]) return { label: `${verb} ${kind === 'canon' ? 'story card' : kind === 'world-map' ? 'atlas background' : kind === 'media' ? 'canvas placement' : kind}`, paths: [stores[kind], ...((kind === 'references' && req.method === 'DELETE') || kind === 'world-map' || (kind === 'media' && req.method === 'DELETE') ? ['assets'] : [])] };
   if (route === 'documents/:docId' || route === 'patches/apply') {
     const doc = await readDocument(req.params.id, req.params.docId ?? req.body?.documentId);
     return { label: route === 'patches/apply' ? 'Accept suggested edit' : `Write ${doc.meta.title}`, paths: [doc.meta.path] };
@@ -418,6 +424,56 @@ app.put('/api/projects/:id/world-map', wrap(async (req, res) => {
   }
   await emit(dir, 'world-map.updated', { hasImage: Boolean(worldMap.image), visible: worldMap.visible });
   res.json({ worldMap });
+}));
+
+/* --------------------------------------------------------------- media */
+
+app.get('/api/projects/:id/media/canvas', wrap(async (req, res) => {
+  res.json({ mediaCanvas: await readMediaCanvas(await projectDir(req.params.id)) });
+}));
+
+app.post('/api/projects/:id/media/nodes', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { node, store } = await createMediaCanvasNode(dir, req.body?.expectedRevision, req.body?.node ?? {});
+  await emit(dir, 'media.node.created', { nodeId: node.id, kind: node.kind });
+  res.json({ node, mediaCanvas: store });
+}));
+
+app.put('/api/projects/:id/media/nodes/:nodeId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { node, store } = await updateMediaCanvasNode(dir, req.body?.expectedRevision, req.params.nodeId, req.body?.patch ?? {});
+  res.json({ node, mediaCanvas: store });
+}));
+
+app.delete('/api/projects/:id/media/nodes/:nodeId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { removedNode, store } = await removeMediaCanvasNode(dir, req.query.expectedRevision, req.params.nodeId);
+  if (removedNode.kind === 'image') {
+    const fileName = managedImageFileName(removedNode.assetSrc);
+    if (fileName) await deleteOrphanedImages(dir, [fileName]);
+  } else {
+    const fileName = managedMediaFileName(removedNode.assetSrc);
+    if (fileName) await deleteOrphanedMedia(dir, [fileName]);
+  }
+  res.json({ mediaCanvas: store });
+}));
+
+app.post('/api/projects/:id/media/edges', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { edge, store } = await createMediaCanvasEdge(dir, req.body?.expectedRevision, req.body?.edge ?? {});
+  res.json({ edge, mediaCanvas: store });
+}));
+
+app.delete('/api/projects/:id/media/edges/:edgeId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { store } = await removeMediaCanvasEdge(dir, req.query.expectedRevision, req.params.edgeId);
+  res.json({ mediaCanvas: store });
+}));
+
+app.put('/api/projects/:id/media/camera', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { store } = await updateMediaCanvasCamera(dir, req.body?.expectedRevision, req.body?.camera ?? {});
+  res.json({ mediaCanvas: store });
 }));
 
 /* ---------------------------------------------------------------- progress */
