@@ -4,6 +4,7 @@ import { readCanon } from './canon.js';
 import { readPlot } from './plot.js';
 import { readReferences } from './references.js';
 import { readWorldMap } from './world-map.js';
+import { readMediaCanvas } from './media.js';
 import type { StoryImage } from './types.js';
 
 function fileNamesFrom(images: StoryImage[] | undefined): string[] {
@@ -27,6 +28,12 @@ export async function collectManagedImageFileNames(projectDir: string): Promise<
   for (const item of references.items) fileNamesFrom(item.images).forEach((name) => names.add(name));
   const worldMap = await readWorldMap(projectDir);
   fileNamesFrom(worldMap.image ? [worldMap.image] : []).forEach((name) => names.add(name));
+  const mediaCanvas = await readMediaCanvas(projectDir);
+  for (const node of mediaCanvas.nodes) {
+    if (node.kind !== 'image') continue;
+    const fileName = managedImageFileName(node.assetSrc);
+    if (fileName) names.add(fileName);
+  }
   return names;
 }
 
