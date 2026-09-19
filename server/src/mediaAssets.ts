@@ -18,8 +18,12 @@ export interface StoredMediaAsset {
 
 // A small-reference-clip policy for this first version (see
 // docs/media-desk-architecture.md, "Backups, undo, and asset lifetime"):
-// 25 MB decoded stays comfortably under the 50 MiB saved-project-files
-// backup cap and 80 MiB encoded-backup cap even with a few clips saved.
+// 25 MB decoded is exactly half of MAX_PROJECT_BYTES (backups.ts, 50 MiB
+// saved-project-files cap). A project with more than ~2 max-size clips will
+// exceed that cap and fail to back up (visibly -- BACKUP_TOO_LARGE -- not
+// silently), since backups.ts's inventory walk compares total saved bytes
+// against the cap with a strict `>`. This is a real, low ceiling, not a
+// comfortable margin.
 export const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
 
 const MEDIA_EXTENSIONS: Record<string, string> = {
@@ -48,7 +52,12 @@ function matchesMediaSignature(bytes: Buffer, mimeType: string): boolean {
   return false;
 }
 
-const MANAGED_MEDIA_PATH = /\/assets\/media\/([^/?#]+\.(?:mp3|wav|mp4|webm))$/i;
+// Case-sensitive (no /i): mediaAssetPath's UUID regex is case-sensitive too
+// (real file names are always lowercase, from randomUUID() and the
+// lowercase extensions in MEDIA_EXTENSIONS), so this must reject an
+// uppercase-hex candidate the same way mediaAssetPath would, not rely on
+// deleteOrphanedMedia's try/catch to catch the mismatch.
+const MANAGED_MEDIA_PATH = /\/assets\/media\/([a-f0-9-]{36}\.(?:mp3|wav|mp4|webm))$/;
 
 export function managedMediaFileName(src: string): string | null {
   const match = MANAGED_MEDIA_PATH.exec(String(src ?? ''));

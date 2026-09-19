@@ -315,6 +315,8 @@ export async function exportProjectBackup(projectId: string, options: BackupOpti
 function remapImageStores(parsed: Map<string, Record<string, unknown>>, files: Map<string, Buffer>, sourceId: string, targetId: string): void {
   const sourcePrefix = `/api/projects/${encodeURIComponent(sourceId)}/assets/images/`;
   const targetPrefix = `/api/projects/${encodeURIComponent(targetId)}/assets/images/`;
+  const sourceMediaPrefix = `/api/projects/${encodeURIComponent(sourceId)}/assets/media/`;
+  const targetMediaPrefix = `/api/projects/${encodeURIComponent(targetId)}/assets/media/`;
   for (const [file, value] of parsed) {
     let modified = false;
     const image = (item: unknown) => {
@@ -325,6 +327,20 @@ function remapImageStores(parsed: Map<string, Record<string, unknown>>, files: M
       modified = true;
     };
     const images = (items: unknown) => { if (Array.isArray(items)) items.forEach(image); };
+    const mediaCanvasNode = (node: unknown) => {
+      if (!record(node) || typeof node.assetSrc !== 'string') return;
+      if (node.assetSrc.startsWith(sourcePrefix)) {
+        const name = node.assetSrc.slice(sourcePrefix.length);
+        if (!/^[^/?#]+\.(png|jpe?g|webp|gif|avif)$/i.test(name)) return;
+        node.assetSrc = targetPrefix + name;
+        modified = true;
+      } else if (node.assetSrc.startsWith(sourceMediaPrefix)) {
+        const name = node.assetSrc.slice(sourceMediaPrefix.length);
+        if (!/^[^/?#]+\.(mp3|wav|mp4|webm)$/i.test(name)) return;
+        node.assetSrc = targetMediaPrefix + name;
+        modified = true;
+      }
+    };
     if (file === 'canon/canon.json' && Array.isArray(value.entities)) {
       for (const entity of value.entities) {
         if (!record(entity)) continue;
@@ -336,6 +352,9 @@ function remapImageStores(parsed: Map<string, Record<string, unknown>>, files: M
     } else if (file === 'references/references.json' && Array.isArray(value.items)) {
       for (const item of value.items) if (record(item)) images(item.images);
     } else if (file === 'world/map.json') image(value.image);
+    else if (file === 'media/canvases/default.json' && Array.isArray(value.nodes)) {
+      for (const node of value.nodes) mediaCanvasNode(node);
+    }
     if (modified) files.set(file, Buffer.from(JSON.stringify(value, null, 2)));
   }
 }

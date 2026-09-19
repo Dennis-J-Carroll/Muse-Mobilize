@@ -34,10 +34,15 @@ const COORD_BOUND = 100_000;
 const MIN_DIMENSION = 40;
 const MAX_DIMENSION = 4_000;
 
-// Deliberately duplicates web/src/atlasCamera.ts's clamp bounds rather than
-// importing it: docs/media-desk-architecture.md defers unifying the two into
-// one shared module until Media Desk (a second surface) actually consumes
-// the atlas camera code. Keep these two clamps in sync by hand until then.
+// Deliberately duplicates web/src/atlasCamera.ts's clamp shape (not its
+// bounds) rather than importing it: docs/media-desk-architecture.md defers
+// unifying the two into one shared module until Media Desk (a second
+// surface) actually consumes the atlas camera code. The bounds here (.05-4)
+// are intentionally different from atlasCamera.ts's (.001-2) -- Media Desk
+// supports a different zoom range than the World Building atlas. Do NOT
+// "sync" the numbers; if the two are ever unified, picking a single bound
+// (or keeping both configurable) is a deliberate design decision for
+// whoever builds the shared spatial-canvas extraction in a later phase.
 export const clampMediaCanvasScale = (scale: number): number => Math.max(.05, Math.min(4, scale));
 
 function finite(value: unknown, min: number, max: number): value is number {

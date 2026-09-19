@@ -53,7 +53,9 @@ async function editScope(req: express.Request): Promise<{ label: string; paths: 
   const stores: Record<string, string> = { canon: 'canon/canon.json', plot: 'plot/plot.json', scenes: 'scenes/scenes.json', references: 'references/references.json', goals: 'goals/goals.json', connections: 'connections/connections.json', 'world-map': 'world/map.json', media: 'media/canvases/default.json' };
   const kind = route.split('/')[0];
   const verb = req.method === 'DELETE' ? 'Remove' : req.method === 'POST' ? 'Add' : 'Edit';
-  if (stores[kind]) return { label: `${verb} ${kind === 'canon' ? 'story card' : kind === 'world-map' ? 'atlas background' : kind === 'media' ? 'canvas placement' : kind}`, paths: [stores[kind], ...((kind === 'references' && req.method === 'DELETE') || kind === 'world-map' || (kind === 'media' && req.method === 'DELETE') ? ['assets'] : [])] };
+  // Only a media node delete can touch an asset file (deleteOrphanedImages/deleteOrphanedMedia);
+  // a media edge delete never does, so it's excluded from the 'assets' undo scope.
+  if (stores[kind]) return { label: `${verb} ${kind === 'canon' ? 'story card' : kind === 'world-map' ? 'atlas background' : kind === 'media' ? 'canvas placement' : kind}`, paths: [stores[kind], ...((kind === 'references' && req.method === 'DELETE') || kind === 'world-map' || (kind === 'media' && req.method === 'DELETE' && route.endsWith('/nodes/:nodeId')) ? ['assets'] : [])] };
   if (route === 'documents/:docId' || route === 'patches/apply') {
     const doc = await readDocument(req.params.id, req.params.docId ?? req.body?.documentId);
     return { label: route === 'patches/apply' ? 'Accept suggested edit' : `Write ${doc.meta.title}`, paths: [doc.meta.path] };

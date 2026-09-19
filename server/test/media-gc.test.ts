@@ -36,6 +36,20 @@ test('a media asset with no remaining canvas reference is deleted', async (t) =>
   await assert.rejects(fs.access(mediaAssetPath(dir, stored.fileName)));
 });
 
+test('deleteOrphanedMedia skips a candidate that does not parse as a managed media asset name instead of throwing', async (t) => {
+  const dir = await fixture(t);
+  const wav = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WAVE'), Buffer.from('sound')]);
+  const stored = await saveMediaAsset(dir, { name: 'ambience.wav', mimeType: 'audio/wav', data: wav.toString('base64') });
+
+  // 'evil.wav' is not UUID-shaped, so it can never have been a real managed
+  // asset name; deleteOrphanedMedia must skip it rather than letting
+  // mediaAssetPath's strict validation throw mid-collection (regression
+  // guard for I1a: a thrown GC error after the node was already removed
+  // used to surface as a 400 that wiped the session's undo history).
+  await assert.doesNotReject(deleteOrphanedMedia(dir, ['evil.wav', stored.fileName]));
+  await assert.rejects(fs.access(mediaAssetPath(dir, stored.fileName)));
+});
+
 test('an image placed on the media canvas is not treated as an orphaned image', async (t) => {
   const dir = await fixture(t);
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');

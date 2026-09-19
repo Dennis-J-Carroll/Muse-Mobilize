@@ -21,6 +21,15 @@ export async function deleteOrphanedMedia(projectDir: string, candidateFileNames
   await Promise.all(
     candidateFileNames
       .filter((fileName) => !stillUsed.has(fileName))
-      .map((fileName) => fs.rm(mediaAssetPath(projectDir, fileName), { force: true })),
+      .map(async (fileName) => {
+        // A candidate that doesn't parse as a managed media asset name (e.g.
+        // not UUID-shaped) was never something GC could have written, so
+        // there's nothing to delete: skip it rather than letting
+        // mediaAssetPath's strict validation throw mid-collection.
+        let target: string;
+        try { target = mediaAssetPath(projectDir, fileName); }
+        catch { return; }
+        await fs.rm(target, { force: true });
+      }),
   );
 }
