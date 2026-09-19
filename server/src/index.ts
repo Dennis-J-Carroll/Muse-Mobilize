@@ -26,7 +26,7 @@ import {
   readMediaCanvas, createMediaCanvasNode, updateMediaCanvasNode, removeMediaCanvasNode,
   createMediaCanvasEdge, removeMediaCanvasEdge, updateMediaCanvasCamera,
 } from './media.js';
-import { managedMediaFileName } from './mediaAssets.js';
+import { managedMediaFileName, saveMediaAsset, mediaAssetPath } from './mediaAssets.js';
 import { deleteOrphanedMedia } from './mediaGc.js';
 import { readConnections, createTag, renameTag, attachConnection, removeConnection } from './connections.js';
 import { exportProjectBackup, restoreProjectBackup, BackupError } from './backups.js';
@@ -90,6 +90,19 @@ const wrap = (fn: express.RequestHandler): express.RequestHandler => async (req,
 // backup boundary before any destination project is created.
 app.post('/api/projects/restore', express.raw({ type: 'application/json', limit: '80mb' }), wrap(async (req, res) => {
   res.json({ project: await restoreProjectBackup(req.body) });
+}));
+// Media uploads need their own bounded body, not the general 8mb JSON limit:
+// MAX_MEDIA_BYTES (25 MB) decoded is ~33.3 MB as base64, so 34mb covers the
+// worst case with margin for the JSON envelope around it.
+app.post('/api/projects/:id/assets/media', express.json({ limit: '34mb' }), wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const stored = await saveMediaAsset(dir, req.body ?? {});
+  const media = {
+    id: path.parse(stored.fileName).name,
+    src: `/api/projects/${encodeURIComponent(req.params.id)}/assets/media/${stored.fileName}`,
+  };
+  await emit(dir, 'asset.media.uploaded', { mediaId: media.id, originalName: stored.originalName, size: stored.size });
+  res.json({ media });
 }));
 app.use(express.json({ limit: '8mb' }));
 
@@ -474,6 +487,14 @@ app.put('/api/projects/:id/media/camera', wrap(async (req, res) => {
   const dir = await projectDir(req.params.id);
   const { store } = await updateMediaCanvasCamera(dir, req.body?.expectedRevision, req.body?.camera ?? {});
   res.json({ mediaCanvas: store });
+}));
+
+app.get('/api/projects/:id/assets/media/:fileName', wrap(async (req, res) => {
+  const file = mediaAssetPath(await projectDir(req.params.id), req.params.fileName);
+  res.set('cache-control', 'private, max-age=31536000, immutable');
+  res.sendFile(file, { acceptRanges: true }, (error) => {
+    if (error && !res.headersSent) res.status(404).json({ error: 'media file not found' });
+  });
 }));
 
 /* ---------------------------------------------------------------- progress */
