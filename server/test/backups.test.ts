@@ -35,6 +35,7 @@ test('saved stores and binary files restore under a fresh identity without chang
   const binary = Buffer.from([0, 255, 1, 128, 13, 10, 0]);
   const saved = {
     'assets/images/pixel.png': binary,
+    'assets/media/tone.wav': Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WAVE'), Buffer.from('sound')]),
     'outline/outline.md': '# Outline\n',
     'notes/scratchpad.md': '# Scratchpad\n',
     'canon/characters/person.md': '# Person\n',
@@ -44,6 +45,11 @@ test('saved stores and binary files restore under a fresh identity without chang
     'references/references.json': { version: 1, items: [] },
     'goals/goals.json': { version: 1, milestones: [{ id: 'goal-one', title: 'Finish' }] },
     'world/map.json': { version: 1, image: null, visible: true, opacity: 0.8 },
+    'media/canvases/default.json': {
+      version: 1, revision: 'r1', camera: { x: 0, y: 0, scale: 1 },
+      nodes: [{ id: 'node-one', kind: 'audio', assetSrc: '/api/projects/backup-fixture/assets/media/tone.wav', label: '', x: 10, y: 20, width: 200, height: 60 }],
+      edges: [],
+    },
     'connections/connections.json': { version: 1, tags: [{ id: 'red', name: 'Red' }], connections: [] },
     'agents/editor.yaml': 'id: editor\nname: Editor\n',
     'workspaces/writing.json': { id: 'writing', name: 'Writing' },
