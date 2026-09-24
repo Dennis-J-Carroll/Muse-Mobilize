@@ -11,6 +11,7 @@ import { openConnections } from '../connectionsView';
 import { PagePopover } from '../components/PagePopover';
 import { restorePlace } from '../focusPlace';
 import { LegendTrigger } from '../components/ShortcutLegend';
+import { GUARD_NOTICE, shouldGuard } from '../selectionGuard';
 import { resolveBangHash, type BangSnapshot } from '../bangHash';
 
 /** Registry so a patch card can point at the exact range inside the draft. */
@@ -146,6 +147,20 @@ export function EditorPane({ pane }: { pane: Pane }) {
       ...(resolved.quote ? { range: { start: resolved.start, end: resolved.end, quote: resolved.quote } } : {}) });
     return true;
   };
+
+  // React's onBeforeInput has no inputType and misses Enter, so listen to the native event.
+  const guard = useWritingView((s) => s.guardSelection);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !guard || !isManuscript) return;
+    const onBeforeInput = (event: InputEvent) => {
+      if (event.isComposing || !shouldGuard(el.value, el.selectionStart, el.selectionEnd, event.inputType, event.data)) return;
+      event.preventDefault();
+      useStore.getState().setNotice(GUARD_NOTICE);
+    };
+    el.addEventListener('beforeinput', onBeforeInput);
+    return () => el.removeEventListener('beforeinput', onBeforeInput);
+  }, [guard, isManuscript, Boolean(doc)]);
 
   if (!doc) return <div className="pane-body pane-loading">Opening…</div>;
 
