@@ -10,6 +10,7 @@ import { useWritingFullscreen } from '../useWritingFullscreen';
 import { openConnections } from '../connectionsView';
 import { PagePopover } from '../components/PagePopover';
 import { restorePlace } from '../focusPlace';
+import { LegendTrigger } from '../components/ShortcutLegend';
 import { resolveBangHash, type BangSnapshot } from '../bangHash';
 
 /** Registry so a patch card can point at the exact range inside the draft. */
@@ -199,6 +200,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
             {browserScreen.fullscreen ? 'Restore browser' : 'Fullscreen'}
           </button>
           <button type="button" aria-label="Hide writing controls" onPointerDown={(event) => event.preventDefault()} onClick={toggleControls}>Hide controls</button>
+          <LegendTrigger />
         </div>}
         <button type="button" className="writing-focus-button"
           aria-label={focused ? 'Exit writing focus' : 'Focus writing'}

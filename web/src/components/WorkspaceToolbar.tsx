@@ -12,6 +12,7 @@ import { useWritingView } from '../writingView';
 import { useEditHistory } from '../editHistory';
 import { restorePrevious, restoreWithMemory, useDeskList } from '../deskList';
 import { DeskSwitcher } from './DeskSwitcher';
+import { openLegendFromKeyboard, ShortcutLegend } from './ShortcutLegend';
 
 export function WorkspaceToolbar({ layout, onLayout, workbench, onWorkbench, captureDesk, restoreDesk }: { layout: TileLayout; onLayout: (layout: TileLayout) => void; workbench: boolean; onWorkbench: () => void; captureDesk: (name: string) => SavedDesk; restoreDesk: (desk: SavedDesk) => void }) {
   const documents = useStore((s) => s.project?.documents ?? []);
@@ -24,6 +25,7 @@ export function WorkspaceToolbar({ layout, onLayout, workbench, onWorkbench, cap
     desk: (index) => { const desk = useDeskList.getState().desks[index]; if (desk && !busy()) restoreWithMemory(captureDesk, restoreDesk, desk); },
     deskPrevious: () => { if (!busy()) restorePrevious(captureDesk, restoreDesk); },
     deskSwitcher: () => useWritingView.getState().setDeskSwitcherOpen(true),
+    legend: openLegendFromKeyboard,
   });
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -57,6 +59,7 @@ export function WorkspaceToolbar({ layout, onLayout, workbench, onWorkbench, cap
     <UndoControls />
     <SavedDesks capture={captureDesk} restore={restoreDesk} />
     {switcherOpen && <DeskSwitcher onRestore={(desk) => { if (!busy()) restoreWithMemory(captureDesk, restoreDesk, desk); }} />}
+    <ShortcutLegend />
     <button type="button" className="connections-trigger" aria-label="Open connections" onClick={() => openConnections()}>Connections</button>
     <ProjectBackups />
     <button type="button" className="workbench-toggle" aria-pressed={workbench} onClick={onWorkbench}><Icon.Layers size={16} /> Workbench</button>
