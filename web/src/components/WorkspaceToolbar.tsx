@@ -8,11 +8,23 @@ import type { SavedDesk } from '../desks';
 import { openConnections } from '../connectionsView';
 import { ProjectBackups } from './ProjectBackups';
 import { useShortcutKeys } from '../useShortcutKeys';
+import { useWritingView } from '../writingView';
+import { useEditHistory } from '../editHistory';
+import { restorePrevious, restoreWithMemory, useDeskList } from '../deskList';
+import { DeskSwitcher } from './DeskSwitcher';
 
 export function WorkspaceToolbar({ layout, onLayout, workbench, onWorkbench, captureDesk, restoreDesk }: { layout: TileLayout; onLayout: (layout: TileLayout) => void; workbench: boolean; onWorkbench: () => void; captureDesk: (name: string) => SavedDesk; restoreDesk: (desk: SavedDesk) => void }) {
   const documents = useStore((s) => s.project?.documents ?? []);
   const [open, setOpen] = useState(false);
-  useShortcutKeys({});
+  const projectId = useStore((s) => s.project?.id ?? null);
+  useEffect(() => { useDeskList.getState().load(projectId); }, [projectId]);
+  const switcherOpen = useWritingView((s) => s.deskSwitcherOpen);
+  const busy = () => { const history = useEditHistory.getState(); return history.restoring || history.pending > 0; };
+  useShortcutKeys({
+    desk: (index) => { const desk = useDeskList.getState().desks[index]; if (desk && !busy()) restoreWithMemory(captureDesk, restoreDesk, desk); },
+    deskPrevious: () => { if (!busy()) restorePrevious(captureDesk, restoreDesk); },
+    deskSwitcher: () => useWritingView.getState().setDeskSwitcherOpen(true),
+  });
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -44,6 +56,7 @@ export function WorkspaceToolbar({ layout, onLayout, workbench, onWorkbench, cap
     </div>
     <UndoControls />
     <SavedDesks capture={captureDesk} restore={restoreDesk} />
+    {switcherOpen && <DeskSwitcher onRestore={(desk) => { if (!busy()) restoreWithMemory(captureDesk, restoreDesk, desk); }} />}
     <button type="button" className="connections-trigger" aria-label="Open connections" onClick={() => openConnections()}>Connections</button>
     <ProjectBackups />
     <button type="button" className="workbench-toggle" aria-pressed={workbench} onClick={onWorkbench}><Icon.Layers size={16} /> Workbench</button>

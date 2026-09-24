@@ -92,3 +92,7 @@
 .page-popover input[type="range"] { accent-color: var(--accent); }
 .page-popover-note { margin: 0; color: var(--ink-soft); font-size: 11px; }
 .page-popover-check { display: flex !important; align-items: center; gap: 8px; }
+
+.desk-switcher .focus-card-results > button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px; border: 0; border-bottom: 1px solid var(--line); background: transparent; border-radius: 4px; }
+.desk-switcher .focus-card-results > button.is-active { background: rgba(63, 95, 125, .1); box-shadow: inset 2px 0 0 var(--accent); }
+.desk-switcher .focus-card-results small { margin-left: auto; color: var(--ink-soft); font-family: var(--font-mono); font-size: 11px; }

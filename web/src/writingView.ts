@@ -63,6 +63,8 @@ export const useWritingView = create<{
   measure: Measure;
   setMeasure: (measure: Measure) => void;
   guardSelection: boolean;
+  deskSwitcherOpen: boolean;
+  setDeskSwitcherOpen: (open: boolean) => void;
   setGuardSelection: (on: boolean) => void;
 }>((set, get) => ({
   focusPaneId: null,
@@ -103,6 +105,8 @@ export const useWritingView = create<{
     else savePreference('muse:writing-measure', String(measure));
     set({ measure });
   },
+  deskSwitcherOpen: false,
+  setDeskSwitcherOpen: (deskSwitcherOpen) => set({ deskSwitcherOpen }),
   guardSelection: readPreference('muse:guard-selection') === 'true',
   setGuardSelection: (guardSelection) => { savePreference('muse:guard-selection', String(guardSelection)); set({ guardSelection }); },
 }));
