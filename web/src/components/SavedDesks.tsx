@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../store';
-import { parseDesks, type SavedDesk } from '../desks';
+import type { SavedDesk } from '../desks';
+import { restoreWithMemory, useDeskList } from '../deskList';
 import * as Icon from './icons';
 
 function DeskPreview({ desk }: { desk: SavedDesk }) {
@@ -18,24 +19,17 @@ function DeskPreview({ desk }: { desk: SavedDesk }) {
 
 export function SavedDesks({ capture, restore }: { capture: (name: string) => SavedDesk; restore: (desk: SavedDesk) => void }) {
   const projectId = useStore((s) => s.project?.id);
-  const key = `muse:desks:v1:${projectId}`;
-  const [desks, setDesks] = useState<SavedDesk[]>([]);
+  const desks = useDeskList((s) => s.desks);
+  const error = useDeskList((s) => s.error);
+  const { persist, move } = useDeskList.getState();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
-  const [error, setError] = useState('');
   const trigger = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLElement>(null);
   const input = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    try { setDesks(parseDesks(localStorage.getItem(key))); } catch { setDesks([]); }
-    setOpen(false); setError(''); setName('');
-  }, [key]);
+  useEffect(() => { useDeskList.getState().load(projectId ?? null); setOpen(false); setName(''); }, [projectId]);
   useEffect(() => { if (open) input.current?.focus(); }, [open]);
   const close = () => { setOpen(false); requestAnimationFrame(() => trigger.current?.focus()); };
-  const persist = (next: SavedDesk[]) => {
-    try { localStorage.setItem(key, JSON.stringify(next)); setDesks(next); setError(''); return true; }
-    catch { setError('Browser storage is unavailable or full. Changes were not saved; existing desks are unchanged.'); return false; }
-  };
   return <>
     <button ref={trigger} type="button" className="saved-desks-trigger" aria-label="Saved desks" aria-haspopup="dialog" onClick={() => setOpen(true)}><Icon.Layers size={16} /> Desks</button>
     {open && createPortal(<div className="desk-backdrop" onPointerDown={(event) => { if (event.target === event.currentTarget) close(); }}>
@@ -51,7 +45,7 @@ export function SavedDesks({ capture, restore }: { capture: (name: string) => Sa
         <form onSubmit={(event) => {
           event.preventDefault();
           if (!name.trim()) return;
-          if (desks.length >= 12) { setError('Twelve desks saved. Remove one before adding another.'); return; }
+          if (desks.length >= 12) { useDeskList.setState({ error: 'Twelve desks saved. Remove one before adding another.' }); return; }
           if (persist([...desks, capture(name.trim())])) setName('');
         }}>
           <label>Desk name<input ref={input} aria-label="Desk name" value={name} onChange={(event) => setName(event.target.value)} maxLength={60} placeholder="e.g. Atlas and chapter" required /></label>
@@ -59,8 +53,14 @@ export function SavedDesks({ capture, restore }: { capture: (name: string) => Sa
         </form>
         {error && <p className="desk-error" role="alert">{error}</p>}
         <div className="desk-grid">
-          {desks.map((desk) => <article key={desk.id} className="desk-card">
-            <button type="button" className="desk-restore" aria-label={`Restore ${desk.name}`} onClick={() => { restore(desk); close(); }}><DeskPreview desk={desk} /><span>{desk.name}</span><small>{desk.view.workbench ? 'Workbench' : 'Workspace'} · {desk.view.layout} · {desk.panes.length} cards</small></button>
+          {desks.map((desk, index) => <article key={desk.id} className="desk-card">
+            {index < 9 && <span className="desk-number" aria-hidden="true">{index + 1}</span>}
+            <button type="button" className="desk-restore" aria-label={`Restore ${desk.name}`} aria-keyshortcuts={index < 9 ? `Alt+Shift+${index + 1}` : undefined}
+              onClick={() => { restoreWithMemory(capture, restore, desk); close(); }}><DeskPreview desk={desk} /><span>{desk.name}</span><small>{desk.view.workbench ? 'Workbench' : 'Workspace'} · {desk.view.layout} · {desk.panes.length} cards</small></button>
+            <div className="desk-move">
+              <button type="button" aria-label={`Move ${desk.name} up`} disabled={index === 0} onClick={() => move(desk.id, -1)}>↑</button>
+              <button type="button" aria-label={`Move ${desk.name} down`} disabled={index === desks.length - 1} onClick={() => move(desk.id, 1)}>↓</button>
+            </div>
             <button type="button" className="desk-remove" aria-label={`Remove desk ${desk.name}`} title="Remove saved layout only" onClick={() => persist(desks.filter((item) => item.id !== desk.id))}><Icon.Close size={14} /></button>
           </article>)}
         </div>

@@ -105,3 +105,8 @@ body:has(.app.is-workbench) .floating-panel-strip { top: auto; bottom: 64px; tra
   .tile-picker > span { display: none; }
   .document-picker-list { left: auto; right: 0; }
 }
+
+.desk-number { position: absolute; top: 8px; left: 8px; z-index: 1; min-width: 20px; height: 20px; display: grid; place-items: center; border-radius: 6px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 500; pointer-events: none; }
+.desk-move { display: flex; gap: 4px; }
+.desk-move button { min-width: 28px; min-height: 28px; border: 1px solid var(--line); border-radius: 6px; background: var(--glass-face); color: var(--ink-mid); }
+.desk-move button:disabled { opacity: .4; }
