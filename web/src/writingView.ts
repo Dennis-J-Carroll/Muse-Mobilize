@@ -58,6 +58,8 @@ export const useWritingView = create<{
   setWeight: (weight: Weight) => void;
   measure: Measure;
   setMeasure: (measure: Measure) => void;
+  guardSelection: boolean;
+  setGuardSelection: (on: boolean) => void;
 }>((set) => ({
   focusPaneId: null,
   focusLayer: null,
@@ -81,4 +83,6 @@ export const useWritingView = create<{
     else savePreference('muse:writing-measure', String(measure));
     set({ measure });
   },
+  guardSelection: readPreference('muse:guard-selection') === 'true',
+  setGuardSelection: (guardSelection) => { savePreference('muse:guard-selection', String(guardSelection)); set({ guardSelection }); },
 }));

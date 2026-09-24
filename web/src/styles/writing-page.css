@@ -83,3 +83,12 @@
   .pane.is-writing-focus .writing-focus-button kbd { font-size: 12px; }
   .writing-page[data-surface="paper"] .draft { padding: 24px 22px 44px; font-size: 17px; }
 }
+
+.page-popover-root { position: relative; }
+.page-popover-root > button { min-height: 32px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--glass-face); font-size: 12px; color: var(--ink-mid); }
+.page-popover { position: absolute; z-index: 620; top: calc(100% + 6px); left: 0; width: min(260px, 80vw); display: grid; gap: 10px; padding: 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-md); background: var(--glass-overlay); box-shadow: var(--shadow-float); font-size: 12.5px; color: var(--ink); }
+.page-popover label { display: grid; gap: 6px; }
+.page-popover output { color: var(--ink-mid); }
+.page-popover input[type="range"] { accent-color: var(--accent); }
+.page-popover-note { margin: 0; color: var(--ink-soft); font-size: 11px; }
+.page-popover-check { display: flex !important; align-items: center; gap: 8px; }

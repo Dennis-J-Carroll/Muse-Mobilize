@@ -8,6 +8,7 @@ import * as Icon from '../components/icons';
 import { measureCss, useWritingView, WIDTH_PRESETS, WRITING_FONTS, type WritingFont } from '../writingView';
 import { useWritingFullscreen } from '../useWritingFullscreen';
 import { openConnections } from '../connectionsView';
+import { PagePopover } from '../components/PagePopover';
 import { resolveBangHash, type BangSnapshot } from '../bangHash';
 
 /** Registry so a patch card can point at the exact range inside the draft. */
@@ -171,6 +172,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
             <option value="full">Full</option>
             {typeof measure === 'number' && !WIDTH_PRESETS.some((p) => p.value === measure) && <option value="custom">Custom ({measure})</option>}
           </select>
+          <PagePopover />
         </div>
         <button type="button" aria-label="Tag or link selection" title="Connect selected text, or type !#" disabled={Boolean(doc.recovery)} onPointerDown={(event) => event.preventDefault()} onClick={connectSelection}>Tag / link</button>
         {isManuscript && <div className="export-menu" data-testid="export-menu">
