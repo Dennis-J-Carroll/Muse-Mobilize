@@ -61,3 +61,21 @@ test('Move up changes which desk a number opens', async ({ page, projectId }) =>
   await page.keyboard.press('Alt+Shift+1');
   await expect(layout(page)).toHaveValue('rows');
 });
+
+test('a desk saved in focus re-enters focus when restored', async ({ page, projectId }) => {
+  await page.getByRole('button', { name: 'Saved desks', exact: true }).click();
+  await page.getByLabel('Desk name').fill('Focused desk');
+  await page.getByRole('button', { name: 'Save desk', exact: true }).click();
+  await page.getByRole('button', { name: 'Close saved desks', exact: true }).click();
+  await page.evaluate((projectId) => {
+    const key = `muse:desks:v1:${projectId}`;
+    const desks = JSON.parse(localStorage.getItem(key)!);
+    const doc = desks[0].panes.find((pane: { type: string; binding?: { type: string; id: string } }) => pane.type === 'editor' && pane.binding?.type === 'document');
+    desks[0].view.focusDocumentId = doc.binding.id;
+    localStorage.setItem(key, JSON.stringify(desks));
+  }, projectId);
+  await page.reload();
+  await expect(page.locator('.pane-editor textarea.draft')).toHaveValue(/Chapter One/);
+  await page.keyboard.press('Alt+Shift+1');
+  await expect(page.getByRole('button', { name: 'Exit writing focus', exact: true })).toBeVisible();
+});

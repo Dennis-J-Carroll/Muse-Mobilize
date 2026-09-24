@@ -290,11 +290,13 @@ export function WorkspaceCanvas() {
         width: box.width / window.innerWidth * 320, height: box.height / window.innerHeight * 180,
         title: pane.title, document: pane.binding?.type === 'document' }];
     });
+    const focused = state.panes.find((pane) => pane.id === view.focusPaneId);
+    const focusDocumentId = focused?.binding?.type === 'document' ? focused.binding.id : undefined;
     return {
       version: 1, id: crypto.randomUUID(), name,
       panes: state.panes.map(({ id: _id, ...pane }) => pane),
       view: { layout, workbench, sidebarCollapsed: view.sidebarCollapsed, rightWidth: state.rightWidth, bottomHeight: state.bottomHeight,
-        drawerMode, font: view.font, surface: view.surface, weight: view.weight },
+        drawerMode, font: view.font, surface: view.surface, weight: view.weight, ...(focusDocumentId ? { focusDocumentId } : {}) },
       preview: visible,
     };
   };
@@ -314,6 +316,13 @@ export function WorkspaceCanvas() {
     setDrawerMode(desk.view.drawerMode);
     setDrawerOpen(false);
     beforeWorkbench.current.clear();
+    if (desk.view.focusDocumentId) {
+      const id = desk.view.focusDocumentId;
+      requestAnimationFrame(() => {
+        const pane = useStore.getState().panes.find((item) => item.binding?.type === 'document' && item.binding.id === id);
+        if (pane) useWritingView.getState().focus(pane.id);
+      });
+    }
   };
 
   const maximized = panes.find((p) => p.sizeMode === 'maximized');

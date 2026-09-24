@@ -13,6 +13,8 @@ export interface DeskView {
   font: WritingFont;
   surface: 'glass' | 'paper';
   weight: '350' | '400';
+  /** Set when the desk was saved in writing focus; restoring re-enters focus on this document. */
+  focusDocumentId?: string;
 }
 export interface SavedDesk {
   version: 1;
@@ -60,6 +62,11 @@ export function parseDesks(raw: string | null): SavedDesk[] {
       if (!number(view.rightWidth) || !number(view.bottomHeight) || !['tabs', 'stack'].includes(view.drawerMode)) return false;
       if (!WRITING_FONTS.some((font) => font.id === view.font) || !['glass', 'paper'].includes(view.surface) || !['350', '400'].includes(view.weight)) return false;
       return Array.isArray(desk.preview) && desk.preview.length <= 64 && desk.preview.every((frame: unknown) => object(frame) && bounds(frame) && text(frame.title, 1000) && typeof frame.document === 'boolean');
+    }).map((desk) => {
+      const focusId = (desk.view as { focusDocumentId?: unknown }).focusDocumentId;
+      if (focusId === undefined || text(focusId)) return desk;
+      const { focusDocumentId: _drop, ...view } = desk.view;
+      return { ...desk, view };
     });
   } catch { return []; }
 }
