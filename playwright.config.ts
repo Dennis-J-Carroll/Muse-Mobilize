@@ -14,7 +14,7 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     acceptDownloads: true,
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], ...(process.env.PW_CHANNEL ? { channel: process.env.PW_CHANNEL } : {}) } }],
   webServer: {
     command: 'node --import tsx e2e/server.mts',
     url: 'http://127.0.0.1:5277/api/health',
