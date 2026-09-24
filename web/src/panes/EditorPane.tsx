@@ -5,7 +5,7 @@ import { useStore } from '../store';
 import { api } from '../api';
 import type { Pane } from '../types';
 import * as Icon from '../components/icons';
-import { useWritingView, WRITING_FONTS, type WritingFont } from '../writingView';
+import { measureCss, useWritingView, WIDTH_PRESETS, WRITING_FONTS, type WritingFont } from '../writingView';
 import { useWritingFullscreen } from '../useWritingFullscreen';
 import { openConnections } from '../connectionsView';
 import { resolveBangHash, type BangSnapshot } from '../bangHash';
@@ -41,6 +41,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
   const quiet = isManuscript && focused && controlsHidden;
   const browserScreen = useWritingFullscreen(focused);
   const surface = useWritingView((s) => s.surface);
+  const measure = useWritingView((s) => s.measure);
   const weight = useWritingView((s) => s.weight);
   const fontId = useWritingView((s) => s.font);
   const font = WRITING_FONTS.find((item) => item.id === fontId) ?? WRITING_FONTS[0];
@@ -142,7 +143,8 @@ export function EditorPane({ pane }: { pane: Pane }) {
   if (!doc) return <div className="pane-body pane-loading">Opening…</div>;
 
   return (
-    <div className={`editor-wrap ${isManuscript ? 'writing-page' : ''} ${quiet ? 'is-quiet' : ''}`} data-surface={isManuscript ? surface : undefined}>
+    <div className={`editor-wrap ${isManuscript ? 'writing-page' : ''} ${quiet ? 'is-quiet' : ''}`} data-surface={isManuscript ? surface : undefined}
+      style={isManuscript && measureCss(measure) ? { ['--page-measure' as string]: measureCss(measure) } : undefined}>
       {quiet && <button type="button" className="writing-controls-reveal" aria-label="Show writing controls" title="Show writing controls"
         onPointerDown={(event) => event.preventDefault()} onClick={toggleControls}><Icon.Feather size={16} /></button>}
       {isManuscript && <div className="writing-toolbar" hidden={quiet}>
@@ -157,6 +159,17 @@ export function EditorPane({ pane }: { pane: Pane }) {
           </select>
           <select aria-label="Writing weight" value={font.variable ? weight : '400'} disabled={!font.variable} title={font.variable ? 'Writing weight' : 'This font has one regular weight'} onChange={(event) => useWritingView.getState().setWeight(event.target.value as '350' | '400')}>
             <option value="350">Light</option><option value="400">Regular</option>
+          </select>
+          <select aria-label="Page width" value={measure === null ? 'default' : measure === 'full' ? 'full' : WIDTH_PRESETS.some((p) => p.value === measure) ? String(measure) : 'custom'}
+            onChange={(event) => {
+              const value = event.target.value;
+              if (value === 'custom') return;
+              useWritingView.getState().setMeasure(value === 'default' ? null : value === 'full' ? 'full' : Number(value));
+            }}>
+            <option value="default">Default width</option>
+            {WIDTH_PRESETS.map((preset) => <option key={preset.value} value={String(preset.value)}>{preset.label} ({preset.value})</option>)}
+            <option value="full">Full</option>
+            {typeof measure === 'number' && !WIDTH_PRESETS.some((p) => p.value === measure) && <option value="custom">Custom ({measure})</option>}
           </select>
         </div>
         <button type="button" aria-label="Tag or link selection" title="Connect selected text, or type !#" disabled={Boolean(doc.recovery)} onPointerDown={(event) => event.preventDefault()} onClick={connectSelection}>Tag / link</button>

@@ -21,6 +21,23 @@ const savePreference = (key: string, value: string) => {
   try { localStorage.setItem(key, value); } catch { /* Keep session preference. */ }
 };
 
+export type Measure = number | 'full' | null;
+export const WIDTH_PRESETS = [
+  { value: 60, label: 'Narrow' }, { value: 68, label: 'Book' }, { value: 72, label: 'Standard' },
+  { value: 90, label: 'Wide' },
+] as const;
+export const MEASURE_MIN = 45;
+export const MEASURE_MAX = 120;
+/** Browser storage is untrusted: anything unexpected falls back to today's default width. */
+export function parseMeasure(raw: string | null): Measure {
+  if (raw === 'full') return 'full';
+  if (!raw || !/^\d+$/.test(raw)) return null;
+  const value = Number(raw);
+  return value >= MEASURE_MIN && value <= MEASURE_MAX ? value : null;
+}
+/** Full is 100%, never 0: a zero measure would give each side 50% padding. */
+export const measureCss = (measure: Measure) => measure === null ? undefined : measure === 'full' ? '100%' : `${measure}ch`;
+
 /** Presentation state only; entering focus never changes the workspace layout. */
 export const useWritingView = create<{
   focusPaneId: string | null;
@@ -39,6 +56,8 @@ export const useWritingView = create<{
   setFont: (font: WritingFont) => void;
   setSurface: (surface: Surface) => void;
   setWeight: (weight: Weight) => void;
+  measure: Measure;
+  setMeasure: (measure: Measure) => void;
 }>((set) => ({
   focusPaneId: null,
   focusLayer: null,
@@ -56,4 +75,10 @@ export const useWritingView = create<{
   setFont: (font) => { savePreference('muse:writing-font', font); set({ font }); },
   setSurface: (surface) => { savePreference('muse:writing-surface', surface); set({ surface }); },
   setWeight: (weight) => { savePreference('muse:writing-weight', weight); set({ weight }); },
+  measure: parseMeasure(readPreference('muse:writing-measure')),
+  setMeasure: (measure) => {
+    if (measure === null) { try { localStorage.removeItem('muse:writing-measure'); } catch { /* Keep session preference. */ } }
+    else savePreference('muse:writing-measure', String(measure));
+    set({ measure });
+  },
 }));

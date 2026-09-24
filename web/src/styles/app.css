@@ -234,7 +234,7 @@ input, textarea, select { font-family: var(--font-ui); }
 .draft {
   flex: 1; min-height: 0; width: 100%;
   border: none; outline: none; resize: none; background: transparent;
-  padding: 26px max(28px, calc((100% - 72ch) / 2)) 40px;
+  padding: 26px max(28px, calc((100% - var(--page-measure, 72ch)) / 2)) 40px;
   font-family: var(--font-prose); font-size: 17px; font-weight: 400; line-height: 1.85; color: var(--ink);
 }
 .draft-notes { font-family: var(--font-ui); font-size: 14px; line-height: 1.65; padding: 18px 22px; }

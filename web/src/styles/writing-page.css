@@ -25,7 +25,7 @@
 .writing-appearance select { min-width: 0; min-height: 32px; max-width: 138px; border: 1px solid transparent; border-radius: 6px; padding: 4px 6px; background: transparent; color: var(--ink-mid); font-size: 12px; }
 .writing-appearance select:hover { border-color: var(--line-strong); }
 .writing-page[data-surface="paper"] { background: #f8f6f0; }
-.writing-page[data-surface="paper"] .draft { padding: 32px max(24px, calc((100% - 68ch) / 2)) 64px; font-size: 18px; line-height: 1.9; letter-spacing: .005em; }
+.writing-page[data-surface="paper"] .draft { padding: 32px max(24px, calc((100% - var(--page-measure, 68ch)) / 2)) 64px; font-size: 18px; line-height: 1.9; letter-spacing: .005em; }
 .writing-focus-button { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--glass-face); font-size: 12px; }
 .writing-focus-button kbd { font: inherit; color: var(--ink-soft); }
 .writing-toolbar :is(button, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
