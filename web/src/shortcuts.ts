@@ -36,6 +36,6 @@ export function matchShortcut(event: KeyLike): ShortcutAction | null {
 /** Dialogs and card forms own their keys; the manuscript textarea does not block Alt+Shift shortcuts. */
 export function shortcutBlocked(target: EventTarget | null): boolean {
   if (typeof Element === 'undefined' || !(target instanceof Element)) return false;
-  if (target.closest('[role="dialog"], .floating-drawer')) return true;
+  if (target.closest('dialog[open], [role="dialog"], .floating-drawer')) return true;
   return Boolean(target.closest('input, select, textarea')) && !target.matches('textarea.draft');
 }

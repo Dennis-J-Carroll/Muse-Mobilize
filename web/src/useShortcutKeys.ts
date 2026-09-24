@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 import { matchShortcut, shortcutBlocked } from './shortcuts';
 import { useWritingView } from './writingView';
 
-export interface ShortcutHandlers { desk?(index: number): void; deskPrevious?(): void; deskSwitcher?(): void; legend?(): void }
+/** Handlers return false when there was nothing to do, so the keystroke keeps its normal effect. */
+export interface ShortcutHandlers { desk?(index: number): boolean | void; deskPrevious?(): boolean | void; deskSwitcher?(): boolean | void; legend?(): boolean | void }
 
 /** One window listener for every Alt+Shift shortcut; handlers are read fresh on each key. */
 export function useShortcutKeys(handlers: ShortcutHandlers) {
@@ -18,9 +19,7 @@ export function useShortcutKeys(handlers: ShortcutHandlers) {
         : action.kind === 'desk-previous' ? h.deskPrevious
         : action.kind === 'desk-switcher' ? h.deskSwitcher
         : h.legend;
-      if (!run) return;
-      event.preventDefault();
-      run();
+      if (run && run() !== false) event.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

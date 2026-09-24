@@ -45,7 +45,7 @@ export const useWritingView = create<{
   focus: (paneId: string | null) => void;
   lastWritingPaneId: string | null;
   setLastWritingPane: (id: string) => void;
-  toggleFocus: () => void;
+  toggleFocus: () => boolean;
   focusLayer: FocusLayer | null;
   setFocusLayer: (layer: FocusLayer | null) => void;
   controlsHidden: boolean;
@@ -88,12 +88,14 @@ export const useWritingView = create<{
   setLastWritingPane: (lastWritingPaneId) => set({ lastWritingPaneId }),
   toggleFocus: () => {
     const { focusPaneId, lastWritingPaneId, focus } = get();
-    if (focusPaneId) { focus(null); return; }
+    if (focusPaneId) { focus(null); return true; }
     const editors = [...document.querySelectorAll<HTMLElement>('section.pane-editor')]
       .filter((pane) => pane.querySelector('.writing-page textarea.draft'))
       .map((pane) => pane.id.slice('workspace-'.length));
     const target = lastWritingPaneId && editors.includes(lastWritingPaneId) ? lastWritingPaneId : editors[0];
-    if (target) focus(target);
+    if (!target) return false;
+    focus(target);
+    return true;
   },
   surface: readPreference('muse:writing-surface') === 'paper' ? 'paper' : 'glass',
   weight: readPreference('muse:writing-weight') === '350' ? '350' : '400',

@@ -22,8 +22,15 @@ export function WorkspaceToolbar({ layout, onLayout, workbench, onWorkbench, cap
   const switcherOpen = useWritingView((s) => s.deskSwitcherOpen);
   const busy = () => { const history = useEditHistory.getState(); return history.restoring || history.pending > 0; };
   useShortcutKeys({
-    desk: (index) => { const desk = useDeskList.getState().desks[index]; if (desk && !busy()) restoreWithMemory(captureDesk, restoreDesk, desk); },
-    deskPrevious: () => { if (!busy()) restorePrevious(captureDesk, restoreDesk); },
+    desk: (index) => {
+      const desk = useDeskList.getState().desks[index];
+      if (!desk || busy()) return false;
+      restoreWithMemory(captureDesk, restoreDesk, desk);
+    },
+    deskPrevious: () => {
+      if (!useDeskList.getState().previous || busy()) return false;
+      restorePrevious(captureDesk, restoreDesk);
+    },
     deskSwitcher: () => useWritingView.getState().setDeskSwitcherOpen(true),
     legend: openLegendFromKeyboard,
   });
