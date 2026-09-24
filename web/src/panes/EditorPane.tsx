@@ -9,6 +9,7 @@ import { measureCss, useWritingView, WIDTH_PRESETS, WRITING_FONTS, type WritingF
 import { useWritingFullscreen } from '../useWritingFullscreen';
 import { openConnections } from '../connectionsView';
 import { PagePopover } from '../components/PagePopover';
+import { restorePlace } from '../focusPlace';
 import { resolveBangHash, type BangSnapshot } from '../bangHash';
 
 /** Registry so a patch card can point at the exact range inside the draft. */
@@ -81,8 +82,12 @@ export function EditorPane({ pane }: { pane: Pane }) {
   useLayoutEffect(() => {
     if (wasFocused.current === focused) return;
     wasFocused.current = focused;
-    ref.current?.focus({ preventScroll: true });
-  }, [focused]);
+    const el = ref.current;
+    el?.focus({ preventScroll: true });
+    // Wait one frame for the new layout before restoring scroll.
+    const frame = requestAnimationFrame(() => { if (el) restorePlace(pane.id, el); });
+    return () => cancelAnimationFrame(frame);
+  }, [focused, pane.id]);
 
   const bindEditor = useCallback((element: HTMLTextAreaElement | null) => {
     if (element) editorRefs.set(docId, element);
@@ -261,6 +266,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
         }}
         onKeyUp={syncSelection}
         onMouseUp={syncSelection}
+        onFocus={() => { if (isManuscript) useWritingView.getState().setLastWritingPane(pane.id); }}
         onBlur={() => void useStore.getState().flushDoc(docId)}
         placeholder="Start writing your story…"
       />

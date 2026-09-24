@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { rememberPlaces } from './focusPlace';
 
 type Surface = 'glass' | 'paper';
 type Weight = '350' | '400';
@@ -42,6 +43,9 @@ export const measureCss = (measure: Measure) => measure === null ? undefined : m
 export const useWritingView = create<{
   focusPaneId: string | null;
   focus: (paneId: string | null) => void;
+  lastWritingPaneId: string | null;
+  setLastWritingPane: (id: string) => void;
+  toggleFocus: () => void;
   focusLayer: FocusLayer | null;
   setFocusLayer: (layer: FocusLayer | null) => void;
   controlsHidden: boolean;
@@ -60,7 +64,7 @@ export const useWritingView = create<{
   setMeasure: (measure: Measure) => void;
   guardSelection: boolean;
   setGuardSelection: (on: boolean) => void;
-}>((set) => ({
+}>((set, get) => ({
   focusPaneId: null,
   focusLayer: null,
   setFocusLayer: (focusLayer) => set((state) => ({ focusLayer: state.focusPaneId ? focusLayer : null })),
@@ -70,7 +74,23 @@ export const useWritingView = create<{
   setWorkbench: (workbench) => set({ workbench }),
   sidebarCollapsed: false,
   setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
-  focus: (focusPaneId) => set({ focusPaneId, focusLayer: null }),
+  focus: (focusPaneId) => {
+    // Every entry and exit path (button, Esc, Alt+Shift+F, desk restore) comes through here,
+    // so the snapshot is taken before the layout changes.
+    if (typeof document !== 'undefined' && focusPaneId !== get().focusPaneId) rememberPlaces();
+    set({ focusPaneId, focusLayer: null });
+  },
+  lastWritingPaneId: null,
+  setLastWritingPane: (lastWritingPaneId) => set({ lastWritingPaneId }),
+  toggleFocus: () => {
+    const { focusPaneId, lastWritingPaneId, focus } = get();
+    if (focusPaneId) { focus(null); return; }
+    const editors = [...document.querySelectorAll<HTMLElement>('section.pane-editor')]
+      .filter((pane) => pane.querySelector('.writing-page textarea.draft'))
+      .map((pane) => pane.id.slice('workspace-'.length));
+    const target = lastWritingPaneId && editors.includes(lastWritingPaneId) ? lastWritingPaneId : editors[0];
+    if (target) focus(target);
+  },
   surface: readPreference('muse:writing-surface') === 'paper' ? 'paper' : 'glass',
   weight: readPreference('muse:writing-weight') === '350' ? '350' : '400',
   font: WRITING_FONTS.find((font) => font.id === readPreference('muse:writing-font'))?.id ?? 'inter',

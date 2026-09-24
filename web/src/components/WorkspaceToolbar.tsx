@@ -7,10 +7,12 @@ import { SavedDesks } from './SavedDesks';
 import type { SavedDesk } from '../desks';
 import { openConnections } from '../connectionsView';
 import { ProjectBackups } from './ProjectBackups';
+import { useShortcutKeys } from '../useShortcutKeys';
 
 export function WorkspaceToolbar({ layout, onLayout, workbench, onWorkbench, captureDesk, restoreDesk }: { layout: TileLayout; onLayout: (layout: TileLayout) => void; workbench: boolean; onWorkbench: () => void; captureDesk: (name: string) => SavedDesk; restoreDesk: (desk: SavedDesk) => void }) {
   const documents = useStore((s) => s.project?.documents ?? []);
   const [open, setOpen] = useState(false);
+  useShortcutKeys({});
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
