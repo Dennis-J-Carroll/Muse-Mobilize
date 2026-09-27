@@ -36,6 +36,7 @@ export const Minus = ({ size = 16 }) => wrap(<path d="M5 12h14" />, size);
 export const Close = ({ size = 16 }) => wrap(<path d="M6 6l12 12M18 6 6 18" />, size);
 export const Compass = ({ size = 18 }) => wrap(<><circle cx="12" cy="12" r="8.5" /><path d="M15.6 8.4 13.3 13.3 8.4 15.6 10.7 10.7Z" /><path d="M12 3.5v1.3M12 19.2v1.3M3.5 12h1.3M19.2 12h1.3" /></>, size);
 export const Chevron = ({ size = 14, up = false }: { size?: number; up?: boolean }) => wrap(<path d={up ? 'M7 14.5 12 9.5l5 5' : 'M7 9.5l5 5 5-5'} />, size);
+export const Eye = ({ size = 20 }) => wrap(<><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="3" /></>, size);
 export const Cloud = ({ size = 18 }) => wrap(<path d="M7 18h9.5a3.5 3.5 0 0 0 .4-7A5.5 5.5 0 0 0 6.3 9.6 4.2 4.2 0 0 0 7 18Z" />, size);
 export const Spark = ({ size = 16 }) => wrap(<path d="M12 3.5l1.8 4.7 4.7 1.8-4.7 1.8L12 16.5l-1.8-4.7L5.5 10l4.7-1.8L12 3.5Z" />, size);
 export const Arrow = ({ size = 16 }) => wrap(<><path d="M4 12h15" /><path d="M14 7l5 5-5 5" /></>, size);

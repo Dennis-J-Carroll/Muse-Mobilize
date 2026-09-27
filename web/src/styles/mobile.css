@@ -14,7 +14,7 @@
 
 @media (pointer: coarse) {
   /* Controls used while writing, navigating, and saving get a full finger target. */
-  :is(.brand-dot, .sidebar-toggle, .ws-btn, .btn, .pane-tools button,
+  :is(.brand-dot, .sidebar-toggle, .ws-btn, .ws-tab, .btn, .pane-tools button,
       .workspace-toolbar button, .workspace-toolbar select,
       .writing-toolbar button, .writing-toolbar select,
       .writing-controls-reveal, .settings-close, .engine-choice,

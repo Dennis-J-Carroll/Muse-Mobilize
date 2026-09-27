@@ -138,6 +138,7 @@ input, textarea, select { font-family: var(--font-ui); }
 .workspace-head.is-collapsed { align-items: center; padding: 8px 26px 6px; }
 .workspace-head.is-collapsed h1 { font-size: 17px; letter-spacing: -.02em; }
 .workspace-head.is-collapsed .ws-btn { min-height: 28px; padding: 3px 11px; font-size: 12px; }
+.ws-switch { align-items: center; }
 .workspace-head p[hidden] { display: none; }
 .workspace-head h1 { margin: 0; font-size: 27px; font-weight: var(--weight-display); letter-spacing: -.045em; overflow-wrap: anywhere; }
 .workspace-head p { margin: 4px 0 0; color: var(--ink-soft); font-size: 12.5px; }
@@ -151,6 +152,58 @@ input, textarea, select { font-family: var(--font-ui); }
 .ws-btn:hover { background: rgba(255,255,255,.85); }
 .ws-btn.is-on { background: var(--card-deep); color: var(--ink-onDeep); }
 .ws-btn.ghost { display: grid; place-items: center; padding: 6px 10px; }
+
+/* Workspace mode tabs — CodePen VwKzaEm's animated tab bar in etched glass.
+   The active icon lifts on its mode's disc; a wave notch in the bar's top
+   edge glides beneath it. */
+.ws-tabs {
+  --ws-tab-duration: .55s;
+  position: relative; display: flex; align-items: center; gap: 2px;
+  padding: 3px 6px; border-radius: 999px;
+  background: var(--glass-sheen), var(--glass-overlay);
+  /* drop-shadow (not box-shadow/border) traces bar and notch as one outline. */
+  filter: drop-shadow(0 0 .6px rgba(47, 59, 68, .35)) drop-shadow(0 2px 5px rgba(47, 59, 68, .12));
+}
+.ws-tab {
+  position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 7px;
+  min-height: 32px; padding: 3px 12px 3px 5px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--ink-mid); font: inherit; font-size: 12.5px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--ws-tab-duration);
+}
+.ws-tab:hover { color: var(--ink); }
+.ws-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ws-tab-icon {
+  position: relative; display: grid; place-items: center; width: 26px; height: 26px;
+  transition: transform var(--ws-tab-glide, var(--ws-tab-duration)) cubic-bezier(.3, 1.4, .5, 1);
+}
+.ws-tab-icon::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: 50%;
+  background: var(--ws-tab-color); transform: scale(0);
+  transition: transform var(--ws-tab-duration);
+}
+.ws-tab-icon svg { stroke-dasharray: 400; }
+.ws-tab.is-on { color: var(--ink); font-weight: 500; }
+.ws-tab.is-on .ws-tab-icon { transform: translate3d(0, -13px, 0); color: white; }
+.ws-tab.is-on .ws-tab-icon::before { transform: scale(1); box-shadow: 0 3px 8px rgba(47, 59, 68, .22); }
+.ws-tab.is-on .ws-tab-icon svg { animation: ws-tab-stroke 1.2s reverse; }
+@keyframes ws-tab-stroke { 100% { stroke-dashoffset: 400; } }
+.ws-tabs-notch {
+  position: absolute; left: 0; bottom: calc(100% - 1px); width: 58px; height: 10px;
+  background: var(--glass-overlay); clip-path: url(#ws-tabs-notch-shape); pointer-events: none;
+  transition: transform var(--ws-tab-glide, var(--ws-tab-duration)) ease;
+}
+.ws-tabs-notch[hidden] { display: none; }
+.ws-tabs-clip { position: absolute; width: 0; height: 0; }
+/* Slim header: no room above the bar, so the disc stays level and the notch rests. */
+.workspace-head.is-collapsed .ws-tab { min-height: 26px; padding-block: 1px; font-size: 12px; }
+.workspace-head.is-collapsed .ws-tab-icon { width: 22px; height: 22px; }
+.workspace-head.is-collapsed .ws-tab.is-on .ws-tab-icon { transform: none; }
+.workspace-head.is-collapsed .ws-tabs-notch { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .ws-tab-icon, .ws-tab-icon::before, .ws-tabs-notch { transition: none; }
+  .ws-tab.is-on .ws-tab-icon svg { animation: none; }
+}
 
 /* ----------------------------------------------------------------- canvas */
 

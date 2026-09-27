@@ -37,3 +37,19 @@ test('header and writing tools fold away, Focus stays reachable, and zoom scales
   await page.reload();
   await expect(page.getByRole('button', { name: 'Typewriter' })).toHaveAttribute('aria-pressed', 'true');
 });
+
+test('workspace modes act as one-active tabs and the notch follows the active disc', async ({ page, projectId }) => {
+  expect(projectId).toBeTruthy();
+  const tabs = page.getByRole('group', { name: 'Workspace mode' });
+  const drafting = tabs.getByRole('button', { name: 'Drafting', exact: true });
+  const planning = tabs.getByRole('button', { name: 'Planning', exact: true });
+  await expect(drafting).toHaveAttribute('aria-pressed', 'true');
+  await planning.click();
+  await expect(planning).toHaveAttribute('aria-pressed', 'true');
+  await expect(drafting).toHaveAttribute('aria-pressed', 'false');
+  await expect.poll(() => page.evaluate(() => {
+    const disc = document.querySelector('.ws-tab[aria-pressed="true"] .ws-tab-icon')!.getBoundingClientRect();
+    const notch = document.querySelector('.ws-tabs-notch')!.getBoundingClientRect();
+    return Math.abs(disc.left + disc.width / 2 - (notch.left + notch.width / 2));
+  })).toBeLessThan(2);
+});
