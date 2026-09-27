@@ -13,6 +13,7 @@ import { restorePlace } from '../focusPlace';
 import { LegendTrigger } from '../components/ShortcutLegend';
 import { GUARD_NOTICE, shouldGuard } from '../selectionGuard';
 import { resolveBangHash, type BangSnapshot } from '../bangHash';
+import { caretTop, typewriterScrollTop } from '../typewriter';
 
 /** Registry so a patch card can point at the exact range inside the draft. */
 export const editorRefs = new Map<string, HTMLTextAreaElement>();
@@ -47,6 +48,23 @@ export function EditorPane({ pane }: { pane: Pane }) {
   const toolsCollapsed = useWritingView((s) => s.writingToolsCollapsed);
   const folded = isManuscript && !focused && toolsCollapsed;
   const zoom = useWritingView((s) => s.zoom);
+  const typewriter = useWritingView((s) => s.typewriter) && isManuscript;
+  // Typewriter: after typing or keyboard movement, bring the caret line back to the anchor.
+  // Mouse clicks are left alone so the page never jumps out from under the pointer.
+  const recenterFrame = useRef(0);
+  const recenter = () => {
+    if (!typewriter) return;
+    cancelAnimationFrame(recenterFrame.current);
+    recenterFrame.current = requestAnimationFrame(() => {
+      const el = ref.current;
+      if (!el || el.selectionStart !== el.selectionEnd) return;
+      const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 28;
+      const next = typewriterScrollTop(caretTop(el), lineHeight, el.clientHeight, el.scrollTop);
+      if (next !== null) el.scrollTop = next;
+    });
+  };
+  useEffect(() => { if (typewriter && document.activeElement === ref.current) recenter(); }, [typewriter, zoom]);
+  useEffect(() => () => cancelAnimationFrame(recenterFrame.current), []);
   const browserScreen = useWritingFullscreen(focused);
   const surface = useWritingView((s) => s.surface);
   const measure = useWritingView((s) => s.measure);
@@ -191,7 +209,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
   if (!doc) return <div className="pane-body pane-loading">Opening…</div>;
 
   return (
-    <div className={`editor-wrap ${isManuscript ? 'writing-page' : ''} ${quiet ? 'is-quiet' : ''} ${folded ? 'is-folded' : ''}`} data-surface={isManuscript ? surface : undefined}
+    <div className={`editor-wrap ${isManuscript ? 'writing-page' : ''} ${quiet ? 'is-quiet' : ''} ${folded ? 'is-folded' : ''} ${typewriter ? 'is-typewriter' : ''}`} data-surface={isManuscript ? surface : undefined}
       style={isManuscript ? { ...(measureCss(measure) ? { ['--page-measure' as string]: measureCss(measure) } : {}), ['--draft-zoom' as string]: String(zoom / 100) } : undefined}>
       {quiet && <button type="button" className="writing-controls-reveal" aria-label="Show writing controls" title="Show writing controls"
         onPointerDown={(event) => event.preventDefault()} onClick={toggleControls}><Icon.Feather size={16} /></button>}
@@ -220,6 +238,9 @@ export function EditorPane({ pane }: { pane: Pane }) {
             {typeof measure === 'number' && !WIDTH_PRESETS.some((p) => p.value === measure) && <option value="custom">Custom ({measure})</option>}
           </select>
           <PagePopover />
+          <button type="button" className="writing-typewriter" aria-pressed={typewriter} title="Keep the line you're writing at a steady height"
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => { useWritingView.getState().setTypewriter(!typewriter); ref.current?.focus({ preventScroll: true }); }}>Typewriter</button>
           <div className="writing-zoom" role="group" aria-label="Text zoom">
             <button type="button" aria-label="Zoom out text" title="Zoom out (Ctrl −)" disabled={zoom <= ZOOM_MIN}
               onPointerDown={(event) => event.preventDefault()} onClick={() => zoomTo(stepZoom(useWritingView.getState().zoom, -1))}>−</button>
@@ -297,7 +318,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
         readOnly={Boolean(doc.recovery) || restoring}
         aria-label={doc.recovery ? `${doc.title} — choose a recovered version to continue` : undefined}
         value={doc.content}
-        onChange={(e) => editDoc(docId, e.target.value)}
+        onChange={(e) => { editDoc(docId, e.target.value); recenter(); }}
         onSelect={syncSelection}
         onPaste={() => { bang.current = null; }}
         onCompositionStart={() => { bang.current = null; }}
@@ -316,7 +337,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
           if (native.inputType === 'historyUndo' || native.inputType === 'historyRedo') { event.preventDefault(); useStore.getState().travelDoc(docId, native.inputType === 'historyUndo' ? 'undo' : 'redo'); return; }
           if (!native.isComposing && native.inputType !== 'insertFromPaste' && native.data && typedCommand(native.data)) event.preventDefault();
         }}
-        onKeyUp={syncSelection}
+        onKeyUp={(event) => { syncSelection(); if (!event.shiftKey && /^(Arrow|Page|Home|End|Enter)/.test(event.key)) recenter(); }}
         onMouseUp={syncSelection}
         onFocus={() => { if (isManuscript) useWritingView.getState().setLastWritingPane(pane.id); }}
         onBlur={() => void useStore.getState().flushDoc(docId)}

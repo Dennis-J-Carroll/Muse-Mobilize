@@ -47,6 +47,11 @@
 .pane.is-writing-focus .writing-focus-title { display: block; }
 .pane.is-writing-focus .writing-toolbar { padding: 12px 24px; }
 .writing-toolbar[hidden], .writing-font-note[hidden] { display: none; }
+/* Typewriter: room below the last line so it can rise to the anchor too. */
+.writing-page.is-typewriter .draft { padding-bottom: 60vh; }
+.writing-typewriter { min-height: 30px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--glass-face); color: var(--ink-mid); font: inherit; font-size: 12px; cursor: pointer; }
+.writing-typewriter[aria-pressed="true"] { background: var(--accent); border-color: transparent; color: white; }
+.writing-typewriter:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Text zoom: a compact stepper; the percentage doubles as reset. */
 .writing-zoom { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 999px; background: var(--glass-face); overflow: hidden; }
 .writing-zoom button { min-height: 30px; min-width: 28px; padding: 2px 8px; border: 0; background: transparent; color: var(--ink-mid); font: inherit; font-size: 13px; cursor: pointer; }

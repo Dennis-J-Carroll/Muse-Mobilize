@@ -222,6 +222,9 @@ input, textarea, select { font-family: var(--font-ui); }
 }
 .pane-tools-toggle:hover { border-color: var(--line); color: var(--accent); background: rgba(255,255,255,.6); }
 .pane-tools-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pane-focus-button { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; min-height: 24px; padding: 2px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--glass-face); color: var(--ink-mid); font-size: 11.5px; cursor: pointer; }
+.pane-focus-button:hover { color: var(--accent); border-color: var(--line-strong); }
+.pane-focus-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pane-title { font-size: 12.5px; font-weight: var(--weight-label); color: var(--ink-mid); letter-spacing: -.015em; }
 .pane-dirty { color: var(--warn); font-size: 18px; line-height: 0; }
 .pane-tools { margin-left: auto; display: flex; gap: 2px; }

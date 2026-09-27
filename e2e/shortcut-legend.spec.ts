@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures';
 
-test('legend opens from the logo icon and Alt+Shift+/, lists shortcuts, and returns focus', async ({ page, projectId }) => {
+test('legend opens from the compass button and Alt+Shift+/, lists shortcuts, and returns focus', async ({ page, projectId }) => {
   expect(projectId).toBeTruthy();
   const trigger = page.locator('.workspace-head').getByRole('button', { name: 'Keyboard shortcuts', exact: true });
   await trigger.click();

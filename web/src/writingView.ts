@@ -59,6 +59,8 @@ export const useWritingView = create<{
   headerCollapsed: boolean;
   setHeaderCollapsed: (collapsed: boolean) => void;
   writingToolsCollapsed: boolean;
+  typewriter: boolean;
+  setTypewriter: (on: boolean) => void;
   setWritingToolsCollapsed: (collapsed: boolean) => void;
   zoom: number;
   setZoom: (zoom: number) => void;
@@ -88,6 +90,8 @@ export const useWritingView = create<{
   setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
   headerCollapsed: readPreference('muse:workspace-header-collapsed') === 'true',
   setHeaderCollapsed: (headerCollapsed) => { savePreference('muse:workspace-header-collapsed', String(headerCollapsed)); set({ headerCollapsed }); },
+  typewriter: readPreference('muse:writing-typewriter') === 'true',
+  setTypewriter: (typewriter) => { savePreference('muse:writing-typewriter', String(typewriter)); set({ typewriter }); },
   writingToolsCollapsed: readPreference('muse:writing-tools-collapsed') === 'true',
   setWritingToolsCollapsed: (writingToolsCollapsed) => { savePreference('muse:writing-tools-collapsed', String(writingToolsCollapsed)); set({ writingToolsCollapsed }); },
   zoom: parseZoom(readPreference('muse:writing-zoom')),

@@ -131,6 +131,9 @@ function PaneFrame({ pane, tiled, viewport, onFloat }: { pane: Pane; tiled: bool
           <Icon.Chevron up={!toolsCollapsed} />
         </button>}
         {doc?.dirty && <span className="pane-dirty" title="unsaved">•</span>}
+        {isManuscript && toolsCollapsed && !minimized && <button type="button" className="pane-focus-button" aria-label="Focus writing" title="Focus writing (Alt+Shift+F)"
+          onPointerDown={(event) => { if (document.activeElement?.matches('textarea.draft')) event.preventDefault(); }}
+          onClick={() => useWritingView.getState().focus(pane.id)}><Icon.Expand size={13} /> Focus</button>}
         {isManuscript && !minimized && <span className="pane-drag-space" aria-hidden="true" onPointerDown={onMoveDrag} />}
         <span className="pane-tools">
           {pane.floating && !minimized && <button title="Return to layout" onClick={() => useStore.getState().returnPaneToLayout(pane.id)}><Icon.Layers size={16} /></button>}
