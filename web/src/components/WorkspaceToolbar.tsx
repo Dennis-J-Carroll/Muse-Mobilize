@@ -14,6 +14,10 @@ import { restorePrevious, restoreWithMemory, useDeskList } from '../deskList';
 import { DeskSwitcher } from './DeskSwitcher';
 import { openLegendFromKeyboard, ShortcutLegend } from './ShortcutLegend';
 
+const TILE_ICONS: Record<TileLayout, React.ReactNode> = {
+  workspace: <Icon.Layers size={16} />, columns: <Icon.TileColumns />, rows: <Icon.TileRows />, grid: <Icon.TileGrid />,
+};
+
 export function WorkspaceToolbar({ layout, onLayout, workbench, onWorkbench, captureDesk, restoreDesk }: { layout: TileLayout; onLayout: (layout: TileLayout) => void; workbench: boolean; onWorkbench: () => void; captureDesk: (name: string) => SavedDesk; restoreDesk: (desk: SavedDesk) => void }) {
   const documents = useStore((s) => s.project?.documents ?? []);
   const [open, setOpen] = useState(false);
@@ -43,7 +47,8 @@ export function WorkspaceToolbar({ layout, onLayout, workbench, onWorkbench, cap
     return () => document.removeEventListener('pointerdown', outside);
   }, [open]);
   return <div id="workspace-arrangement" className="workspace-toolbar" aria-label="Workspace arrangement">
-    <label className="tile-picker"><Icon.Layers size={16} /><span>Tiles</span>
+    {/* One control: the icon mirrors the chosen arrangement, the select changes it. */}
+    <label className="tile-picker" title="Arrange documents">{TILE_ICONS[layout]}
       <select aria-label="Document tiles" value={layout} onChange={(event) => onLayout(event.target.value as TileLayout)}>
         <option value="workspace">Workspace</option><option value="columns">Columns</option><option value="rows">Rows</option><option value="grid">Grid</option>
       </select>

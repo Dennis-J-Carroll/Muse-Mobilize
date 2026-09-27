@@ -174,7 +174,7 @@
   .ws-btn.ghost { margin-left: auto; }
   /* Phone: tabs, cloud and compass share one row — only the active mode keeps its disc. */
   .ws-switch { flex-wrap: nowrap; }
-  .ws-tabs { flex: 0 1 auto; min-width: 0; padding: 2px 4px; }
+  .ws-tabs { flex: 0 1 auto; min-width: 0; padding: 2px 4px 2px 14px; }
   .ws-tab { gap: 5px; padding: 2px 9px; font-size: 11.5px; }
   .ws-tab.is-on { padding-left: 3px; }
   .ws-tab:not(.is-on) .ws-tab-icon { display: none; }
