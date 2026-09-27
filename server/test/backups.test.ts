@@ -35,6 +35,7 @@ test('saved stores and binary files restore under a fresh identity without chang
   const binary = Buffer.from([0, 255, 1, 128, 13, 10, 0]);
   const saved = {
     'assets/images/pixel.png': binary,
+    'assets/media/tone.wav': Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WAVE'), Buffer.from('sound')]),
     'outline/outline.md': '# Outline\n',
     'notes/scratchpad.md': '# Scratchpad\n',
     'canon/characters/person.md': '# Person\n',
@@ -44,6 +45,11 @@ test('saved stores and binary files restore under a fresh identity without chang
     'references/references.json': { version: 1, items: [] },
     'goals/goals.json': { version: 1, milestones: [{ id: 'goal-one', title: 'Finish' }] },
     'world/map.json': { version: 1, image: null, visible: true, opacity: 0.8 },
+    'media/canvases/default.json': {
+      version: 1, revision: 'r1', camera: { x: 0, y: 0, scale: 1 },
+      nodes: [{ id: 'node-one', kind: 'audio', assetSrc: '/api/projects/backup-fixture/assets/media/tone.wav', label: '', x: 10, y: 20, width: 200, height: 60 }],
+      edges: [],
+    },
     'connections/connections.json': { version: 1, tags: [{ id: 'red', name: 'Red' }], connections: [] },
     'agents/editor.yaml': 'id: editor\nname: Editor\n',
     'workspaces/writing.json': { id: 'writing', name: 'Writing' },
@@ -65,12 +71,17 @@ test('saved stores and binary files restore under a fresh identity without chang
   assert.equal(restored.name, 'Backup Fixture (restored)');
   assert.deepEqual(restored.documents, manifest.documents);
   assert.deepEqual(JSON.parse(await fs.readFile(path.join(projectDir, 'project.json'), 'utf8')), manifest);
-  for (const file of backup.files.filter((file) => file.path !== 'project.json')) {
+  // media/canvases/default.json is excluded like project.json: its fixture node's
+  // assetSrc points at the source project, so restore legitimately rewrites it
+  // (see the dedicated media-canvas-remap test below) rather than copying bytes.
+  for (const file of backup.files.filter((file) => file.path !== 'project.json' && file.path !== 'media/canvases/default.json')) {
     const actual = await fs.readFile(path.join(workspaceRoot, `${restored.id}.muse`, file.path));
     assert.deepEqual(actual, Buffer.from(file.data, 'base64'), file.path);
     assert.equal(file.size, actual.length);
     assert.equal(file.sha256, createHash('sha256').update(actual).digest('hex'));
   }
+  const mediaCanvas = JSON.parse(await fs.readFile(path.join(workspaceRoot, `${restored.id}.muse`, 'media/canvases/default.json'), 'utf8'));
+  assert.equal(mediaCanvas.nodes[0].assetSrc, `/api/projects/${restored.id}/assets/media/tone.wav`);
   assert.equal((await fs.readdir(workspaceRoot)).length, 3);
 });
 
@@ -117,6 +128,33 @@ test('restore remaps only managed image fields in the four image stores', async 
   assert.equal(world.image.caption, imageUrl);
   assert.deepEqual(world.image.tags, [imageUrl]);
   assert.equal(await fs.readFile(path.join(workspaceRoot, `${restored.id}.muse`, 'manuscript/one.md'), 'utf8'), `Literal saved prose: ${imageUrl}\n`);
+});
+
+test('restore remaps media canvas node assetSrc for both image-kind and audio/video-kind nodes', async (t) => {
+  // Catches Task 7 adding media/canvases/default.json to the parsed stores
+  // without remapImageStores ever gaining a branch to rewrite it, which
+  // left restored media canvas nodes pointing at the source project's URLs.
+  const { workspaceRoot, save } = await fixture(t);
+  const mediaUrl = '/api/projects/backup-fixture/assets/media/tone.wav';
+  await save('assets/images/pixel.png', Buffer.from([0, 255]));
+  await save('assets/media/tone.wav', Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WAVE'), Buffer.from('sound')]));
+  await save('media/canvases/default.json', {
+    version: 1, revision: 'r1', camera: { x: 0, y: 0, scale: 1 },
+    nodes: [
+      { id: 'image-node', kind: 'image', assetSrc: imageUrl, label: '', x: 0, y: 0, width: 100, height: 100 },
+      { id: 'audio-node', kind: 'audio', assetSrc: mediaUrl, label: '', x: 0, y: 0, width: 200, height: 60 },
+      { id: 'other-node', kind: 'image', assetSrc: '/api/projects/other/assets/images/pixel.png', label: '', x: 0, y: 0, width: 100, height: 100 },
+    ],
+    edges: [],
+  });
+  const backup = await exportProjectBackup('backup-fixture', { workspaceRoot });
+  const restored = await restoreProjectBackup(backup, { workspaceRoot });
+  const newImageUrl = `/api/projects/${restored.id}/assets/images/pixel.png`;
+  const newMediaUrl = `/api/projects/${restored.id}/assets/media/tone.wav`;
+  const mediaCanvas = JSON.parse(await fs.readFile(path.join(workspaceRoot, `${restored.id}.muse`, 'media/canvases/default.json'), 'utf8'));
+  assert.equal(mediaCanvas.nodes[0].assetSrc, newImageUrl);
+  assert.equal(mediaCanvas.nodes[1].assetSrc, newMediaUrl);
+  assert.equal(mediaCanvas.nodes[2].assetSrc, '/api/projects/other/assets/images/pixel.png');
 });
 
 function archiveEntry(file: string, content: string | object) {

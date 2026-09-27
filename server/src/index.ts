@@ -22,6 +22,12 @@ import { deleteOrphanedImages } from './imageGc.js';
 import { readGoals, writeGoals } from './goals.js';
 import { readProgress } from './progress.js';
 import { readWorldMap, writeWorldMap } from './world-map.js';
+import {
+  readMediaCanvas, createMediaCanvasNode, updateMediaCanvasNode, removeMediaCanvasNode,
+  createMediaCanvasEdge, removeMediaCanvasEdge, updateMediaCanvasCamera,
+} from './media.js';
+import { managedMediaFileName, saveMediaAsset, mediaAssetPath } from './mediaAssets.js';
+import { deleteOrphanedMedia } from './mediaGc.js';
 import { readConnections, createTag, renameTag, attachConnection, removeConnection } from './connections.js';
 import { exportProjectBackup, restoreProjectBackup, BackupError } from './backups.js';
 import {
@@ -44,10 +50,12 @@ function historySession(req: express.Request): string | null {
 async function editScope(req: express.Request): Promise<{ label: string; paths: string[] } | null> {
   if (!req.params.id || !['POST', 'PUT', 'DELETE'].includes(req.method)) return null;
   const route = String(req.route?.path ?? '').replace('/api/projects/:id/', '');
-  const stores: Record<string, string> = { canon: 'canon/canon.json', plot: 'plot/plot.json', scenes: 'scenes/scenes.json', references: 'references/references.json', goals: 'goals/goals.json', connections: 'connections/connections.json', 'world-map': 'world/map.json' };
+  const stores: Record<string, string> = { canon: 'canon/canon.json', plot: 'plot/plot.json', scenes: 'scenes/scenes.json', references: 'references/references.json', goals: 'goals/goals.json', connections: 'connections/connections.json', 'world-map': 'world/map.json', media: 'media/canvases/default.json' };
   const kind = route.split('/')[0];
   const verb = req.method === 'DELETE' ? 'Remove' : req.method === 'POST' ? 'Add' : 'Edit';
-  if (stores[kind]) return { label: `${verb} ${kind === 'canon' ? 'story card' : kind === 'world-map' ? 'atlas background' : kind}`, paths: [stores[kind], ...((kind === 'references' && req.method === 'DELETE') || kind === 'world-map' ? ['assets'] : [])] };
+  // Only a media node delete can touch an asset file (deleteOrphanedImages/deleteOrphanedMedia);
+  // a media edge delete never does, so it's excluded from the 'assets' undo scope.
+  if (stores[kind]) return { label: `${verb} ${kind === 'canon' ? 'story card' : kind === 'world-map' ? 'atlas background' : kind === 'media' ? 'canvas placement' : kind}`, paths: [stores[kind], ...((kind === 'references' && req.method === 'DELETE') || kind === 'world-map' || (kind === 'media' && req.method === 'DELETE' && route.endsWith('/nodes/:nodeId')) ? ['assets'] : [])] };
   if (route === 'documents/:docId' || route === 'patches/apply') {
     const doc = await readDocument(req.params.id, req.params.docId ?? req.body?.documentId);
     return { label: route === 'patches/apply' ? 'Accept suggested edit' : `Write ${doc.meta.title}`, paths: [doc.meta.path] };
@@ -84,6 +92,19 @@ const wrap = (fn: express.RequestHandler): express.RequestHandler => async (req,
 // backup boundary before any destination project is created.
 app.post('/api/projects/restore', express.raw({ type: 'application/json', limit: '80mb' }), wrap(async (req, res) => {
   res.json({ project: await restoreProjectBackup(req.body) });
+}));
+// Media uploads need their own bounded body, not the general 8mb JSON limit:
+// MAX_MEDIA_BYTES (25 MB) decoded is ~33.3 MB as base64, so 34mb covers the
+// worst case with margin for the JSON envelope around it.
+app.post('/api/projects/:id/assets/media', express.json({ limit: '34mb' }), wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const stored = await saveMediaAsset(dir, req.body ?? {});
+  const media = {
+    id: path.parse(stored.fileName).name,
+    src: `/api/projects/${encodeURIComponent(req.params.id)}/assets/media/${stored.fileName}`,
+  };
+  await emit(dir, 'asset.media.uploaded', { mediaId: media.id, originalName: stored.originalName, size: stored.size });
+  res.json({ media });
 }));
 app.use(express.json({ limit: '8mb' }));
 
@@ -418,6 +439,64 @@ app.put('/api/projects/:id/world-map', wrap(async (req, res) => {
   }
   await emit(dir, 'world-map.updated', { hasImage: Boolean(worldMap.image), visible: worldMap.visible });
   res.json({ worldMap });
+}));
+
+/* --------------------------------------------------------------- media */
+
+app.get('/api/projects/:id/media/canvas', wrap(async (req, res) => {
+  res.json({ mediaCanvas: await readMediaCanvas(await projectDir(req.params.id)) });
+}));
+
+app.post('/api/projects/:id/media/nodes', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { node, store } = await createMediaCanvasNode(dir, req.body?.expectedRevision, req.body?.node ?? {});
+  await emit(dir, 'media.node.created', { nodeId: node.id, kind: node.kind });
+  res.json({ node, mediaCanvas: store });
+}));
+
+app.put('/api/projects/:id/media/nodes/:nodeId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { node, store } = await updateMediaCanvasNode(dir, req.body?.expectedRevision, req.params.nodeId, req.body?.patch ?? {});
+  res.json({ node, mediaCanvas: store });
+}));
+
+app.delete('/api/projects/:id/media/nodes/:nodeId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { removedNode, store } = await removeMediaCanvasNode(dir, req.query.expectedRevision, req.params.nodeId);
+  if (removedNode.kind === 'image') {
+    const fileName = managedImageFileName(removedNode.assetSrc);
+    if (fileName) await deleteOrphanedImages(dir, [fileName]);
+  } else {
+    const fileName = managedMediaFileName(removedNode.assetSrc);
+    if (fileName) await deleteOrphanedMedia(dir, [fileName]);
+  }
+  res.json({ mediaCanvas: store });
+}));
+
+app.post('/api/projects/:id/media/edges', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { edge, store } = await createMediaCanvasEdge(dir, req.body?.expectedRevision, req.body?.edge ?? {});
+  res.json({ edge, mediaCanvas: store });
+}));
+
+app.delete('/api/projects/:id/media/edges/:edgeId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { store } = await removeMediaCanvasEdge(dir, req.query.expectedRevision, req.params.edgeId);
+  res.json({ mediaCanvas: store });
+}));
+
+app.put('/api/projects/:id/media/camera', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { store } = await updateMediaCanvasCamera(dir, req.body?.expectedRevision, req.body?.camera ?? {});
+  res.json({ mediaCanvas: store });
+}));
+
+app.get('/api/projects/:id/assets/media/:fileName', wrap(async (req, res) => {
+  const file = mediaAssetPath(await projectDir(req.params.id), req.params.fileName);
+  res.set('cache-control', 'private, max-age=31536000, immutable');
+  res.sendFile(file, { acceptRanges: true }, (error) => {
+    if (error && !res.headersSent) res.status(404).json({ error: 'media file not found' });
+  });
 }));
 
 /* ---------------------------------------------------------------- progress */
