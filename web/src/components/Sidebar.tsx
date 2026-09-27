@@ -3,7 +3,6 @@ import { api } from '../api';
 import { useStore } from '../store';
 import * as Icon from './icons';
 import { openProjectTool } from './ProjectTools';
-import { LegendTrigger } from './ShortcutLegend';
 
 /**
  * Domain cards mobilize a tool into the workspace. Rich domains can launch a
@@ -232,7 +231,6 @@ export function Sidebar({ collapsed, onToggleCollapsed, onOpenSettings }: {
         <div className="brand-text">
           <img className="brand-logo" src="/brand/muse-mobilize-logo.png" alt="Muse Mobilize" />
         </div>
-        <LegendTrigger />
         <button
           type="button"
           className="sidebar-toggle"

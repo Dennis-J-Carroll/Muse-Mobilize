@@ -8,6 +8,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: 'undo', keys: 'Ctrl Z / Ctrl Y', label: 'Undo / redo writing', group: 'Writing' },
   { id: 'tag', keys: 'type !#', label: 'Tag or link the word at the cursor', group: 'Writing' },
   { id: 'story-cards', keys: 'Alt Shift K', label: 'Story cards (in focus)', group: 'Writing' },
+  { id: 'zoom', keys: 'Ctrl + / Ctrl − / Ctrl 0', label: 'Zoom draft text in, out, reset', group: 'Writing' },
   { id: 'ask-muse', keys: 'Ctrl Enter', label: 'Send to Muse', group: 'Writing' },
   { id: 'desk-n', keys: 'Alt Shift 1–9', label: 'Open desk 1–9', group: 'Desks and cards' },
   { id: 'desk-previous', keys: 'Alt Shift 0', label: 'Back to previous arrangement', group: 'Desks and cards' },

@@ -25,7 +25,7 @@
 .writing-appearance select { min-width: 0; min-height: 32px; max-width: 138px; border: 1px solid transparent; border-radius: 6px; padding: 4px 6px; background: transparent; color: var(--ink-mid); font-size: 12px; }
 .writing-appearance select:hover { border-color: var(--line-strong); }
 .writing-page[data-surface="paper"] { background: #f8f6f0; }
-.writing-page[data-surface="paper"] .draft { padding: 32px max(24px, calc((100% - var(--page-measure, 68ch)) / 2)) 64px; font-size: 18px; line-height: 1.9; letter-spacing: .005em; }
+.writing-page[data-surface="paper"] .draft { padding: 32px max(24px, calc((100% - var(--page-measure, 68ch)) / 2)) 64px; font-size: calc(18px * var(--draft-zoom, 1)); line-height: 1.9; letter-spacing: .005em; }
 .writing-focus-button { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--glass-face); font-size: 12px; }
 .writing-focus-button kbd { font: inherit; color: var(--ink-soft); }
 .writing-toolbar :is(button, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -47,6 +47,13 @@
 .pane.is-writing-focus .writing-focus-title { display: block; }
 .pane.is-writing-focus .writing-toolbar { padding: 12px 24px; }
 .writing-toolbar[hidden], .writing-font-note[hidden] { display: none; }
+/* Text zoom: a compact stepper; the percentage doubles as reset. */
+.writing-zoom { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 999px; background: var(--glass-face); overflow: hidden; }
+.writing-zoom button { min-height: 30px; min-width: 28px; padding: 2px 8px; border: 0; background: transparent; color: var(--ink-mid); font: inherit; font-size: 13px; cursor: pointer; }
+.writing-zoom button:hover:not(:disabled) { background: rgba(63,95,125,.09); color: var(--ink); }
+.writing-zoom button:disabled { opacity: .4; cursor: default; }
+.writing-zoom .writing-zoom-level { min-width: 46px; font-size: 11.5px; font-variant-numeric: tabular-nums; border-inline: 1px solid var(--line); }
+.writing-zoom button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .writing-page { position: relative; }
 .writing-focus-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .writing-focus-actions button { min-height: 32px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: transparent; font-size: 12px; }
@@ -81,7 +88,7 @@
   .writing-focus-button { padding: 5px 7px; gap: 5px; }
   .pane.is-writing-focus .writing-focus-button { font-size: 0; }
   .pane.is-writing-focus .writing-focus-button kbd { font-size: 12px; }
-  .writing-page[data-surface="paper"] .draft { padding: 24px 22px 44px; font-size: 17px; }
+  .writing-page[data-surface="paper"] .draft { padding: 24px 22px 44px; font-size: calc(17px * var(--draft-zoom, 1)); }
 }
 
 .page-popover-root { position: relative; }

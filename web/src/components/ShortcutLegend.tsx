@@ -3,22 +3,15 @@ import { createPortal } from 'react-dom';
 import { SHORTCUTS, type ShortcutGroup } from '../shortcuts';
 import { trapLayerTab } from '../focusLayers';
 import { useWritingView } from '../writingView';
+import * as Icon from './icons';
 
 let returnFocus: HTMLElement | null = null;
-
-/** Keyboard glyph in the app's own tokens: accent stroke on the glass face. */
-function KeyboardGlyph() {
-  return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-    <rect x="3" y="6.5" width="18" height="11" rx="2.5" />
-    <path d="M7 10h.01M10 10h.01M13 10h.01M16 10h.01M8 14h8" />
-  </svg>;
-}
 
 export function LegendTrigger() {
   return <button type="button" className="legend-trigger" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (Alt+Shift+/)" aria-keyshortcuts="Alt+Shift+/"
     onPointerDown={(event) => { if (document.activeElement?.matches('textarea.draft')) event.preventDefault(); }}
     onClick={(event) => { returnFocus = event.currentTarget; useWritingView.getState().setLegendOpen(true); }}>
-    <KeyboardGlyph />
+    <Icon.Compass size={17} />
   </button>;
 }
 

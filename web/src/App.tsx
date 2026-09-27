@@ -15,6 +15,7 @@ import { dismissFocusLayer } from './focusLayers';
 import { useWritingView } from './writingView';
 import { useMobileWritingViewport } from './useMobileWritingViewport';
 import * as Icon from './components/icons';
+import { LegendTrigger } from './components/ShortcutLegend';
 
 export default function App() {
   const restoring = useEditHistory((s) => s.restoring);
@@ -52,6 +53,7 @@ export default function App() {
     return () => window.removeEventListener('muse:project-tool', open);
   }, []);
   const sidebarCollapsed = useWritingView((s) => s.sidebarCollapsed);
+  const headerCollapsed = useWritingView((s) => s.headerCollapsed);
 
   useEffect(() => {
     void useStore.getState().bootstrap();
@@ -144,10 +146,19 @@ export default function App() {
           <span className="mobile-workspace-project">{project.name}</span>
           <span aria-hidden="true">{mobileControlsCollapsed ? '▾' : '▴'}</span>
         </button>
-        <header id="workspace-heading" className="workspace-head">
-          <div>
-            <h1>{project.name}</h1>
-            <p>
+        <header id="workspace-heading" className={`workspace-head ${headerCollapsed ? 'is-collapsed' : ''}`}>
+          <div className="workspace-title">
+            <div className="workspace-title-row">
+              <h1>{project.name}</h1>
+              <button type="button" className="workspace-head-toggle"
+                aria-label={headerCollapsed ? 'Expand project header' : 'Collapse project header'}
+                title={headerCollapsed ? 'Expand header' : 'Collapse header'}
+                aria-expanded={!headerCollapsed} aria-controls="workspace-heading-details"
+                onClick={() => useWritingView.getState().setHeaderCollapsed(!headerCollapsed)}>
+                <Icon.Chevron up={!headerCollapsed} />
+              </button>
+            </div>
+            <p id="workspace-heading-details" hidden={headerCollapsed}>
               {project.documents.length} documents
               <span className="dotsep">•</span>
               {settings?.defaultProvider ?? 'mock'} provider
@@ -166,6 +177,7 @@ export default function App() {
             <button className="ws-btn ghost" aria-label="Model settings" title="Model settings" onClick={() => setShowSettings(true)}>
               <Icon.Cloud size={16} />
             </button>
+            <LegendTrigger />
           </div>
         </header>
 

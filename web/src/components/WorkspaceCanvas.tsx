@@ -77,6 +77,9 @@ function PaneFrame({ pane, tiled, viewport, onFloat }: { pane: Pane; tiled: bool
   const closePane = useStore((s) => s.closePane);
   const resizePane = useStore((s) => s.resizePane);
   const doc = useStore((s) => (pane.binding?.type === 'document' ? s.docs[pane.binding.id] : undefined));
+  const isManuscript = useStore((s) => pane.type === 'editor' && pane.binding?.type === 'document'
+    && s.project?.documents.find((item) => item.id === pane.binding?.id)?.kind === 'manuscript');
+  const toolsCollapsed = useWritingView((s) => s.writingToolsCollapsed);
   const minimized = pane.sizeMode === 'minimized';
   const maximized = pane.sizeMode === 'maximized';
   const ref = useRef<HTMLElement>(null);
@@ -120,7 +123,15 @@ function PaneFrame({ pane, tiled, viewport, onFloat }: { pane: Pane; tiled: bool
             const delta = event.key === 'ArrowLeft' ? [-step, 0] : event.key === 'ArrowRight' ? [step, 0] : event.key === 'ArrowUp' ? [0, -step] : event.key === 'ArrowDown' ? [0, step] : null;
             if (delta) { event.preventDefault(); move(delta[0], delta[1]); }
           }}><span aria-hidden="true" className="pane-grip">⠿</span><span>{pane.title}</span></button>
+        {isManuscript && !minimized && <button type="button" className="pane-tools-toggle"
+          aria-label={toolsCollapsed ? 'Show writing tools' : 'Hide writing tools'} title={toolsCollapsed ? 'Show writing tools' : 'Hide writing tools'}
+          aria-expanded={!toolsCollapsed}
+          onPointerDown={(event) => { if (document.activeElement?.matches('textarea.draft')) event.preventDefault(); }}
+          onClick={() => useWritingView.getState().setWritingToolsCollapsed(!toolsCollapsed)}>
+          <Icon.Chevron up={!toolsCollapsed} />
+        </button>}
         {doc?.dirty && <span className="pane-dirty" title="unsaved">•</span>}
+        {isManuscript && !minimized && <span className="pane-drag-space" aria-hidden="true" onPointerDown={onMoveDrag} />}
         <span className="pane-tools">
           {pane.floating && !minimized && <button title="Return to layout" onClick={() => useStore.getState().returnPaneToLayout(pane.id)}><Icon.Layers size={16} /></button>}
           <button title={minimized ? `Restore ${pane.title} to workspace` : 'Minimize'} onClick={() => setPaneSize(pane.id, minimized ? 'normal' : 'minimized')}>

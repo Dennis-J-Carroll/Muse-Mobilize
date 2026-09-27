@@ -73,6 +73,8 @@
     text-align: left;
   }
   .mobile-workspace-toggle svg { flex-shrink: 0; }
+  /* The mobile recall button already folds the whole header. */
+  .workspace-head-toggle { display: none; }
   .mobile-workspace-project { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mobile-workspace-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .app.is-mobile-controls-collapsed > .sidebar,
@@ -93,7 +95,7 @@
   /* Give mobile prose one rhythm on either surface; leave manuscript newlines
      and the writer's chosen font intact. */
   .writing-page .draft, .writing-page[data-surface="paper"] .draft {
-    padding: 16px 16px 24px; font-size: 17px; line-height: 1.55;
+    padding: 16px 16px 24px; font-size: calc(17px * var(--draft-zoom, 1)); line-height: 1.55;
     letter-spacing: normal;
   }
   .writing-page.is-quiet .draft { padding-top: 56px; }

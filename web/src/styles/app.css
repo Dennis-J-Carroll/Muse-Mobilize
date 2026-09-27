@@ -121,6 +121,24 @@ input, textarea, select { font-family: var(--font-ui); }
   display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
   padding: 22px 26px 14px;
 }
+/* Title and its collapse chevron share one line; collapsed keeps that line,
+   the mode switch and cloud/compass, and drops the detail line and padding. */
+/* Wrap rather than squeeze: a long project name would otherwise break one
+   character per line beside the non-shrinking mode switch. */
+.workspace-head { flex-wrap: wrap; }
+.workspace-title { flex: 1 1 220px; min-width: 0; }
+.workspace-title-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.workspace-head-toggle {
+  flex: 0 0 26px; width: 26px; height: 26px; padding: 0; display: grid; place-items: center;
+  border: 1px solid var(--line); border-radius: 50%; background: var(--paper-raised);
+  color: var(--ink-soft); cursor: pointer; opacity: .75;
+}
+.workspace-head-toggle:hover, .workspace-head-toggle:focus-visible { opacity: 1; color: var(--accent); border-color: var(--line-strong); }
+.workspace-head-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.workspace-head.is-collapsed { align-items: center; padding: 8px 26px 6px; }
+.workspace-head.is-collapsed h1 { font-size: 17px; letter-spacing: -.02em; }
+.workspace-head.is-collapsed .ws-btn { min-height: 28px; padding: 3px 11px; font-size: 12px; }
+.workspace-head p[hidden] { display: none; }
 .workspace-head h1 { margin: 0; font-size: 27px; font-weight: var(--weight-display); letter-spacing: -.045em; overflow-wrap: anywhere; }
 .workspace-head p { margin: 4px 0 0; color: var(--ink-soft); font-size: 12.5px; }
 .dotsep { margin: 0 7px; }
@@ -198,6 +216,12 @@ input, textarea, select { font-family: var(--font-ui); }
   border-bottom: 1px solid var(--line);
   background: rgba(255,255,255,.45);
 }
+.pane-tools-toggle {
+  flex: 0 0 auto; width: 22px; height: 22px; padding: 0; display: grid; place-items: center;
+  border: 1px solid transparent; border-radius: 50%; background: transparent; color: var(--ink-soft); cursor: pointer;
+}
+.pane-tools-toggle:hover { border-color: var(--line); color: var(--accent); background: rgba(255,255,255,.6); }
+.pane-tools-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pane-title { font-size: 12.5px; font-weight: var(--weight-label); color: var(--ink-mid); letter-spacing: -.015em; }
 .pane-dirty { color: var(--warn); font-size: 18px; line-height: 0; }
 .pane-tools { margin-left: auto; display: flex; gap: 2px; }
@@ -218,6 +242,7 @@ input, textarea, select { font-family: var(--font-ui); }
   border-bottom: 1px solid transparent;
   color: var(--ink-soft); font-size: 12px;
 }
+.ask-bar[hidden] { display: none; }
 .ask-bar.is-live { background: rgba(63,95,125,.07); border-bottom-color: var(--line); }
 .ask-count { font-weight: 600; color: var(--ink-mid); }
 .ask-label { text-transform: uppercase; letter-spacing: .08em; font-size: 10.5px; }
@@ -235,7 +260,7 @@ input, textarea, select { font-family: var(--font-ui); }
   flex: 1; min-height: 0; width: 100%;
   border: none; outline: none; resize: none; background: transparent;
   padding: 26px max(28px, calc((100% - var(--page-measure, 72ch)) / 2)) 40px;
-  font-family: var(--font-prose); font-size: 17px; font-weight: 400; line-height: 1.85; color: var(--ink);
+  font-family: var(--font-prose); font-size: calc(17px * var(--draft-zoom, 1)); font-weight: 400; line-height: 1.85; color: var(--ink);
 }
 .draft-notes { font-family: var(--font-ui); font-size: 14px; line-height: 1.65; padding: 18px 22px; }
 .draft::selection { background: rgba(63,95,125,.22); }

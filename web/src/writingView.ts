@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { rememberPlaces } from './focusPlace';
+import { parseZoom, ZOOM_MAX, ZOOM_MIN } from './textZoom';
+export { parseZoom, stepZoom, ZOOM_DEFAULT, ZOOM_MAX, ZOOM_MIN } from './textZoom';
 
 type Surface = 'glass' | 'paper';
 type Weight = '350' | '400';
@@ -54,6 +56,12 @@ export const useWritingView = create<{
   setWorkbench: (workbench: boolean) => void;
   sidebarCollapsed: boolean;
   setSidebarCollapsed: (collapsed: boolean) => void;
+  headerCollapsed: boolean;
+  setHeaderCollapsed: (collapsed: boolean) => void;
+  writingToolsCollapsed: boolean;
+  setWritingToolsCollapsed: (collapsed: boolean) => void;
+  zoom: number;
+  setZoom: (zoom: number) => void;
   surface: Surface;
   weight: Weight;
   font: WritingFont;
@@ -78,6 +86,16 @@ export const useWritingView = create<{
   setWorkbench: (workbench) => set({ workbench }),
   sidebarCollapsed: false,
   setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
+  headerCollapsed: readPreference('muse:workspace-header-collapsed') === 'true',
+  setHeaderCollapsed: (headerCollapsed) => { savePreference('muse:workspace-header-collapsed', String(headerCollapsed)); set({ headerCollapsed }); },
+  writingToolsCollapsed: readPreference('muse:writing-tools-collapsed') === 'true',
+  setWritingToolsCollapsed: (writingToolsCollapsed) => { savePreference('muse:writing-tools-collapsed', String(writingToolsCollapsed)); set({ writingToolsCollapsed }); },
+  zoom: parseZoom(readPreference('muse:writing-zoom')),
+  setZoom: (zoom) => {
+    const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(zoom)));
+    savePreference('muse:writing-zoom', String(clamped));
+    set({ zoom: clamped });
+  },
   focus: (focusPaneId) => {
     // Every entry and exit path (button, Esc, Alt+Shift+F, desk restore) comes through here,
     // so the snapshot is taken before the layout changes.

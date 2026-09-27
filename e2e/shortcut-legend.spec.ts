@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 
 test('legend opens from the logo icon and Alt+Shift+/, lists shortcuts, and returns focus', async ({ page, projectId }) => {
   expect(projectId).toBeTruthy();
-  const trigger = page.locator('.brand-row').getByRole('button', { name: 'Keyboard shortcuts', exact: true });
+  const trigger = page.locator('.workspace-head').getByRole('button', { name: 'Keyboard shortcuts', exact: true });
   await trigger.click();
   const legend = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
   await expect(legend).toBeVisible();
@@ -18,7 +18,7 @@ test('legend opens from the logo icon and Alt+Shift+/, lists shortcuts, and retu
 test('legend trigger stays reachable with the sidebar collapsed and in focus mode', async ({ page, projectId }) => {
   expect(projectId).toBeTruthy();
   await page.getByRole('button', { name: 'Collapse tool menu', exact: true }).click();
-  await expect(page.locator('.brand-row').getByRole('button', { name: 'Keyboard shortcuts', exact: true })).toBeVisible();
+  await expect(page.locator('.workspace-head').getByRole('button', { name: 'Keyboard shortcuts', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Expand tool menu', exact: true }).click();
   await page.getByRole('button', { name: 'Focus writing', exact: true }).click();
   const focusTrigger = page.locator('.writing-focus-actions').getByRole('button', { name: 'Keyboard shortcuts', exact: true });
