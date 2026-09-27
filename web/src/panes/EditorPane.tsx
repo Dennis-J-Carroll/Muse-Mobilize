@@ -5,10 +5,15 @@ import { useStore } from '../store';
 import { api } from '../api';
 import type { Pane } from '../types';
 import * as Icon from '../components/icons';
-import { useWritingView, WRITING_FONTS, type WritingFont } from '../writingView';
+import { measureCss, stepZoom, useWritingView, WIDTH_PRESETS, WRITING_FONTS, ZOOM_DEFAULT, ZOOM_MAX, ZOOM_MIN, type WritingFont } from '../writingView';
 import { useWritingFullscreen } from '../useWritingFullscreen';
 import { openConnections } from '../connectionsView';
+import { PagePopover } from '../components/PagePopover';
+import { restorePlace } from '../focusPlace';
+import { LegendTrigger } from '../components/ShortcutLegend';
+import { GUARD_NOTICE, shouldGuard } from '../selectionGuard';
 import { resolveBangHash, type BangSnapshot } from '../bangHash';
+import { caretTop, typewriterScrollTop } from '../typewriter';
 
 /** Registry so a patch card can point at the exact range inside the draft. */
 export const editorRefs = new Map<string, HTMLTextAreaElement>();
@@ -39,8 +44,30 @@ export function EditorPane({ pane }: { pane: Pane }) {
   const focused = useWritingView((s) => s.focusPaneId === pane.id);
   const controlsHidden = useWritingView((s) => s.controlsHidden);
   const quiet = isManuscript && focused && controlsHidden;
+  // Outside focus, the pane-header chevron folds the tool rows away for more page.
+  const toolsCollapsed = useWritingView((s) => s.writingToolsCollapsed);
+  const folded = isManuscript && !focused && toolsCollapsed;
+  const zoom = useWritingView((s) => s.zoom);
+  const typewriter = useWritingView((s) => s.typewriter) && isManuscript;
+  // Typewriter: after typing or keyboard movement, bring the caret line back to the anchor.
+  // Mouse clicks are left alone so the page never jumps out from under the pointer.
+  const recenterFrame = useRef(0);
+  const recenter = () => {
+    if (!typewriter) return;
+    cancelAnimationFrame(recenterFrame.current);
+    recenterFrame.current = requestAnimationFrame(() => {
+      const el = ref.current;
+      if (!el || el.selectionStart !== el.selectionEnd) return;
+      const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 28;
+      const next = typewriterScrollTop(caretTop(el), lineHeight, el.clientHeight, el.scrollTop);
+      if (next !== null) el.scrollTop = next;
+    });
+  };
+  useEffect(() => { if (typewriter && document.activeElement === ref.current) recenter(); }, [typewriter, zoom]);
+  useEffect(() => () => cancelAnimationFrame(recenterFrame.current), []);
   const browserScreen = useWritingFullscreen(focused);
   const surface = useWritingView((s) => s.surface);
+  const measure = useWritingView((s) => s.measure);
   const weight = useWritingView((s) => s.weight);
   const fontId = useWritingView((s) => s.font);
   const font = WRITING_FONTS.find((item) => item.id === fontId) ?? WRITING_FONTS[0];
@@ -79,8 +106,12 @@ export function EditorPane({ pane }: { pane: Pane }) {
   useLayoutEffect(() => {
     if (wasFocused.current === focused) return;
     wasFocused.current = focused;
-    ref.current?.focus({ preventScroll: true });
-  }, [focused]);
+    const el = ref.current;
+    el?.focus({ preventScroll: true });
+    // Wait one frame for the new layout before restoring scroll.
+    const frame = requestAnimationFrame(() => { if (el) restorePlace(pane.id, el); });
+    return () => cancelAnimationFrame(frame);
+  }, [focused, pane.id]);
 
   const bindEditor = useCallback((element: HTMLTextAreaElement | null) => {
     if (element) editorRefs.set(docId, element);
@@ -108,6 +139,28 @@ export function EditorPane({ pane }: { pane: Pane }) {
   const askAbout = (agentId: string) => {
     useStore.getState().openPane('agent', { bindingId: agentId });
     void useStore.getState().ask(agentId, 'Read this selection and tell me what you see.', true);
+  };
+
+  // Zoom scales only the draft text; keep the reader at the same place in the chapter.
+  const zoomTo = (next: number) => {
+    const el = ref.current;
+    const range = el ? el.scrollHeight - el.clientHeight : 0;
+    const ratio = el && range > 0 ? el.scrollTop / range : 0;
+    useWritingView.getState().setZoom(next);
+    requestAnimationFrame(() => {
+      if (!el) return;
+      el.scrollTop = ratio * Math.max(0, el.scrollHeight - el.clientHeight);
+    });
+  };
+  const zoomKey = (event: React.KeyboardEvent): boolean => {
+    if (!isManuscript || !(event.ctrlKey || event.metaKey) || event.altKey || event.nativeEvent.isComposing) return false;
+    const code = event.code;
+    if (code === 'Equal' || code === 'NumpadAdd') zoomTo(stepZoom(useWritingView.getState().zoom, 1));
+    else if (code === 'Minus' || code === 'NumpadSubtract') zoomTo(stepZoom(useWritingView.getState().zoom, -1));
+    else if (code === 'Digit0' || code === 'Numpad0') zoomTo(ZOOM_DEFAULT);
+    else return false;
+    event.preventDefault(); event.stopPropagation();
+    return true;
   };
 
   const toggleControls = () => {
@@ -139,13 +192,28 @@ export function EditorPane({ pane }: { pane: Pane }) {
     return true;
   };
 
+  // React's onBeforeInput has no inputType and misses Enter, so listen to the native event.
+  const guard = useWritingView((s) => s.guardSelection);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !guard || !isManuscript) return;
+    const onBeforeInput = (event: InputEvent) => {
+      if (event.isComposing || !shouldGuard(el.value, el.selectionStart, el.selectionEnd, event.inputType, event.data)) return;
+      event.preventDefault();
+      useStore.getState().setNotice(GUARD_NOTICE);
+    };
+    el.addEventListener('beforeinput', onBeforeInput);
+    return () => el.removeEventListener('beforeinput', onBeforeInput);
+  }, [guard, isManuscript, Boolean(doc)]);
+
   if (!doc) return <div className="pane-body pane-loading">Opening…</div>;
 
   return (
-    <div className={`editor-wrap ${isManuscript ? 'writing-page' : ''} ${quiet ? 'is-quiet' : ''}`} data-surface={isManuscript ? surface : undefined}>
+    <div className={`editor-wrap ${isManuscript ? 'writing-page' : ''} ${quiet ? 'is-quiet' : ''} ${folded ? 'is-folded' : ''} ${typewriter ? 'is-typewriter' : ''}`} data-surface={isManuscript ? surface : undefined}
+      style={isManuscript ? { ...(measureCss(measure) ? { ['--page-measure' as string]: measureCss(measure) } : {}), ['--draft-zoom' as string]: String(zoom / 100) } : undefined}>
       {quiet && <button type="button" className="writing-controls-reveal" aria-label="Show writing controls" title="Show writing controls"
         onPointerDown={(event) => event.preventDefault()} onClick={toggleControls}><Icon.Feather size={16} /></button>}
-      {isManuscript && <div className="writing-toolbar" hidden={quiet}>
+      {isManuscript && <div className="writing-toolbar" hidden={quiet || folded}>
         <span className="writing-focus-title">{doc.title}</span>
         <DocumentUndo documentId={docId} />
         <div className="writing-appearance">
@@ -158,6 +226,29 @@ export function EditorPane({ pane }: { pane: Pane }) {
           <select aria-label="Writing weight" value={font.variable ? weight : '400'} disabled={!font.variable} title={font.variable ? 'Writing weight' : 'This font has one regular weight'} onChange={(event) => useWritingView.getState().setWeight(event.target.value as '350' | '400')}>
             <option value="350">Light</option><option value="400">Regular</option>
           </select>
+          <select aria-label="Page width" value={measure === null ? 'default' : measure === 'full' ? 'full' : WIDTH_PRESETS.some((p) => p.value === measure) ? String(measure) : 'custom'}
+            onChange={(event) => {
+              const value = event.target.value;
+              if (value === 'custom') return;
+              useWritingView.getState().setMeasure(value === 'default' ? null : value === 'full' ? 'full' : Number(value));
+            }}>
+            <option value="default">Default width</option>
+            {WIDTH_PRESETS.map((preset) => <option key={preset.value} value={String(preset.value)}>{preset.label} ({preset.value})</option>)}
+            <option value="full">Full</option>
+            {typeof measure === 'number' && !WIDTH_PRESETS.some((p) => p.value === measure) && <option value="custom">Custom ({measure})</option>}
+          </select>
+          <PagePopover />
+          <button type="button" className="writing-typewriter" aria-pressed={typewriter} title="Keep the line you're writing at a steady height"
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => { useWritingView.getState().setTypewriter(!typewriter); ref.current?.focus({ preventScroll: true }); }}>Typewriter</button>
+          <div className="writing-zoom" role="group" aria-label="Text zoom">
+            <button type="button" aria-label="Zoom out text" title="Zoom out (Ctrl −)" disabled={zoom <= ZOOM_MIN}
+              onPointerDown={(event) => event.preventDefault()} onClick={() => zoomTo(stepZoom(useWritingView.getState().zoom, -1))}>−</button>
+            <button type="button" className="writing-zoom-level" aria-label={`Text zoom ${zoom}%, reset to 100%`} title="Reset zoom (Ctrl 0)"
+              onPointerDown={(event) => event.preventDefault()} onClick={() => zoomTo(ZOOM_DEFAULT)}>{zoom}%</button>
+            <button type="button" aria-label="Zoom in text" title="Zoom in (Ctrl +)" disabled={zoom >= ZOOM_MAX}
+              onPointerDown={(event) => event.preventDefault()} onClick={() => zoomTo(stepZoom(useWritingView.getState().zoom, 1))}>+</button>
+          </div>
         </div>
         <button type="button" aria-label="Tag or link selection" title="Connect selected text, or type !#" disabled={Boolean(doc.recovery)} onPointerDown={(event) => event.preventDefault()} onClick={connectSelection}>Tag / link</button>
         {isManuscript && <div className="export-menu" data-testid="export-menu">
@@ -179,6 +270,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
             {browserScreen.fullscreen ? 'Restore browser' : 'Fullscreen'}
           </button>
           <button type="button" aria-label="Hide writing controls" onPointerDown={(event) => event.preventDefault()} onClick={toggleControls}>Hide controls</button>
+          <LegendTrigger />
         </div>}
         <button type="button" className="writing-focus-button"
           aria-label={focused ? 'Exit writing focus' : 'Focus writing'}
@@ -189,10 +281,10 @@ export function EditorPane({ pane }: { pane: Pane }) {
           {focused && <kbd>Esc</kbd>}
         </button>
       </div>}
-      {focused && browserScreen.message && <p className="writing-font-note" role="status" hidden={quiet}>{browserScreen.message}</p>}
-      {isManuscript && font.id === 'times' && <p className="writing-font-note" hidden={quiet}>Uses installed Times New Roman; otherwise a serif fallback.</p>}
+      {focused && browserScreen.message && <p className="writing-font-note" role="status" hidden={quiet || folded}>{browserScreen.message}</p>}
+      {isManuscript && font.id === 'times' && <p className="writing-font-note" hidden={quiet || folded}>Uses installed Times New Roman; otherwise a serif fallback.</p>}
       {!isManuscript && <div className="document-history"><DocumentUndo documentId={docId} /></div>}
-      <div className={`ask-bar ${mine ? 'is-live' : ''}`}>
+      <div className={`ask-bar ${mine ? 'is-live' : ''}`} hidden={folded && !mine}>
         {mine ? (
           <>
             <span className="ask-count">{selWords} words selected</span>
@@ -226,11 +318,12 @@ export function EditorPane({ pane }: { pane: Pane }) {
         readOnly={Boolean(doc.recovery) || restoring}
         aria-label={doc.recovery ? `${doc.title} — choose a recovered version to continue` : undefined}
         value={doc.content}
-        onChange={(e) => editDoc(docId, e.target.value)}
+        onChange={(e) => { editDoc(docId, e.target.value); recenter(); }}
         onSelect={syncSelection}
         onPaste={() => { bang.current = null; }}
         onCompositionStart={() => { bang.current = null; }}
         onKeyDown={(event) => {
+          if (zoomKey(event)) { bang.current = null; return; }
           if (!event.nativeEvent.isComposing && (event.ctrlKey || event.metaKey) && !event.altKey && ['z', 'y'].includes(event.key.toLowerCase())) {
             event.preventDefault(); event.stopPropagation(); bang.current = null;
             useStore.getState().travelDoc(docId, event.key.toLowerCase() === 'y' || event.shiftKey ? 'redo' : 'undo'); return;
@@ -244,8 +337,9 @@ export function EditorPane({ pane }: { pane: Pane }) {
           if (native.inputType === 'historyUndo' || native.inputType === 'historyRedo') { event.preventDefault(); useStore.getState().travelDoc(docId, native.inputType === 'historyUndo' ? 'undo' : 'redo'); return; }
           if (!native.isComposing && native.inputType !== 'insertFromPaste' && native.data && typedCommand(native.data)) event.preventDefault();
         }}
-        onKeyUp={syncSelection}
+        onKeyUp={(event) => { syncSelection(); if (!event.shiftKey && /^(Arrow|Page|Home|End|Enter)/.test(event.key)) recenter(); }}
         onMouseUp={syncSelection}
+        onFocus={() => { if (isManuscript) useWritingView.getState().setLastWritingPane(pane.id); }}
         onBlur={() => void useStore.getState().flushDoc(docId)}
         placeholder="Start writing your story…"
       />

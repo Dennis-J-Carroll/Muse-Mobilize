@@ -55,3 +55,13 @@ test('restored floating windows fit phone and Workbench bounds without mutating 
   }
   assert.equal(saved.x, 1300);
 });
+
+test('focusDocumentId is optional: valid ids are kept, invalid ones are dropped, old desks still parse', () => {
+  const withFocus = { ...desk, view: { ...desk.view, focusDocumentId: 'chapter' } };
+  const bad = { ...desk, id: 'bad', view: { ...desk.view, focusDocumentId: 42 } };
+  const [kept, stripped, old] = parseDesks(JSON.stringify([withFocus, bad, desk]));
+  assert.equal(kept.view.focusDocumentId, 'chapter');
+  assert.equal(stripped.id, 'bad');
+  assert.equal('focusDocumentId' in stripped.view, false);
+  assert.equal('focusDocumentId' in old.view, false);
+});

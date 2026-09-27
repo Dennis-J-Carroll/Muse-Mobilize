@@ -77,6 +77,9 @@ function PaneFrame({ pane, tiled, viewport, onFloat }: { pane: Pane; tiled: bool
   const closePane = useStore((s) => s.closePane);
   const resizePane = useStore((s) => s.resizePane);
   const doc = useStore((s) => (pane.binding?.type === 'document' ? s.docs[pane.binding.id] : undefined));
+  const isManuscript = useStore((s) => pane.type === 'editor' && pane.binding?.type === 'document'
+    && s.project?.documents.find((item) => item.id === pane.binding?.id)?.kind === 'manuscript');
+  const toolsCollapsed = useWritingView((s) => s.writingToolsCollapsed);
   const minimized = pane.sizeMode === 'minimized';
   const maximized = pane.sizeMode === 'maximized';
   const ref = useRef<HTMLElement>(null);
@@ -120,7 +123,18 @@ function PaneFrame({ pane, tiled, viewport, onFloat }: { pane: Pane; tiled: bool
             const delta = event.key === 'ArrowLeft' ? [-step, 0] : event.key === 'ArrowRight' ? [step, 0] : event.key === 'ArrowUp' ? [0, -step] : event.key === 'ArrowDown' ? [0, step] : null;
             if (delta) { event.preventDefault(); move(delta[0], delta[1]); }
           }}><span aria-hidden="true" className="pane-grip">⠿</span><span>{pane.title}</span></button>
+        {isManuscript && !minimized && <button type="button" className="pane-tools-toggle"
+          aria-label={toolsCollapsed ? 'Show writing tools' : 'Hide writing tools'} title={toolsCollapsed ? 'Show writing tools' : 'Hide writing tools'}
+          aria-expanded={!toolsCollapsed}
+          onPointerDown={(event) => { if (document.activeElement?.matches('textarea.draft')) event.preventDefault(); }}
+          onClick={() => useWritingView.getState().setWritingToolsCollapsed(!toolsCollapsed)}>
+          <Icon.Chevron up={!toolsCollapsed} />
+        </button>}
         {doc?.dirty && <span className="pane-dirty" title="unsaved">•</span>}
+        {isManuscript && toolsCollapsed && !minimized && <button type="button" className="pane-focus-button" aria-label="Focus writing" title="Focus writing (Alt+Shift+F)"
+          onPointerDown={(event) => { if (document.activeElement?.matches('textarea.draft')) event.preventDefault(); }}
+          onClick={() => useWritingView.getState().focus(pane.id)}><Icon.Expand size={13} /> Focus</button>}
+        {isManuscript && !minimized && <span className="pane-drag-space" aria-hidden="true" onPointerDown={onMoveDrag} />}
         <span className="pane-tools">
           {pane.floating && !minimized && <button title="Return to layout" onClick={() => useStore.getState().returnPaneToLayout(pane.id)}><Icon.Layers size={16} /></button>}
           <button title={minimized ? `Restore ${pane.title} to workspace` : 'Minimize'} onClick={() => setPaneSize(pane.id, minimized ? 'normal' : 'minimized')}>
@@ -290,11 +304,13 @@ export function WorkspaceCanvas() {
         width: box.width / window.innerWidth * 320, height: box.height / window.innerHeight * 180,
         title: pane.title, document: pane.binding?.type === 'document' }];
     });
+    const focused = state.panes.find((pane) => pane.id === view.focusPaneId);
+    const focusDocumentId = focused?.binding?.type === 'document' ? focused.binding.id : undefined;
     return {
       version: 1, id: crypto.randomUUID(), name,
       panes: state.panes.map(({ id: _id, ...pane }) => pane),
       view: { layout, workbench, sidebarCollapsed: view.sidebarCollapsed, rightWidth: state.rightWidth, bottomHeight: state.bottomHeight,
-        drawerMode, font: view.font, surface: view.surface, weight: view.weight },
+        drawerMode, font: view.font, surface: view.surface, weight: view.weight, ...(focusDocumentId ? { focusDocumentId } : {}) },
       preview: visible,
     };
   };
@@ -314,6 +330,13 @@ export function WorkspaceCanvas() {
     setDrawerMode(desk.view.drawerMode);
     setDrawerOpen(false);
     beforeWorkbench.current.clear();
+    if (desk.view.focusDocumentId) {
+      const id = desk.view.focusDocumentId;
+      requestAnimationFrame(() => {
+        const pane = useStore.getState().panes.find((item) => item.binding?.type === 'document' && item.binding.id === id);
+        if (pane) useWritingView.getState().focus(pane.id);
+      });
+    }
   };
 
   const maximized = panes.find((p) => p.sizeMode === 'maximized');

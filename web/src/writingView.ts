@@ -1,4 +1,7 @@
 import { create } from 'zustand';
+import { rememberPlaces } from './focusPlace';
+import { parseZoom, ZOOM_MAX, ZOOM_MIN } from './textZoom';
+export { parseZoom, stepZoom, ZOOM_DEFAULT, ZOOM_MAX, ZOOM_MIN } from './textZoom';
 
 type Surface = 'glass' | 'paper';
 type Weight = '350' | '400';
@@ -21,10 +24,30 @@ const savePreference = (key: string, value: string) => {
   try { localStorage.setItem(key, value); } catch { /* Keep session preference. */ }
 };
 
+export type Measure = number | 'full' | null;
+export const WIDTH_PRESETS = [
+  { value: 60, label: 'Narrow' }, { value: 68, label: 'Book' }, { value: 72, label: 'Standard' },
+  { value: 90, label: 'Wide' },
+] as const;
+export const MEASURE_MIN = 45;
+export const MEASURE_MAX = 120;
+/** Browser storage is untrusted: anything unexpected falls back to today's default width. */
+export function parseMeasure(raw: string | null): Measure {
+  if (raw === 'full') return 'full';
+  if (!raw || !/^\d+$/.test(raw)) return null;
+  const value = Number(raw);
+  return value >= MEASURE_MIN && value <= MEASURE_MAX ? value : null;
+}
+/** Full is 100%, never 0: a zero measure would give each side 50% padding. */
+export const measureCss = (measure: Measure) => measure === null ? undefined : measure === 'full' ? '100%' : `${measure}ch`;
+
 /** Presentation state only; entering focus never changes the workspace layout. */
 export const useWritingView = create<{
   focusPaneId: string | null;
   focus: (paneId: string | null) => void;
+  lastWritingPaneId: string | null;
+  setLastWritingPane: (id: string) => void;
+  toggleFocus: () => boolean;
   focusLayer: FocusLayer | null;
   setFocusLayer: (layer: FocusLayer | null) => void;
   controlsHidden: boolean;
@@ -33,13 +56,29 @@ export const useWritingView = create<{
   setWorkbench: (workbench: boolean) => void;
   sidebarCollapsed: boolean;
   setSidebarCollapsed: (collapsed: boolean) => void;
+  headerCollapsed: boolean;
+  setHeaderCollapsed: (collapsed: boolean) => void;
+  writingToolsCollapsed: boolean;
+  typewriter: boolean;
+  setTypewriter: (on: boolean) => void;
+  setWritingToolsCollapsed: (collapsed: boolean) => void;
+  zoom: number;
+  setZoom: (zoom: number) => void;
   surface: Surface;
   weight: Weight;
   font: WritingFont;
   setFont: (font: WritingFont) => void;
   setSurface: (surface: Surface) => void;
   setWeight: (weight: Weight) => void;
-}>((set) => ({
+  measure: Measure;
+  setMeasure: (measure: Measure) => void;
+  guardSelection: boolean;
+  deskSwitcherOpen: boolean;
+  legendOpen: boolean;
+  setLegendOpen: (open: boolean) => void;
+  setDeskSwitcherOpen: (open: boolean) => void;
+  setGuardSelection: (on: boolean) => void;
+}>((set, get) => ({
   focusPaneId: null,
   focusLayer: null,
   setFocusLayer: (focusLayer) => set((state) => ({ focusLayer: state.focusPaneId ? focusLayer : null })),
@@ -49,11 +88,53 @@ export const useWritingView = create<{
   setWorkbench: (workbench) => set({ workbench }),
   sidebarCollapsed: false,
   setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
-  focus: (focusPaneId) => set({ focusPaneId, focusLayer: null }),
+  headerCollapsed: readPreference('muse:workspace-header-collapsed') === 'true',
+  setHeaderCollapsed: (headerCollapsed) => { savePreference('muse:workspace-header-collapsed', String(headerCollapsed)); set({ headerCollapsed }); },
+  typewriter: readPreference('muse:writing-typewriter') === 'true',
+  setTypewriter: (typewriter) => { savePreference('muse:writing-typewriter', String(typewriter)); set({ typewriter }); },
+  writingToolsCollapsed: readPreference('muse:writing-tools-collapsed') === 'true',
+  setWritingToolsCollapsed: (writingToolsCollapsed) => { savePreference('muse:writing-tools-collapsed', String(writingToolsCollapsed)); set({ writingToolsCollapsed }); },
+  zoom: parseZoom(readPreference('muse:writing-zoom')),
+  setZoom: (zoom) => {
+    const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(zoom)));
+    savePreference('muse:writing-zoom', String(clamped));
+    set({ zoom: clamped });
+  },
+  focus: (focusPaneId) => {
+    // Every entry and exit path (button, Esc, Alt+Shift+F, desk restore) comes through here,
+    // so the snapshot is taken before the layout changes.
+    if (typeof document !== 'undefined' && focusPaneId !== get().focusPaneId) rememberPlaces();
+    set({ focusPaneId, focusLayer: null });
+  },
+  lastWritingPaneId: null,
+  setLastWritingPane: (lastWritingPaneId) => set({ lastWritingPaneId }),
+  toggleFocus: () => {
+    const { focusPaneId, lastWritingPaneId, focus } = get();
+    if (focusPaneId) { focus(null); return true; }
+    const editors = [...document.querySelectorAll<HTMLElement>('section.pane-editor')]
+      .filter((pane) => pane.querySelector('.writing-page textarea.draft'))
+      .map((pane) => pane.id.slice('workspace-'.length));
+    const target = lastWritingPaneId && editors.includes(lastWritingPaneId) ? lastWritingPaneId : editors[0];
+    if (!target) return false;
+    focus(target);
+    return true;
+  },
   surface: readPreference('muse:writing-surface') === 'paper' ? 'paper' : 'glass',
   weight: readPreference('muse:writing-weight') === '350' ? '350' : '400',
   font: WRITING_FONTS.find((font) => font.id === readPreference('muse:writing-font'))?.id ?? 'inter',
   setFont: (font) => { savePreference('muse:writing-font', font); set({ font }); },
   setSurface: (surface) => { savePreference('muse:writing-surface', surface); set({ surface }); },
   setWeight: (weight) => { savePreference('muse:writing-weight', weight); set({ weight }); },
+  measure: parseMeasure(readPreference('muse:writing-measure')),
+  setMeasure: (measure) => {
+    if (measure === null) { try { localStorage.removeItem('muse:writing-measure'); } catch { /* Keep session preference. */ } }
+    else savePreference('muse:writing-measure', String(measure));
+    set({ measure });
+  },
+  deskSwitcherOpen: false,
+  legendOpen: false,
+  setLegendOpen: (legendOpen) => set({ legendOpen }),
+  setDeskSwitcherOpen: (deskSwitcherOpen) => set({ deskSwitcherOpen }),
+  guardSelection: readPreference('muse:guard-selection') === 'true',
+  setGuardSelection: (guardSelection) => { savePreference('muse:guard-selection', String(guardSelection)); set({ guardSelection }); },
 }));

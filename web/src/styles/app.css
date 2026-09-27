@@ -121,6 +121,25 @@ input, textarea, select { font-family: var(--font-ui); }
   display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
   padding: 22px 26px 14px;
 }
+/* Title and its collapse chevron share one line; collapsed keeps that line,
+   the mode switch and cloud/compass, and drops the detail line and padding. */
+/* Wrap rather than squeeze: a long project name would otherwise break one
+   character per line beside the non-shrinking mode switch. */
+.workspace-head { flex-wrap: wrap; }
+.workspace-title { flex: 1 1 220px; min-width: 0; }
+.workspace-title-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.workspace-head-toggle {
+  flex: 0 0 26px; width: 26px; height: 26px; padding: 0; display: grid; place-items: center;
+  border: 1px solid var(--line); border-radius: 50%; background: var(--paper-raised);
+  color: var(--ink-soft); cursor: pointer; opacity: .75;
+}
+.workspace-head-toggle:hover, .workspace-head-toggle:focus-visible { opacity: 1; color: var(--accent); border-color: var(--line-strong); }
+.workspace-head-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.workspace-head.is-collapsed { align-items: center; padding: 8px 26px 6px; }
+.workspace-head.is-collapsed h1 { font-size: 17px; letter-spacing: -.02em; }
+.workspace-head.is-collapsed .ws-btn { min-height: 28px; padding: 3px 11px; font-size: 12px; }
+.ws-switch { align-items: center; }
+.workspace-head p[hidden] { display: none; }
 .workspace-head h1 { margin: 0; font-size: 27px; font-weight: var(--weight-display); letter-spacing: -.045em; overflow-wrap: anywhere; }
 .workspace-head p { margin: 4px 0 0; color: var(--ink-soft); font-size: 12.5px; }
 .dotsep { margin: 0 7px; }
@@ -133,6 +152,58 @@ input, textarea, select { font-family: var(--font-ui); }
 .ws-btn:hover { background: rgba(255,255,255,.85); }
 .ws-btn.is-on { background: var(--card-deep); color: var(--ink-onDeep); }
 .ws-btn.ghost { display: grid; place-items: center; padding: 6px 10px; }
+
+/* Workspace mode tabs — CodePen VwKzaEm's animated tab bar in etched glass.
+   The active icon lifts on its mode's disc; a wave notch in the bar's top
+   edge glides beneath it. */
+.ws-tabs {
+  --ws-tab-duration: .55s;
+  position: relative; display: flex; align-items: center; gap: 2px;
+  padding: 3px 6px; border-radius: 999px;
+  background: var(--glass-sheen), var(--glass-overlay);
+  /* drop-shadow (not box-shadow/border) traces bar and notch as one outline. */
+  filter: drop-shadow(0 0 .6px rgba(47, 59, 68, .35)) drop-shadow(0 2px 5px rgba(47, 59, 68, .12));
+}
+.ws-tab {
+  position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 7px;
+  min-height: 32px; padding: 3px 12px 3px 5px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--ink-mid); font: inherit; font-size: 12.5px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--ws-tab-duration);
+}
+.ws-tab:hover { color: var(--ink); }
+.ws-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ws-tab-icon {
+  position: relative; display: grid; place-items: center; width: 26px; height: 26px;
+  transition: transform var(--ws-tab-glide, var(--ws-tab-duration)) cubic-bezier(.3, 1.4, .5, 1);
+}
+.ws-tab-icon::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: 50%;
+  background: var(--ws-tab-color); transform: scale(0);
+  transition: transform var(--ws-tab-duration);
+}
+.ws-tab-icon svg { stroke-dasharray: 400; }
+.ws-tab.is-on { color: var(--ink); font-weight: 500; }
+.ws-tab.is-on .ws-tab-icon { transform: translate3d(0, -13px, 0); color: white; }
+.ws-tab.is-on .ws-tab-icon::before { transform: scale(1); box-shadow: 0 3px 8px rgba(47, 59, 68, .22); }
+.ws-tab.is-on .ws-tab-icon svg { animation: ws-tab-stroke 1.2s reverse; }
+@keyframes ws-tab-stroke { 100% { stroke-dashoffset: 400; } }
+.ws-tabs-notch {
+  position: absolute; left: 0; bottom: calc(100% - 1px); width: 58px; height: 10px;
+  background: var(--glass-overlay); clip-path: url(#ws-tabs-notch-shape); pointer-events: none;
+  transition: transform var(--ws-tab-glide, var(--ws-tab-duration)) ease;
+}
+.ws-tabs-notch[hidden] { display: none; }
+.ws-tabs-clip { position: absolute; width: 0; height: 0; }
+/* Slim header: no room above the bar, so the disc stays level and the notch rests. */
+.workspace-head.is-collapsed .ws-tab { min-height: 26px; padding-block: 1px; font-size: 12px; }
+.workspace-head.is-collapsed .ws-tab-icon { width: 22px; height: 22px; }
+.workspace-head.is-collapsed .ws-tab.is-on .ws-tab-icon { transform: none; }
+.workspace-head.is-collapsed .ws-tabs-notch { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .ws-tab-icon, .ws-tab-icon::before, .ws-tabs-notch { transition: none; }
+  .ws-tab.is-on .ws-tab-icon svg { animation: none; }
+}
 
 /* ----------------------------------------------------------------- canvas */
 
@@ -198,6 +269,15 @@ input, textarea, select { font-family: var(--font-ui); }
   border-bottom: 1px solid var(--line);
   background: rgba(255,255,255,.45);
 }
+.pane-tools-toggle {
+  flex: 0 0 auto; width: 22px; height: 22px; padding: 0; display: grid; place-items: center;
+  border: 1px solid transparent; border-radius: 50%; background: transparent; color: var(--ink-soft); cursor: pointer;
+}
+.pane-tools-toggle:hover { border-color: var(--line); color: var(--accent); background: rgba(255,255,255,.6); }
+.pane-tools-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pane-focus-button { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; min-height: 24px; padding: 2px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--glass-face); color: var(--ink-mid); font-size: 11.5px; cursor: pointer; }
+.pane-focus-button:hover { color: var(--accent); border-color: var(--line-strong); }
+.pane-focus-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pane-title { font-size: 12.5px; font-weight: var(--weight-label); color: var(--ink-mid); letter-spacing: -.015em; }
 .pane-dirty { color: var(--warn); font-size: 18px; line-height: 0; }
 .pane-tools { margin-left: auto; display: flex; gap: 2px; }
@@ -218,6 +298,7 @@ input, textarea, select { font-family: var(--font-ui); }
   border-bottom: 1px solid transparent;
   color: var(--ink-soft); font-size: 12px;
 }
+.ask-bar[hidden] { display: none; }
 .ask-bar.is-live { background: rgba(63,95,125,.07); border-bottom-color: var(--line); }
 .ask-count { font-weight: 600; color: var(--ink-mid); }
 .ask-label { text-transform: uppercase; letter-spacing: .08em; font-size: 10.5px; }
@@ -234,8 +315,8 @@ input, textarea, select { font-family: var(--font-ui); }
 .draft {
   flex: 1; min-height: 0; width: 100%;
   border: none; outline: none; resize: none; background: transparent;
-  padding: 26px max(28px, calc((100% - 72ch) / 2)) 40px;
-  font-family: var(--font-prose); font-size: 17px; font-weight: 400; line-height: 1.85; color: var(--ink);
+  padding: 26px max(28px, calc((100% - var(--page-measure, 72ch)) / 2)) 40px;
+  font-family: var(--font-prose); font-size: calc(17px * var(--draft-zoom, 1)); font-weight: 400; line-height: 1.85; color: var(--ink);
 }
 .draft-notes { font-family: var(--font-ui); font-size: 14px; line-height: 1.65; padding: 18px 22px; }
 .draft::selection { background: rgba(63,95,125,.22); }
