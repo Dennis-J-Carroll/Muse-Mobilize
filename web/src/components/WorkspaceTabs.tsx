@@ -30,7 +30,11 @@ export function WorkspaceTabs() {
       if (!wave) return;
       wave.hidden = !disc;
       if (!disc) return;
-      const left = disc.getBoundingClientRect().left - root.getBoundingClientRect().left + disc.offsetWidth / 2 - wave.offsetWidth / 2;
+      const centered = disc.getBoundingClientRect().left - root.getBoundingClientRect().left + disc.offsetWidth / 2 - wave.offsetWidth / 2;
+      // Keep the wave on the flat part of the pill's top edge; past the rounded
+      // ends its tail would stick out as a ridge.
+      const radius = root.offsetHeight / 2;
+      const left = Math.min(Math.max(centered, radius), root.offsetWidth - radius - wave.offsetWidth);
       // Resizes jump straight to the new spot; mode changes glide.
       if (instant) root.style.setProperty('--ws-tab-glide', 'none');
       wave.style.transform = `translate3d(${Math.round(left)}px, 0, 0)`;

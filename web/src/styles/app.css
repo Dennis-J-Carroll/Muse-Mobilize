@@ -159,7 +159,7 @@ input, textarea, select { font-family: var(--font-ui); }
 .ws-tabs {
   --ws-tab-duration: .55s;
   position: relative; display: flex; align-items: center; gap: 2px;
-  padding: 3px 6px; border-radius: 999px;
+  padding: 3px 8px 3px 24px; border-radius: 999px;
   background: var(--glass-sheen), var(--glass-overlay);
   /* drop-shadow (not box-shadow/border) traces bar and notch as one outline. */
   filter: drop-shadow(0 0 .6px rgba(47, 59, 68, .35)) drop-shadow(0 2px 5px rgba(47, 59, 68, .12));
@@ -189,7 +189,7 @@ input, textarea, select { font-family: var(--font-ui); }
 .ws-tab.is-on .ws-tab-icon svg { animation: ws-tab-stroke 1.2s reverse; }
 @keyframes ws-tab-stroke { 100% { stroke-dashoffset: 400; } }
 .ws-tabs-notch {
-  position: absolute; left: 0; bottom: calc(100% - 1px); width: 58px; height: 10px;
+  position: absolute; left: 0; bottom: calc(100% - 1px); width: 50px; height: 10px;
   background: var(--glass-overlay); clip-path: url(#ws-tabs-notch-shape); pointer-events: none;
   transition: transform var(--ws-tab-glide, var(--ws-tab-duration)) ease;
 }

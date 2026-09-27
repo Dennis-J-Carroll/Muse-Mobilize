@@ -44,6 +44,12 @@ test('workspace modes act as one-active tabs and the notch follows the active di
   const drafting = tabs.getByRole('button', { name: 'Drafting', exact: true });
   const planning = tabs.getByRole('button', { name: 'Planning', exact: true });
   await expect(drafting).toHaveAttribute('aria-pressed', 'true');
+  // First tab: the wave stays on the flat part of the pill's top edge (no ridge past the rounded end).
+  await expect.poll(() => page.evaluate(() => {
+    const bar = document.querySelector('.ws-tabs') as HTMLElement;
+    const notch = document.querySelector('.ws-tabs-notch')!.getBoundingClientRect();
+    return notch.left - bar.getBoundingClientRect().left - bar.offsetHeight / 2;
+  })).toBeGreaterThanOrEqual(-0.5);
   await planning.click();
   await expect(planning).toHaveAttribute('aria-pressed', 'true');
   await expect(drafting).toHaveAttribute('aria-pressed', 'false');
