@@ -38,6 +38,7 @@ const openScenes = () => useStore.getState().openPane('scenes', { title: 'Scene 
 const openDialogue = () => useStore.getState().openPane('dialogue', { title: 'Dialogue Table', region: 'main', focus: true });
 const openThemes = () => useStore.getState().openPane('themes', { title: 'Theme Threads', region: 'main', focus: true });
 const openReferences = () => useStore.getState().openPane('references', { title: 'Reference Board', region: 'main', focus: true });
+const openPremise = () => useStore.getState().openPane('premise', { title: 'Premise', region: 'main', focus: true });
 const openGoals = () => useStore.getState().openPane('goals', { title: 'Writing Goals', region: 'main', focus: true });
 const openProgress = () => useStore.getState().openPane('progress', { title: 'Manuscript Progress', region: 'main', focus: true });
 const openSources = () => useStore.getState().openPane('sources', { title: 'Sources', region: 'main', focus: true });
@@ -64,7 +65,7 @@ const CARDS: Card[] = [
     items: (s) => [
       ...(s.agents.some((a) => a.id === 'muse') ? [agentItem('Muse', 'muse')] : []),
       ...(s.project?.documents.filter((d) => d.kind === 'notes').map((d) => docItem(`Idea Capture — ${d.title}`, d.id)) ?? []),
-      soon('Premise Builder'), soon('Constraint Generator'),
+      { label: 'Premise Builder', run: openPremise }, soon('Constraint Generator'),
     ],
   },
   {

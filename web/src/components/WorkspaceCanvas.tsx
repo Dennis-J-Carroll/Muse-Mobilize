@@ -15,6 +15,7 @@ import { DialoguePane } from '../panes/DialoguePane';
 import { ThemesPane } from '../panes/ThemesPane';
 import { ReferencesPane } from '../panes/ReferencesPane';
 import { GoalsPane } from '../panes/GoalsPane';
+import { PremisePane } from '../panes/PremisePane';
 import { ProgressPane } from '../panes/ProgressPane';
 import { SourcesPane } from '../panes/SourcesPane';
 import type { Pane } from '../types';
@@ -62,6 +63,8 @@ function PaneBody({ pane }: { pane: Pane }) {
       return <ReferencesPane />;
     case 'goals':
       return <GoalsPane />;
+    case 'premise':
+      return <PremisePane />;
     case 'progress':
       return <ProgressPane />;
     case 'sources':

@@ -2,7 +2,7 @@ import { historySession, updateHistory, useEditHistory, type HistoryStatus } fro
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   DocumentMeta, MuseEvent, Patch, ProjectManifest,
-  GoalStore, ProgressProjection, ReferenceStore, StoryReference,
+  GoalStore, PremiseStore, ProgressProjection, ReferenceStore, StoryReference,
   LocalModelInstallResult, LocalModelProgress, PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
   ProviderCheckResult, ProviderStatus, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, StoryImage, WorkspaceDef, WorldMap, WorldProfile,
 } from './types';
@@ -190,6 +190,11 @@ export const api = {
     return res.blob();
   },
 
+  premise: (id: string) => req<{ premise: PremiseStore }>(`/api/projects/${id}/premise`),
+  updatePremise: (id: string, premise: PremiseStore) =>
+    req<{ premise: PremiseStore }>(`/api/projects/${id}/premise`, { method: 'PUT', body: JSON.stringify(premise) }),
+  premiseWhatIfs: (id: string, basis: string) =>
+    req<{ whatIfs: string[] }>(`/api/projects/${id}/premise/what-ifs`, { method: 'POST', body: JSON.stringify({ basis }) }),
   goals: (id: string) => req<{ goals: GoalStore }>(`/api/projects/${id}/goals`),
   updateGoals: (id: string, patch: Partial<Pick<GoalStore, 'sessionTarget' | 'milestones'>>) =>
     req<{ goals: GoalStore }>(`/api/projects/${id}/goals`, { method: 'PUT', body: JSON.stringify(patch) }),

@@ -67,6 +67,12 @@ export const mockProvider: ModelProvider = {
   },
   async complete(req: ModelRequest): Promise<ModelResult> {
     const user = req.messages.map((m) => m.content).join('\n\n');
+    if (section(req.system, 'task') === 'premise-what-ifs') {
+      // Premise Builder: three fixed twists on the premise's first sentence.
+      const lead = firstSentence(section(user, 'premise')).replace(/[.!?]+$/, '').slice(0, 80);
+      const twists = ['but the ally is the obstacle?', 'but winning costs the thing they wanted?', 'but the stakes were a lie?'];
+      return { text: twists.map((twist) => `<what-if>What if ${lead}… ${twist}</what-if>`).join('\n'), model: 'mock-writer-1' };
+    }
     const agentName = section(req.system, 'agent-name') || 'Agent';
     const isConsulted = /<consultation-request\b/i.test(user);
     const isFollowUp = /<consultation-response\b/i.test(user);

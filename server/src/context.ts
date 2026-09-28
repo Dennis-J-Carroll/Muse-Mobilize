@@ -6,6 +6,12 @@ import type { AgentDef, Selection } from './types.js';
 import { createHash } from 'node:crypto';
 import { parseAccess, permits, resourceKey } from '../../shared/project-tools.js';
 import { projectResources, resourceContent } from './project-resources.js';
+import { readPremise } from './premise.js';
+
+/** The working premise is project-wide truth: every agent gets it, whatever its scope. */
+async function workingPremise(projectId: string): Promise<string> {
+  try { return (await readPremise(await projectDir(projectId))).working; } catch { return ''; }
+}
 
 /**
  * Context Engine (§11). Context is scoped, never dumped (§34.9): each agent
@@ -130,6 +136,8 @@ export async function buildContext(
     sections.push({ name, body: clipped });
     summary.push(label);
   };
+
+  push('premise', await workingPremise(projectId), 'working premise');
 
   const manifest = await readManifest(projectId);
   const docId = opts.documentId ?? manifest.documents[0]?.id;
@@ -260,6 +268,7 @@ async function buildAssignedContext(projectId: string, agent: AgentDef, opts: { 
     receipt.records.push({ ...ref, sha256: createHash('sha256').update(sent).digest('hex'), trimmed: sent.length < body.length });
     summary.push(`${title}${sent.length < body.length ? ' (trimmed)' : ''}`);
   };
+  push('premise', await workingPremise(projectId), { kind: 'premise', id: 'working' }, 'Working premise');
   let selection: Selection | null = null;
   if (opts.selection && policy.selection && opts.selection.documentId === opts.documentId && keys.has(`document:${opts.selection.documentId}`)) {
     const s = opts.selection;
