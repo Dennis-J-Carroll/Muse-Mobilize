@@ -9,7 +9,7 @@ Date: 2026-09-28 · Branch: `feat/premise-builder` · Status: approved in conver
 **Outcome:** each project holds one *working premise* that every agent reads, plus a scratch list of *variants*. A writer can compose a premise from logline slots, write it freehand, ask Muse for three what-if twists, and keep, promote, or discard them without leaving the pane.
 
 **Success looks like:**
-- Opening "Premise Builder" from the Story Idea card shows the project's working premise, slots, and variants, and survives reload.
+- Opening "Premise Builder" from the Story Idea card menu shows the project's working premise, slots, and variants, and survives reload.
 - "Ask Muse for 3 what-ifs" returns three cards within one provider call; each can be kept, promoted or discarded.
 - Promoting never loses text: the previous working premise moves into the variants list.
 - After a premise is set, any agent run includes it in context.
@@ -58,7 +58,7 @@ interface PremiseStore {
 
 - The system prompt asks for three escalating "what if…" variants of the basis. Each is one or two sentences that keeps the protagonist and changes want, obstacle, stakes or twist. The output format is `<what-if>…</what-if>` × 3.
 - `parseWhatIfs(text)` reads the `<what-if>` blocks. If there are none, it falls back to numbered or bulleted lines. It trims, drops empties, and returns at most 3. Pure function, unit-tested.
-- The prompt carries the marker `premise-what-ifs`. `mock.ts` recognizes it and returns three deterministic variants built from the basis (e.g. "What if {protagonist-ish first clause}… but the ally is the obstacle?"), so e2e runs offline.
+- The prompt carries the marker `premise-what-ifs`. `mock.ts` recognizes it and returns three deterministic variants built from the basis: its first sentence truncated to 80 characters, followed by fixed twists ("…but the ally is the obstacle?", "…but winning costs the thing they wanted?", "…but the stakes were a lie?"). That lets e2e run offline and assert exact text.
 
 ### Agent context (`server/src/context.ts`)
 
@@ -90,5 +90,5 @@ When the working premise is non-empty, `buildContext` pushes a `premise` section
 
 - **Server unit** (`node --test`): `writePremise` normalization (caps, dedupe, empty drops, missing file), `parseWhatIfs` (tags, numbered fallback, >3 truncation, garbage → []), and context injection (premise present, absent, over-long).
 - **Web unit:** `composeLogline` and `promote`.
-- **E2E** (`e2e/premise.spec.ts`, mock provider): open from the Story Idea card → fill slots → use as working premise → reload persists → ask for what-ifs → 3 cards → keep one, promote one → the old working premise appears in variants → an agent run's context includes the premise (asserted through the events/run payload the mock echoes). The mobile audit also covers the new pane.
+- **E2E** (`e2e/premise.spec.ts`, mock provider): open from the Story Idea card → fill slots → use as working premise → reload persists → ask for what-ifs → 3 cards → keep one, promote one → the old working premise appears in variants → at a 390px viewport the pane has no horizontal overflow and its buttons stay inside the viewport. (Context injection is covered by the server unit test, not e2e.)
 - `tsc` clean. The full suite passes, apart from the known `references.spec.ts:142` flake.
