@@ -77,7 +77,7 @@ When the working premise is non-empty, `buildContext` pushes a `premise` section
   3. **What-ifs.** An **Ask Muse for 3 what-ifs** button uses the working premise, or the composed logline if there's no working premise, and is disabled when both are empty. A busy state shows while the call runs. Results render as cards with **Keep** (becomes a `muse` variant), **Promote** (becomes working; the old working becomes a variant) and **Discard**. Pending cards are session-only: they're lost on reload, which is intended.
   4. **Variants.** The saved list, newest first, with source badges (manual/muse) and **Promote** / **Delete**. Delete asks for confirmation only when the text is over 200 chars.
 - Promotion logic is a pure function `promote(store, text)` in `web/src/premise.ts`. It returns the new store: `working = text`; the previous non-empty working premise is pushed as a variant if it isn't already present; the promoted text is removed from variants. Unit-tested.
-- Styling matches the story-tool panes (`story-tools.css`), with the same glass cards and buttons. It must pass the mobile audit spec at 320–844px widths.
+- Styling matches the story-tool panes (`story-tools.css`), with the same glass cards and buttons. It must stay usable on phones: the 390px check in the E2E spec guards it.
 
 ## Error handling
 
