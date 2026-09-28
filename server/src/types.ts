@@ -102,6 +102,11 @@ export interface GoalMilestone {
   updatedAt: string;
 }
 
+/** Constraint Generator: the rolled set pinned over the draft. */
+export type ConstraintSlot = 'pov' | 'place' | 'anchor' | 'restriction' | 'pressure';
+export interface ConstraintItem { slot: ConstraintSlot; text: string; done: boolean; entityId?: string }
+export interface ConstraintStore { version: 1; pinned: { id: string; pinnedAt: string; items: ConstraintItem[] } | null }
+
 /** Premise Builder: one working premise every agent reads, plus scratch variants. */
 export interface PremiseSlots { protagonist: string; want: string; obstacle: string; stakes: string; twist: string }
 export type PremiseVariantSource = 'manual' | 'muse';

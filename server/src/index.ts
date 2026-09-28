@@ -22,6 +22,7 @@ import { deleteOrphanedImages } from './imageGc.js';
 import { readGoals, writeGoals } from './goals.js';
 import { readPremise, writePremise, PREMISE_WORKING_MAX } from './premise.js';
 import { generateWhatIfs } from './premise-what-ifs.js';
+import { readConstraints, writeConstraints } from './constraints.js';
 import { readProgress } from './progress.js';
 import { readWorldMap, writeWorldMap } from './world-map.js';
 import {
@@ -52,7 +53,7 @@ function historySession(req: express.Request): string | null {
 async function editScope(req: express.Request): Promise<{ label: string; paths: string[] } | null> {
   if (!req.params.id || !['POST', 'PUT', 'DELETE'].includes(req.method)) return null;
   const route = String(req.route?.path ?? '').replace('/api/projects/:id/', '');
-  const stores: Record<string, string> = { canon: 'canon/canon.json', plot: 'plot/plot.json', scenes: 'scenes/scenes.json', references: 'references/references.json', goals: 'goals/goals.json', premise: 'premise/premise.json', connections: 'connections/connections.json', 'world-map': 'world/map.json', media: 'media/canvases/default.json' };
+  const stores: Record<string, string> = { canon: 'canon/canon.json', plot: 'plot/plot.json', scenes: 'scenes/scenes.json', references: 'references/references.json', goals: 'goals/goals.json', premise: 'premise/premise.json', constraints: 'constraints/constraints.json', connections: 'connections/connections.json', 'world-map': 'world/map.json', media: 'media/canvases/default.json' };
   // Asking for what-ifs stores nothing, so it is not an undoable edit.
   if (route === 'premise/what-ifs') return null;
   const kind = route.split('/')[0];
@@ -430,6 +431,20 @@ app.post('/api/projects/:id/premise/what-ifs', wrap(async (req, res) => {
   const whatIfs = await generateWhatIfs(await resolveProvider('default'), basis);
   await emit(dir, 'premise.what-ifs', { count: whatIfs.length });
   res.json({ whatIfs });
+}));
+
+/* ------------------------------------------------------------- constraints */
+
+app.get('/api/projects/:id/constraints', wrap(async (req, res) => {
+  res.json({ constraints: await readConstraints(await projectDir(req.params.id)) });
+}));
+
+app.put('/api/projects/:id/constraints', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const constraints = await writeConstraints(dir, req.body ?? {});
+  const items = constraints.pinned?.items ?? [];
+  await emit(dir, 'constraints.updated', { pinned: Boolean(constraints.pinned), done: items.filter((item) => item.done).length, total: items.length });
+  res.json({ constraints });
 }));
 
 /* ------------------------------------------------------------------- goals */
