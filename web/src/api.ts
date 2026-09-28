@@ -2,7 +2,7 @@ import { historySession, updateHistory, useEditHistory, type HistoryStatus } fro
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   DocumentMeta, MuseEvent, Patch, ProjectManifest,
-  GoalStore, PremiseStore, ProgressProjection, ReferenceStore, StoryReference,
+  ConstraintStore, GoalStore, PremiseStore, ProgressProjection, ReferenceStore, StoryReference,
   LocalModelInstallResult, LocalModelProgress, PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
   ProviderCheckResult, ProviderStatus, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, StoryImage, WorkspaceDef, WorldMap, WorldProfile,
 } from './types';
@@ -190,6 +190,9 @@ export const api = {
     return res.blob();
   },
 
+  constraints: (id: string) => req<{ constraints: ConstraintStore }>(`/api/projects/${id}/constraints`),
+  updateConstraints: (id: string, constraints: ConstraintStore) =>
+    req<{ constraints: ConstraintStore }>(`/api/projects/${id}/constraints`, { method: 'PUT', body: JSON.stringify(constraints) }),
   premise: (id: string) => req<{ premise: PremiseStore }>(`/api/projects/${id}/premise`),
   updatePremise: (id: string, premise: PremiseStore) =>
     req<{ premise: PremiseStore }>(`/api/projects/${id}/premise`, { method: 'PUT', body: JSON.stringify(premise) }),

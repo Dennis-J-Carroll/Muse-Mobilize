@@ -14,6 +14,8 @@ import { LegendTrigger } from '../components/ShortcutLegend';
 import { GUARD_NOTICE, shouldGuard } from '../selectionGuard';
 import { resolveBangHash, type BangSnapshot } from '../bangHash';
 import { caretTop, typewriterScrollTop } from '../typewriter';
+import { PinnedConstraints } from '../components/PinnedConstraints';
+import { rollAll } from '../constraints';
 
 /** Registry so a patch card can point at the exact range inside the draft. */
 export const editorRefs = new Map<string, HTMLTextAreaElement>();
@@ -250,6 +252,13 @@ export function EditorPane({ pane }: { pane: Pane }) {
               onPointerDown={(event) => event.preventDefault()} onClick={() => zoomTo(stepZoom(useWritingView.getState().zoom, 1))}>+</button>
           </div>
         </div>
+        <button type="button" className="writing-dice" aria-label="Roll constraints" title="Roll five constraints and pin them over the draft"
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={async () => {
+            const entities = await useStore.getState().canonForRolling();
+            await useStore.getState().pinConstraints(rollAll(entities, null, new Set()));
+            ref.current?.focus({ preventScroll: true });
+          }}><span aria-hidden="true">🎲</span></button>
         <button type="button" aria-label="Tag or link selection" title="Connect selected text, or type !#" disabled={Boolean(doc.recovery)} onPointerDown={(event) => event.preventDefault()} onClick={connectSelection}>Tag / link</button>
         {isManuscript && <div className="export-menu" data-testid="export-menu">
           <button type="button" aria-label="Export document" aria-haspopup="menu" aria-expanded={exportOpen}
@@ -284,6 +293,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
       {focused && browserScreen.message && <p className="writing-font-note" role="status" hidden={quiet || folded}>{browserScreen.message}</p>}
       {isManuscript && font.id === 'times' && <p className="writing-font-note" hidden={quiet || folded}>Uses installed Times New Roman; otherwise a serif fallback.</p>}
       {!isManuscript && <div className="document-history"><DocumentUndo documentId={docId} /></div>}
+      {isManuscript && <PinnedConstraints />}
       <div className={`ask-bar ${mine ? 'is-live' : ''}`} hidden={folded && !mine}>
         {mine ? (
           <>

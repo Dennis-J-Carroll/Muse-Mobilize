@@ -6,7 +6,7 @@ import { reconcileDeskPanes, type DeskPane } from './desks';
 import { draftJournal, draftKey, documentDraftScope, type DraftEntry } from './draftRecovery';
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
-  FloatingPanel, GoalStore, PremiseStore, ProgressProjection, ReferenceStore, StoryReference,
+  ConstraintItem, ConstraintStore, FloatingPanel, GoalStore, PremiseStore, ProgressProjection, ReferenceStore, StoryReference,
   LocalModelInstallResult, LocalModelProgress, MuseEvent, Pane, PaneType, Patch, ProjectManifest,
   PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
   ProviderCheckResult, ProviderStatus, Region, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, StoryImage, WorkspaceDef, WorldMap, WorldProfile,
@@ -53,6 +53,7 @@ interface State {
   references: ReferenceStore | null;
   goals: GoalStore | null;
   premise: PremiseStore | null;
+  constraints: ConstraintStore | null;
   progress: ProgressProjection | null;
   worldMap: WorldMap | null;
   worldFocusEntityId: string | null;
@@ -134,6 +135,13 @@ interface State {
   deleteReference: (referenceId: string) => Promise<boolean>;
   loadGoals: () => Promise<void>;
   loadPremise: () => Promise<void>;
+  loadConstraints: () => Promise<void>;
+  /** Optimistic and queued, like updatePremise. */
+  updateConstraints: (next: (current: ConstraintStore) => ConstraintStore) => Promise<ConstraintStore | null>;
+  /** Replace the pinned set with fresh, unticked items. */
+  pinConstraints: (items: ConstraintItem[]) => Promise<ConstraintStore | null>;
+  /** Canon entities for rolling; loads canon on demand and falls back to [] (craft deck) if it cannot. */
+  canonForRolling: () => Promise<CanonEntity[]>;
   /** Optimistic: the pane updates at once; a failed save rolls back and reports. */
   updatePremise: (next: (current: PremiseStore) => PremiseStore) => Promise<PremiseStore | null>;
   premiseWhatIfs: (basis: string) => Promise<string[] | null>;
@@ -164,6 +172,7 @@ export const getProjectSession = () => projectSession;
 type GoalPatch = Partial<Pick<GoalStore, 'sessionTarget' | 'milestones'>>;
 const goalUpdateQueues = new Map<number, Promise<void>>();
 const premiseQueues = new Map<number, Promise<void>>();
+const constraintQueues = new Map<number, Promise<void>>();
 
 const titleFor = (type: PaneType, s: State, bindingId?: string): string => {
   if (type === 'agent') return s.agents.find((a) => a.id === bindingId)?.name ?? 'Agent';
@@ -179,6 +188,7 @@ const titleFor = (type: PaneType, s: State, bindingId?: string): string => {
   if (type === 'references') return 'Reference Board';
   if (type === 'goals') return 'Writing Goals';
   if (type === 'premise') return 'Premise';
+  if (type === 'constraints') return 'Constraints';
   if (type === 'progress') return 'Manuscript Progress';
   if (type === 'sources') return 'Sources';
   return s.docs[bindingId ?? '']?.title ?? s.project?.documents.find((d) => d.id === bindingId)?.title ?? 'Document';
@@ -209,6 +219,7 @@ export const useStore = create<State>((set, get) => ({
   references: null,
   goals: null,
   premise: null,
+  constraints: null,
   worldMap: null,
   progress: null,
   worldFocusEntityId: null,
@@ -260,7 +271,7 @@ export const useStore = create<State>((set, get) => ({
       Object.keys(saveTimers).forEach((key) => delete saveTimers[key]);
       projectSession += 1;
       try { localStorage.setItem('muse:lastProject', id); } catch { /* Recovery reports unavailable browser storage when writing. */ }
-      set({ project, agents, workspaces, docs: {}, panes: [], floatingPanels: [], floatingEditorContents: {}, runs: {}, events: [], canon: null, plot: null, sceneBoard: null, references: null, goals: null, premise: null, progress: null,  worldMap: null,
+      set({ project, agents, workspaces, docs: {}, panes: [], floatingPanels: [], floatingEditorContents: {}, runs: {}, events: [], canon: null, plot: null, sceneBoard: null, references: null, goals: null, premise: null, constraints: null, progress: null,  worldMap: null,
   worldFocusEntityId: null,
   plotFocusNodeId: null,
   sceneFocusId: null,
@@ -365,6 +376,10 @@ export const useStore = create<State>((set, get) => ({
         canon: canon.canon, plot: plot.plot, sceneBoard: scenes.board, references: references.references, goals: goals.goals, worldMap: world.worldMap, sources: sources.sources, selection: null,
         panes: get().panes.filter((pane) => pane.binding?.type !== 'document' || opened.project.documents.some((doc) => doc.id === pane.binding?.id)),
         notice: `${direction === 'undo' ? 'Undid' : 'Redid'}: ${result.label}.`, error: null });
+      if (result.files.includes('constraints/constraints.json')) {
+        const { constraints } = await api.constraints(project.id);
+        if (current()) set({ constraints });
+      }
       if (result.files.includes('premise/premise.json')) {
         const { premise } = await api.premise(project.id);
         if (current()) set({ premise });
@@ -431,7 +446,7 @@ export const useStore = create<State>((set, get) => ({
       set({ panes: s.panes.map((p) => (p.id === existing.id ? { ...p, sizeMode: opts.focus ? 'maximized' : 'normal' } : opts.focus && p.sizeMode === 'maximized' ? { ...p, sizeMode: 'normal' } : p)) });
       return;
     }
-    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' || type === 'world' || type === 'plot' || type === 'scenes' || type === 'dialogue' || type === 'themes' || type === 'references' || type === 'goals' || type === 'progress' || type === 'sources' || type === 'premise' ? 'main' : 'bottom');
+    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' || type === 'world' || type === 'plot' || type === 'scenes' || type === 'dialogue' || type === 'themes' || type === 'references' || type === 'goals' || type === 'progress' || type === 'sources' || type === 'premise' || type === 'constraints' ? 'main' : 'bottom');
     const pane: Pane = {
       id: `pane-${++paneSeq}-${type}-${bindingId ?? ''}`,
       type,
@@ -1046,6 +1061,65 @@ export const useStore = create<State>((set, get) => ({
       set({ error: err.message });
       return false;
     }
+  },
+
+  async loadConstraints() {
+    const session = projectSession;
+    const s = get();
+    if (!s.project) return;
+    try {
+      const { constraints } = await api.constraints(s.project.id);
+      if (get().project !== s.project || projectSession !== session) return;
+      set({ constraints });
+    } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return;
+      set({ error: `Could not load constraints: ${err.message}` });
+    }
+  },
+
+  async updateConstraints(next) {
+    const session = projectSession;
+    const project = get().project;
+    if (!project) return null;
+    const prior = constraintQueues.get(session) ?? Promise.resolve();
+    let result: ConstraintStore | null = null;
+    const operation = prior.catch(() => undefined).then(async () => {
+      const current = get().constraints;
+      if (!current || get().project !== project || projectSession !== session) return;
+      const optimistic = next(current);
+      if (optimistic === current) { result = current; return; }
+      set({ constraints: optimistic });
+      try {
+        const { constraints } = await api.updateConstraints(project.id, optimistic);
+        if (get().project !== project || projectSession !== session) return;
+        if (get().constraints === optimistic) set({ constraints });
+        result = constraints;
+        await get().refreshEvents();
+      } catch (err: any) {
+        if (get().project !== project || projectSession !== session) return;
+        if (get().constraints === optimistic) set({ constraints: current });
+        set({ error: `Constraints not saved: ${err.message}` });
+      }
+    });
+    constraintQueues.set(session, operation);
+    await operation;
+    if (constraintQueues.get(session) === operation) constraintQueues.delete(session);
+    return result;
+  },
+
+  async pinConstraints(items) {
+    if (!get().constraints) await get().loadConstraints();
+    return get().updateConstraints(() => ({
+      version: 1,
+      pinned: { id: crypto.randomUUID(), pinnedAt: new Date().toISOString(), items: items.map((item) => ({ ...item, done: false })) },
+    }));
+  },
+
+  async canonForRolling() {
+    if (!get().canon) await get().loadCanon();
+    const canon = get().canon;
+    if (!canon) set({ notice: 'Story cards unavailable — rolling from the craft deck.', error: null });
+    return canon?.entities ?? [];
   },
 
   async loadPremise() {

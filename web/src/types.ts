@@ -380,13 +380,18 @@ export interface Selection {
   text: string;
 }
 
+/** Constraint Generator: the rolled set pinned over the draft. */
+export type ConstraintSlot = 'pov' | 'place' | 'anchor' | 'restriction' | 'pressure';
+export interface ConstraintItem { slot: ConstraintSlot; text: string; done: boolean; entityId?: string }
+export interface ConstraintStore { version: 1; pinned: { id: string; pinnedAt: string; items: ConstraintItem[] } | null }
+
 /** Premise Builder: one working premise every agent reads, plus scratch variants. */
 export interface PremiseSlots { protagonist: string; want: string; obstacle: string; stakes: string; twist: string }
 export type PremiseVariantSource = 'manual' | 'muse';
 export interface PremiseVariant { id: string; text: string; source: PremiseVariantSource; createdAt: string }
 export interface PremiseStore { version: 1; working: string; slots: PremiseSlots; variants: PremiseVariant[] }
 
-export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline' | 'canon' | 'characters' | 'world' | 'plot' | 'scenes' | 'dialogue' | 'themes' | 'references' | 'goals' | 'progress' | 'sources' | 'premise';
+export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline' | 'canon' | 'characters' | 'world' | 'plot' | 'scenes' | 'dialogue' | 'themes' | 'references' | 'goals' | 'progress' | 'sources' | 'premise' | 'constraints';
 export type Region = 'main' | 'right' | 'bottom';
 
 export interface Pane {

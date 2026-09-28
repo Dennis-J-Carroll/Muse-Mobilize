@@ -108,3 +108,15 @@
 .desk-switcher .focus-card-results > button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px; border: 0; border-bottom: 1px solid var(--line); background: transparent; border-radius: 4px; }
 .desk-switcher .focus-card-results > button.is-active { background: rgba(63, 95, 125, .1); box-shadow: inset 2px 0 0 var(--accent); }
 .desk-switcher .focus-card-results small { margin-left: auto; color: var(--ink-soft); font-family: var(--font-mono); font-size: 11px; }
+/* Pinned constraints: one slim row of tickable chips above the manuscript; overflow scrolls sideways. */
+.pinned-constraints { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 5px 10px 5px 16px; border-bottom: 1px solid var(--line); background: rgba(95, 131, 103, .07); }
+.pinned-constraints ul { flex: 1; min-width: 0; display: flex; gap: 6px; margin: 0; padding: 2px 0; list-style: none; overflow-x: auto; scrollbar-width: thin; }
+.pinned-constraints li { flex: 0 0 auto; }
+.pinned-constraints label { display: inline-flex; align-items: center; gap: 6px; max-width: 320px; min-height: 28px; padding: 3px 10px 3px 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--glass-face); color: var(--ink); font-size: 12px; cursor: pointer; }
+.pinned-constraints label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pinned-constraints input { margin: 0; accent-color: var(--ok); }
+.pinned-constraints li.is-done label { color: var(--ink-soft); text-decoration: line-through; background: transparent; }
+.pinned-constraints > button { flex: 0 0 auto; width: 28px; height: 28px; padding: 0; border: 1px solid transparent; border-radius: 50%; background: transparent; color: var(--ink-mid); font-size: 15px; cursor: pointer; }
+.pinned-constraints > button:hover { border-color: var(--line); color: var(--accent); }
+.writing-toolbar > .writing-dice { min-width: 32px; padding: 3px 6px; font-size: 15px; line-height: 1; }
+@media (pointer: coarse) { .pinned-constraints label, .pinned-constraints > button { min-height: 44px; } .pinned-constraints > button { width: 44px; } }

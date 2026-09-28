@@ -389,3 +389,24 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .premise-slots { grid-template-columns: minmax(0, 1fr); }
 }
 @media (pointer: coarse) { .premise-item-actions button { min-height: 44px; min-width: 44px; } }
+
+/* Constraint Generator pane. */
+.constraints-workspace { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: #f3f4f0; }
+.constraints-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 20px 28px; display: grid; gap: 14px; align-content: start; }
+.constraints-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.constraint-row { display: grid; grid-template-columns: 130px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-left: 4px solid var(--card-sand); border-radius: 10px; background: rgba(255,255,255,.72); }
+.constraint-row.from-canon { border-left-color: var(--ok); }
+.constraint-row.is-locked { background: rgba(63,95,125,.06); }
+.constraint-label { display: grid; color: var(--ink-mid); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.constraint-label small { color: var(--ok); font-size: 10px; letter-spacing: 0; text-transform: none; }
+.constraint-row p { margin: 0; color: var(--ink); font: 16px/1.45 var(--font-prose); overflow-wrap: anywhere; }
+.constraint-row-actions { display: flex; gap: 4px; }
+.constraint-row-actions button { width: 32px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--glass-face); color: var(--ink-mid); font-size: 14px; cursor: pointer; }
+.constraint-row-actions button[aria-pressed="true"] { border-color: var(--accent); background: rgba(63,95,125,.12); }
+.constraint-row-actions button:disabled { opacity: .4; cursor: default; }
+@media (max-width: 700px) {
+  .constraints-scroll { padding: 12px 10px 20px; }
+  .constraint-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .constraint-label { grid-column: 1 / -1; }
+}
+@media (pointer: coarse) { .constraint-row-actions button { width: 44px; height: 44px; } }
