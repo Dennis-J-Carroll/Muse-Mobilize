@@ -11,7 +11,7 @@ import { readEvents, emit } from './events.js';
 import { runAgent } from './agents.js';
 import { applyPatch } from './protocol.js';
 import { readSettings, writeSettings, redact } from './settings.js';
-import { providerStatus, testProvider } from './providers/index.js';
+import { providerStatus, testProvider, resolveProvider } from './providers/index.js';
 import { createCanonEntity, createCanonFact, readCanon, updateCanonEntity, updateCanonFact } from './canon.js';
 import { createPlotEdge, createPlotNode, readPlot, updatePlotEdge, updatePlotNode } from './plot.js';
 import { localModelInstaller } from './providers/local-models.js';
@@ -20,6 +20,8 @@ import { imageAssetPath, managedImageFileName, saveImageAsset } from './assets.j
 import { createReference, deleteReference, readReferences, updateReference } from './references.js';
 import { deleteOrphanedImages } from './imageGc.js';
 import { readGoals, writeGoals } from './goals.js';
+import { readPremise, writePremise, PREMISE_WORKING_MAX } from './premise.js';
+import { generateWhatIfs } from './premise-what-ifs.js';
 import { readProgress } from './progress.js';
 import { readWorldMap, writeWorldMap } from './world-map.js';
 import {
@@ -50,7 +52,9 @@ function historySession(req: express.Request): string | null {
 async function editScope(req: express.Request): Promise<{ label: string; paths: string[] } | null> {
   if (!req.params.id || !['POST', 'PUT', 'DELETE'].includes(req.method)) return null;
   const route = String(req.route?.path ?? '').replace('/api/projects/:id/', '');
-  const stores: Record<string, string> = { canon: 'canon/canon.json', plot: 'plot/plot.json', scenes: 'scenes/scenes.json', references: 'references/references.json', goals: 'goals/goals.json', connections: 'connections/connections.json', 'world-map': 'world/map.json', media: 'media/canvases/default.json' };
+  const stores: Record<string, string> = { canon: 'canon/canon.json', plot: 'plot/plot.json', scenes: 'scenes/scenes.json', references: 'references/references.json', goals: 'goals/goals.json', premise: 'premise/premise.json', connections: 'connections/connections.json', 'world-map': 'world/map.json', media: 'media/canvases/default.json' };
+  // Asking for what-ifs stores nothing, so it is not an undoable edit.
+  if (route === 'premise/what-ifs') return null;
   const kind = route.split('/')[0];
   const verb = req.method === 'DELETE' ? 'Remove' : req.method === 'POST' ? 'Add' : 'Edit';
   // Only a media node delete can touch an asset file (deleteOrphanedImages/deleteOrphanedMedia);
@@ -404,6 +408,28 @@ app.delete('/api/projects/:id/references/:referenceId', wrap(async (req, res) =>
   await deleteOrphanedImages(dir, candidateFileNames);
   await emit(dir, 'reference.deleted', { referenceId: removed.id, kind: removed.kind, title: removed.title });
   res.json({ reference: removed });
+}));
+
+/* ----------------------------------------------------------------- premise */
+
+app.get('/api/projects/:id/premise', wrap(async (req, res) => {
+  res.json({ premise: await readPremise(await projectDir(req.params.id)) });
+}));
+
+app.put('/api/projects/:id/premise', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const premise = await writePremise(dir, req.body ?? {});
+  await emit(dir, 'premise.updated', { variants: premise.variants.length, hasWorking: Boolean(premise.working) });
+  res.json({ premise });
+}));
+
+app.post('/api/projects/:id/premise/what-ifs', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const basis = String(req.body?.basis ?? '').trim().slice(0, PREMISE_WORKING_MAX);
+  if (!basis) throw new Error('Write a premise or fill the logline slots before asking for what-ifs.');
+  const whatIfs = await generateWhatIfs(await resolveProvider('default'), basis);
+  await emit(dir, 'premise.what-ifs', { count: whatIfs.length });
+  res.json({ whatIfs });
 }));
 
 /* ------------------------------------------------------------------- goals */

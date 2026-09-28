@@ -6,7 +6,7 @@ import { reconcileDeskPanes, type DeskPane } from './desks';
 import { draftJournal, draftKey, documentDraftScope, type DraftEntry } from './draftRecovery';
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
-  FloatingPanel, GoalStore, ProgressProjection, ReferenceStore, StoryReference,
+  FloatingPanel, GoalStore, PremiseStore, ProgressProjection, ReferenceStore, StoryReference,
   LocalModelInstallResult, LocalModelProgress, MuseEvent, Pane, PaneType, Patch, ProjectManifest,
   PlotEdge, PlotEdgeRelation, PlotGraph, PlotNode, PlotNodeKind, PlotWorldRef,
   ProviderCheckResult, ProviderStatus, Region, Scene, SceneBoard, SceneStatus, SceneTheme, Selection, SettingsView, StoryImage, WorkspaceDef, WorldMap, WorldProfile,
@@ -52,6 +52,7 @@ interface State {
   sceneBoard: SceneBoard | null;
   references: ReferenceStore | null;
   goals: GoalStore | null;
+  premise: PremiseStore | null;
   progress: ProgressProjection | null;
   worldMap: WorldMap | null;
   worldFocusEntityId: string | null;
@@ -132,6 +133,10 @@ interface State {
   updateReference: (referenceId: string, patch: Partial<Omit<StoryReference, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<StoryReference | null>;
   deleteReference: (referenceId: string) => Promise<boolean>;
   loadGoals: () => Promise<void>;
+  loadPremise: () => Promise<void>;
+  /** Optimistic: the pane updates at once; a failed save rolls back and reports. */
+  updatePremise: (next: (current: PremiseStore) => PremiseStore) => Promise<PremiseStore | null>;
+  premiseWhatIfs: (basis: string) => Promise<string[] | null>;
   updateGoals: (patch: GoalPatch | ((current: GoalStore) => GoalPatch)) => Promise<GoalStore | null>;
   loadWorldMap: () => Promise<void>;
   updateWorldMap: (patch: Partial<Omit<WorldMap, 'version'>>) => Promise<WorldMap | null>;
@@ -158,6 +163,7 @@ let projectSession = 0;
 export const getProjectSession = () => projectSession;
 type GoalPatch = Partial<Pick<GoalStore, 'sessionTarget' | 'milestones'>>;
 const goalUpdateQueues = new Map<number, Promise<void>>();
+const premiseQueues = new Map<number, Promise<void>>();
 
 const titleFor = (type: PaneType, s: State, bindingId?: string): string => {
   if (type === 'agent') return s.agents.find((a) => a.id === bindingId)?.name ?? 'Agent';
@@ -172,6 +178,7 @@ const titleFor = (type: PaneType, s: State, bindingId?: string): string => {
   if (type === 'themes') return 'Theme Threads';
   if (type === 'references') return 'Reference Board';
   if (type === 'goals') return 'Writing Goals';
+  if (type === 'premise') return 'Premise';
   if (type === 'progress') return 'Manuscript Progress';
   if (type === 'sources') return 'Sources';
   return s.docs[bindingId ?? '']?.title ?? s.project?.documents.find((d) => d.id === bindingId)?.title ?? 'Document';
@@ -201,6 +208,7 @@ export const useStore = create<State>((set, get) => ({
   sceneBoard: null,
   references: null,
   goals: null,
+  premise: null,
   worldMap: null,
   progress: null,
   worldFocusEntityId: null,
@@ -252,7 +260,7 @@ export const useStore = create<State>((set, get) => ({
       Object.keys(saveTimers).forEach((key) => delete saveTimers[key]);
       projectSession += 1;
       try { localStorage.setItem('muse:lastProject', id); } catch { /* Recovery reports unavailable browser storage when writing. */ }
-      set({ project, agents, workspaces, docs: {}, panes: [], floatingPanels: [], floatingEditorContents: {}, runs: {}, events: [], canon: null, plot: null, sceneBoard: null, references: null, goals: null, progress: null,  worldMap: null,
+      set({ project, agents, workspaces, docs: {}, panes: [], floatingPanels: [], floatingEditorContents: {}, runs: {}, events: [], canon: null, plot: null, sceneBoard: null, references: null, goals: null, premise: null, progress: null,  worldMap: null,
   worldFocusEntityId: null,
   plotFocusNodeId: null,
   sceneFocusId: null,
@@ -357,6 +365,10 @@ export const useStore = create<State>((set, get) => ({
         canon: canon.canon, plot: plot.plot, sceneBoard: scenes.board, references: references.references, goals: goals.goals, worldMap: world.worldMap, sources: sources.sources, selection: null,
         panes: get().panes.filter((pane) => pane.binding?.type !== 'document' || opened.project.documents.some((doc) => doc.id === pane.binding?.id)),
         notice: `${direction === 'undo' ? 'Undid' : 'Redid'}: ${result.label}.`, error: null });
+      if (result.files.includes('premise/premise.json')) {
+        const { premise } = await api.premise(project.id);
+        if (current()) set({ premise });
+      }
       await get().refreshEvents();
     } catch (error: any) { if (current()) set({ error: error.message }); }
     finally { useEditHistory.setState({ restoring: false }); }
@@ -419,7 +431,7 @@ export const useStore = create<State>((set, get) => ({
       set({ panes: s.panes.map((p) => (p.id === existing.id ? { ...p, sizeMode: opts.focus ? 'maximized' : 'normal' } : opts.focus && p.sizeMode === 'maximized' ? { ...p, sizeMode: 'normal' } : p)) });
       return;
     }
-    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' || type === 'world' || type === 'plot' || type === 'scenes' || type === 'dialogue' || type === 'themes' || type === 'references' || type === 'goals' || type === 'progress' || type === 'sources' ? 'main' : 'bottom');
+    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' || type === 'world' || type === 'plot' || type === 'scenes' || type === 'dialogue' || type === 'themes' || type === 'references' || type === 'goals' || type === 'progress' || type === 'sources' || type === 'premise' ? 'main' : 'bottom');
     const pane: Pane = {
       id: `pane-${++paneSeq}-${type}-${bindingId ?? ''}`,
       type,
@@ -1033,6 +1045,66 @@ export const useStore = create<State>((set, get) => ({
       if (get().project !== s.project || projectSession !== session) return false;
       set({ error: err.message });
       return false;
+    }
+  },
+
+  async loadPremise() {
+    const session = projectSession;
+    const s = get();
+    if (!s.project) return;
+    try {
+      const { premise } = await api.premise(s.project.id);
+      if (get().project !== s.project || projectSession !== session) return;
+      set({ premise });
+    } catch (err: any) {
+      if (get().project !== s.project || projectSession !== session) return;
+      set({ error: `Could not load premise: ${err.message}` });
+    }
+  },
+
+  async updatePremise(next) {
+    const session = projectSession;
+    const project = get().project;
+    if (!project) return null;
+    const prior = premiseQueues.get(session) ?? Promise.resolve();
+    let result: PremiseStore | null = null;
+    const operation = prior.catch(() => undefined).then(async () => {
+      const current = get().premise;
+      if (!current || get().project !== project || projectSession !== session) return;
+      const optimistic = next(current);
+      if (optimistic === current) { result = current; return; }
+      set({ premise: optimistic });
+      try {
+        const { premise } = await api.updatePremise(project.id, optimistic);
+        if (get().project !== project || projectSession !== session) return;
+        // Keep any newer optimistic state queued behind this save.
+        if (get().premise === optimistic) set({ premise });
+        result = premise;
+        await get().refreshEvents();
+      } catch (err: any) {
+        if (get().project !== project || projectSession !== session) return;
+        if (get().premise === optimistic) set({ premise: current });
+        set({ error: `Premise not saved: ${err.message}` });
+      }
+    });
+    premiseQueues.set(session, operation);
+    await operation;
+    if (premiseQueues.get(session) === operation) premiseQueues.delete(session);
+    return result;
+  },
+
+  async premiseWhatIfs(basis) {
+    const session = projectSession;
+    const project = get().project;
+    if (!project) return null;
+    try {
+      const { whatIfs } = await api.premiseWhatIfs(project.id, basis);
+      if (get().project !== project || projectSession !== session) return null;
+      await get().refreshEvents();
+      return whatIfs;
+    } catch (err: any) {
+      if (get().project === project && projectSession === session) set({ error: err.message });
+      return null;
     }
   },
 

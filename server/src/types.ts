@@ -102,6 +102,12 @@ export interface GoalMilestone {
   updatedAt: string;
 }
 
+/** Premise Builder: one working premise every agent reads, plus scratch variants. */
+export interface PremiseSlots { protagonist: string; want: string; obstacle: string; stakes: string; twist: string }
+export type PremiseVariantSource = 'manual' | 'muse';
+export interface PremiseVariant { id: string; text: string; source: PremiseVariantSource; createdAt: string }
+export interface PremiseStore { version: 1; working: string; slots: PremiseSlots; variants: PremiseVariant[] }
+
 export interface GoalStore {
   version: 1;
   sessionTarget: SessionTarget;
