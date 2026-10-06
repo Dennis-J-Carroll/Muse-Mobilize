@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { cardSnapshot, pickAgent, respondAsMuse } from '../src/thread-reply.js';
-import { createThread, readThreads, addMessage } from '../src/threads.js';
+import { createThread, readThreads, addMessage, addMuseMessage } from '../src/threads.js';
 import { createCanonEntity } from '../src/canon.js';
 import { mockProvider } from '../src/providers/mock.js';
 import type { AgentDef, ModelProvider } from '../src/types.js';
@@ -59,7 +59,7 @@ test('a provider failure leaves the note saved and marks the Muse message failed
   assert.equal(failed.messages[0].text, '@Muse thoughts?');
   assert.equal(failed.messages[1].state, 'failed');
   assert.match(failed.messages[1].text, /provider down/);
-  const retried = await respondAsMuse(dir, thread.id, agent('muse', 'muse'), mockProvider, failed.messages[1].id);
+  const retried = await respondAsMuse(dir, thread.id, agent('muse', 'muse'), mockProvider, { replacingMessageId: failed.messages[1].id });
   assert.equal(retried.messages.length, 2, 'retry replaces the failed message, no duplicates');
   assert.equal(retried.messages[1].state, undefined);
 });
@@ -67,7 +67,7 @@ test('a provider failure leaves the note saved and marks the Muse message failed
 test('failed Muse messages stay out of the prompt, and the latest user note is called out', async (t) => {
   const { dir, target } = await fixture(t);
   const thread = await createThread(dir, { target, text: 'plain note' });
-  await addMessage(dir, thread.id, { author: { kind: 'muse', agentId: 'muse' }, text: 'old error', state: 'failed' });
+  await addMuseMessage(dir, thread.id, { agentId: 'muse', text: 'old error', failed: true });
   let seen = '';
   const spy: ModelProvider = { id: 'spy', complete: async (req: { messages: { content: string }[] }) => { seen = req.messages.map((m) => m.content).join('\n'); return { text: 'ok', model: 'spy' }; } } as unknown as ModelProvider;
   await addMessage(dir, thread.id, { author: { kind: 'user' }, text: '@Muse now?' });
@@ -76,4 +76,38 @@ test('failed Muse messages stay out of the prompt, and the latest user note is c
   assert.match(seen, /plain note/);
   assert.match(seen, /<latest-note>\s*@Muse now\?/);
   assert.equal((await readThreads(dir)).threads[0].messages.at(-1)!.text, 'ok');
+});
+
+test('a provider that never answers times out into a failed reply instead of hanging', { timeout: 3000 }, async (t) => {
+  const { dir, target } = await fixture(t);
+  const thread = await createThread(dir, { target, text: '@Muse hello?' });
+  const hung: ModelProvider = { id: 'hung', complete: () => new Promise(() => {}) } as unknown as ModelProvider;
+  const result = await respondAsMuse(dir, thread.id, agent('muse', 'muse'), hung, { timeoutMs: 50 });
+  assert.equal(result.messages.at(-1)!.state, 'failed');
+  assert.match(result.messages.at(-1)!.text, /took too long/);
+});
+
+test('the model call runs outside the recorded write, and the reply is recorded as its own write', async (t) => {
+  const { dir, target } = await fixture(t);
+  const thread = await createThread(dir, { target, text: '@Muse go' });
+  const events: string[] = [];
+  const spy: ModelProvider = { id: 'spy', complete: async () => { events.push('model'); return { text: 'ok', model: 'spy' }; } } as unknown as ModelProvider;
+  await respondAsMuse(dir, thread.id, agent('muse', 'muse'), spy, {
+    record: async (label, write) => { events.push(`record:${label}:start`); const value = await write(); events.push(`record:${label}:end`); return value; },
+  });
+  assert.deepEqual(events, ['model', 'record:Muse reply:start', 'record:Muse reply:end']);
+});
+
+test('an agent whose access rules exclude the card never sees its contents', async (t) => {
+  const { dir, target } = await fixture(t);
+  const thread = await createThread(dir, { target, text: '@Muse thoughts?' });
+  let seen = '';
+  const spy: ModelProvider = { id: 'spy', complete: async (req: { messages: { content: string }[] }) => { seen = req.messages.map((m) => m.content).join('\n'); return { text: 'ok', model: 'spy' }; } } as unknown as ModelProvider;
+  const restricted = { ...agent('muse', 'muse'), access: { version: 1, revision: 'r1', allow: [{ kind: 'scene', selection: { mode: 'all' } }], deny: [], selection: false, proposeEdits: false } } as unknown as AgentDef;
+  await respondAsMuse(dir, thread.id, restricted, spy);
+  assert.doesNotMatch(seen, /Keeper of the lantern/);
+  assert.match(seen, /withheld/i);
+  const open = { ...restricted, access: { ...(restricted.access as object), allow: [{ kind: 'character', selection: { mode: 'all' } }] } } as unknown as AgentDef;
+  await respondAsMuse(dir, thread.id, open, spy);
+  assert.match(seen, /Keeper of the lantern/);
 });

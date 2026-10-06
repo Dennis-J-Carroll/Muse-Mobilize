@@ -6,7 +6,8 @@
   in its header, next to **#**. A badge shows how many notes are open.
 - Write a note and press Enter. Start or include **@Muse** and Muse replies in the thread, using the
   card's saved fields and the thread so far. Resolve with ✓, reopen with ↺, start another note with ＋.
-- If Muse can't reply (no agent, provider error), your note is kept and a **Retry** appears.
+- If Muse can't reply (no agent, provider error, or no answer within 90 seconds), your note is kept and a
+  **Retry** appears. An agent restricted in Agent Studio never sees a card it is not allowed to read.
 - Escape closes the thread first. On a phone the thread is a bottom sheet.
 
 ## Notes Board

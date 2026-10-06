@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { splitMentions } from '../../../shared/threads';
+import { THREAD_TEXT_MAX, splitMentions } from '../../../shared/threads';
 import type { Thread, ThreadMessage } from '../../../shared/threads';
 import { SESSION_START, useThreadPopover, useThreads } from '../threads';
 import { canCombine, cardLabel, filterThreads } from '../threadView';
@@ -99,7 +99,7 @@ function BoardMessage({ thread, message, locked }: { thread: Thread; message: Th
   const mine = message.author.kind === 'user';
   if (editing) {
     return <li className="board-message is-editing">
-      <textarea rows={3} value={draft} aria-label="Edit note" onChange={(event) => setDraft(event.target.value)} />
+      <textarea rows={3} value={draft} maxLength={THREAD_TEXT_MAX} aria-label="Edit note" onChange={(event) => setDraft(event.target.value)} />
       <span>
         <button type="button" className="btn btn-primary" disabled={busy || !draft.trim()}
           onClick={() => void useThreads.getState().editMessage(thread.id, message.id, draft).then((saved) => { if (saved) setEditing(false); })}>Save</button>
@@ -109,8 +109,7 @@ function BoardMessage({ thread, message, locked }: { thread: Thread; message: Th
   }
   return <li className={`board-message ${mine ? 'is-user' : 'is-muse'}`}>
     <b>{mine ? 'You' : 'Muse'}</b>
-    {message.state === 'pending' ? <em>Muse is thinking…</em>
-      : message.state === 'failed' ? <em className="thread-failed">Muse couldn’t reply: {message.text}</em>
+    {message.state === 'failed' ? <em className="thread-failed">Muse couldn’t reply: {message.text}</em>
       : <p>{splitMentions(message.text).map((part, index) => part.mention ? <mark key={index} className="thread-mention">{part.text}</mark> : <span key={index}>{part.text}</span>)}</p>}
     {mine && !locked && <button type="button" className="linkish" onClick={() => { setDraft(message.text); setEditing(true); }}>Edit</button>}
   </li>;

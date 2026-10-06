@@ -385,6 +385,11 @@ export const useStore = create<State>((set, get) => ({
         const { premise } = await api.premise(project.id);
         if (current()) set({ premise });
       }
+      if (result.files.includes('threads/threads.json')) {
+        // Loaded lazily: threads.ts imports this store, so a static import here would be circular.
+        const { useThreads } = await import('./threads');
+        await useThreads.getState().refresh();
+      }
       await get().refreshEvents();
     } catch (error: any) { if (current()) set({ error: error.message }); }
     finally { useEditHistory.setState({ restoring: false }); }

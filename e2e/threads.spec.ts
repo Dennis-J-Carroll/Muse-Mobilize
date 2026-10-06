@@ -109,3 +109,38 @@ test('after a reload the board explains that older notes are hidden and shows th
   await board.getByRole('button', { name: 'Show all notes' }).click();
   await expect(board.getByText('Written before the reload')).toBeVisible();
 });
+
+test('undo restores combined notes and the open board follows', async ({ page, projectId, request }) => {
+  const arrival = await seedScene(request, projectId, 'Arrival');
+  const session = await page.evaluate(() => sessionStorage.getItem('muse:undo-session'));
+  expect(session).toBeTruthy();
+  for (const text of ['Arrival one', 'Arrival two']) {
+    const response = await request.post(`/api/projects/${projectId}/threads`, { headers: { 'x-muse-history-session': session! }, data: { target: { kind: 'scene', id: arrival }, text } });
+    expect(response.ok()).toBeTruthy();
+  }
+  const board = await openNotesBoard(page);
+  const notes = board.locator('.board-note');
+  await expect(notes).toHaveCount(2);
+  await board.getByLabel('Select note on Arrival').first().check();
+  await board.getByLabel('Select note on Arrival').nth(1).check();
+  await board.getByRole('button', { name: /^Combine/ }).click();
+  await expect(notes).toHaveCount(1);
+  await page.getByRole('button', { name: 'Undo saved change' }).click();
+  await expect(notes).toHaveCount(2);
+});
+
+test('Escape inside another dialog is left to that dialog while a thread is open', async ({ page, projectId, request }) => {
+  await seedScene(request, projectId, 'Arrival');
+  const card = await openSceneCard(page, 'Arrival');
+  await card.getByRole('button', { name: 'Notes', exact: true }).click();
+  const thread = page.getByRole('dialog', { name: 'Notes on Arrival', exact: true });
+  await expect(thread).toBeVisible();
+  await page.getByRole('button', { name: 'Open connections', exact: true }).press('Enter');
+  const connections = page.getByRole('dialog', { name: 'Tags and connections', exact: true });
+  await expect(connections).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(connections).toHaveCount(0);
+  await expect(thread).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(thread).toHaveCount(0);
+});

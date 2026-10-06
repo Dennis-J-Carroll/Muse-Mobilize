@@ -36,14 +36,12 @@ test('filterThreads: session keeps notes touched since start, trash is its own l
   assert.deepEqual(ids('trash'), ['bin']);
 });
 
-test('canCombine needs two or more live notes on one card with no pending Muse reply', () => {
+test('canCombine needs two or more live notes on one card', () => {
   assert.equal(canCombine([make('a')]).ok, false);
   assert.equal(canCombine([make('a'), make('b')]).ok, true);
   const mixed = canCombine([make('a'), make('b', { target: { kind: 'scene', id: 's1' } })]);
   assert.deepEqual([mixed.ok, mixed.reason], [false, 'Combine works within one card']);
   assert.equal(canCombine([make('a'), make('b', { trashedAt: T0 })]).ok, false);
-  const pending = make('p', { messages: [{ id: 'x', author: { kind: 'muse', agentId: 'muse' }, text: '', createdAt: T0, state: 'pending' }] });
-  assert.equal(canCombine([make('a'), pending]).ok, false);
 });
 
 test('placePopover goes beside the card when there is room, else overlaps its right edge, always on screen', () => {

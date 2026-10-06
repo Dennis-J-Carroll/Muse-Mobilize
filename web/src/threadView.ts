@@ -28,7 +28,6 @@ export function canCombine(picked: Thread[]): { ok: boolean; reason?: string } {
   if (picked.length < 2) return { ok: false, reason: 'Select two or more notes' };
   if (picked.some((thread) => thread.trashedAt)) return { ok: false, reason: 'Restore trashed notes first' };
   if (!picked.every((thread) => sameTarget(thread.target, picked[0].target))) return { ok: false, reason: 'Combine works within one card' };
-  if (picked.some((thread) => thread.messages.some((message) => message.state === 'pending'))) return { ok: false, reason: 'Wait for Muse to finish' };
   return { ok: true };
 }
 

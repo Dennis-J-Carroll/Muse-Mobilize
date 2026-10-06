@@ -10,8 +10,8 @@ export interface ThreadMessage {
   text: string;
   createdAt: string;
   editedAt?: string;
-  /** Muse replies only: `pending` while the model runs, `failed` carries the error text. */
-  state?: 'pending' | 'failed';
+  /** Muse replies only: `failed` means the model could not answer; `text` carries the reason and Retry replaces it. */
+  state?: 'failed';
   /** Reserved for the later apply-edit slice; nothing reads or writes it yet. */
   proposal?: { field: string; before: string; after: string };
 }

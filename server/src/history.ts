@@ -111,6 +111,20 @@ export async function recordEdit<T>(dir: string, session: string | null, label: 
   return result;
 }
 
+/**
+ * For writes that validate first and write atomically (the thread store): a thrown rejection leaves the
+ * project untouched, so it is rethrown without clearing the session's undo history (recordEdit would).
+ */
+export async function recordRejectable<T>(dir: string, session: string | null, label: string, scopes: string[], write: () => Promise<T>): Promise<T> {
+  let rejected = false;
+  let reason: unknown;
+  const value = await withProjectEdit(dir, () => recordEdit(dir, session, label, scopes, async () => {
+    try { return await write(); } catch (error) { rejected = true; reason = error; return undefined as T; }
+  }));
+  if (rejected) throw reason;
+  return value;
+}
+
 async function replaceFile(dir: string, file: string, content: Buffer | null) {
   const destination = await checkedPath(dir, file);
   if (content === null) { await fs.rm(destination, { force: true }); return; }

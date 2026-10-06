@@ -4,8 +4,8 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {
-  addMessage, completeMuseMessage, createThread, deleteForever, editMessage, listThreads, mergeThreads,
-  readThreads, removeMessage, setStatus, setTrashed, ThreadConflictError,
+  addMessage, addMuseMessage, createThread, deleteForever, editMessage, listThreads, mergeThreads,
+  readThreads, setStatus, setTrashed, ThreadConflictError,
 } from '../src/threads.js';
 import { createCanonEntity } from '../src/canon.js';
 import { createPlotNode } from '../src/plot.js';
@@ -69,8 +69,8 @@ test('status, edit, and stale-write conflict', async (t) => {
   const edited = await editMessage(dir, thread.id, thread.messages[0].id, { text: 'note, revised' });
   assert.equal(edited.messages[0].text, 'note, revised');
   assert.ok(edited.messages[0].editedAt);
-  const muse = await addMessage(dir, thread.id, { author: { kind: 'muse', agentId: 'muse' }, text: '', state: 'pending' });
-  await assert.rejects(editMessage(dir, thread.id, muse.message.id, { text: 'hijack' }), /Only your own notes/);
+  const withMuse = await addMuseMessage(dir, thread.id, { agentId: 'muse', text: 'a reply' });
+  await assert.rejects(editMessage(dir, thread.id, withMuse.messages.at(-1)!.id, { text: 'hijack' }), /Only your own notes/);
 });
 
 test('trashed threads take no replies; delete forever needs trash first', async (t) => {
@@ -87,23 +87,25 @@ test('trashed threads take no replies; delete forever needs trash first', async 
   assert.deepEqual((await readThreads(dir)).threads, []);
 });
 
-test('Muse messages complete or fail, and failed ones can be removed for retry', async (t) => {
+test('Muse replies append atomically; a failed reply is replaced in one write, never stacked', async (t) => {
   const { dir, canon } = await fixture(t);
   const thread = await createThread(dir, { target: canon, text: '@Muse thoughts?' });
-  const pending = await addMessage(dir, thread.id, { author: { kind: 'muse', agentId: 'muse' }, text: '', state: 'pending' });
-  const done = await completeMuseMessage(dir, thread.id, pending.message.id, { text: 'Pin down her fear.' });
-  const reply = done.messages.find((m) => m.id === pending.message.id)!;
-  assert.equal(reply.text, 'Pin down her fear.');
-  assert.equal(reply.state, undefined);
-  const second = await addMessage(dir, thread.id, { author: { kind: 'muse', agentId: 'muse' }, text: '', state: 'pending' });
-  const failed = await completeMuseMessage(dir, thread.id, second.message.id, { text: 'provider down', failed: true });
-  assert.equal(failed.messages.find((m) => m.id === second.message.id)!.state, 'failed');
-  const removed = await removeMessage(dir, thread.id, second.message.id, 'failed');
-  assert.equal(removed.messages.some((m) => m.id === second.message.id), false);
-  await assert.rejects(removeMessage(dir, thread.id, pending.message.id, 'failed'), /failed/i);
+  const replied = await addMuseMessage(dir, thread.id, { agentId: 'muse', text: 'Pin down her fear.' });
+  assert.deepEqual(replied.messages.at(-1)!.author, { kind: 'muse', agentId: 'muse' });
+  assert.equal(replied.messages.at(-1)!.state, undefined);
+  const failed = await addMuseMessage(dir, thread.id, { agentId: 'muse', text: 'provider down', failed: true });
+  const failedId = failed.messages.at(-1)!.id;
+  assert.equal(failed.messages.at(-1)!.state, 'failed');
+  const retried = await addMuseMessage(dir, thread.id, { agentId: 'muse', text: 'second try', replacingMessageId: failedId });
+  assert.equal(retried.messages.length, 3, 'user note + first reply + replacement; failed one is gone');
+  assert.equal(retried.messages.some((m) => m.id === failedId), false);
+  await assert.rejects(addMuseMessage(dir, thread.id, { agentId: 'muse', text: 'x', replacingMessageId: replied.messages[1].id }), /failed Muse reply/);
+  assert.equal((await readThreads(dir)).threads[0].messages.length, 3, 'a rejected replacement changes nothing');
+  await setTrashed(dir, thread.id, true);
+  await assert.rejects(addMuseMessage(dir, thread.id, { agentId: 'muse', text: 'late' }), /Restore/);
 });
 
-test('merge combines same-card threads, keeps the earliest, and refuses mixed cards or pending replies', async (t) => {
+test('merge combines same-card threads, keeps the earliest, and refuses mixed cards', async (t) => {
   const { dir, canon, plot } = await fixture(t);
   const a = await createThread(dir, { target: canon, text: 'a1' });
   await new Promise((resolve) => setTimeout(resolve, 5));
@@ -116,9 +118,6 @@ test('merge combines same-card threads, keeps the earliest, and refuses mixed ca
   assert.deepEqual(merged.messages.map((m) => m.text), ['a1', 'b1']);
   assert.deepEqual(merged.mergedFrom, [b.id]);
   assert.deepEqual((await listThreads(dir, canon)).map((x) => x.id), [a.id]);
-  const c = await createThread(dir, { target: canon, text: 'c1' });
-  await addMessage(dir, c.id, { author: { kind: 'muse', agentId: 'muse' }, text: '', state: 'pending' });
-  await assert.rejects(mergeThreads(dir, [a.id, c.id]), /Muse to finish/);
 });
 
 test('a malformed store fails loudly instead of being reset', async (t) => {

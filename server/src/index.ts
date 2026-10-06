@@ -1,5 +1,5 @@
 import express from 'express';
-import { historyStatus, recordEdit, restoreEdit, withProjectEdit } from './history.js';
+import { historyStatus, recordEdit, recordRejectable, restoreEdit, withProjectEdit } from './history.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -56,14 +56,14 @@ function historySession(req: express.Request): string | null {
 async function editScope(req: express.Request): Promise<{ label: string; paths: string[] } | null> {
   if (!req.params.id || !['POST', 'PUT', 'DELETE'].includes(req.method)) return null;
   const route = String(req.route?.path ?? '').replace('/api/projects/:id/', '');
-  const stores: Record<string, string> = { canon: 'canon/canon.json', plot: 'plot/plot.json', scenes: 'scenes/scenes.json', references: 'references/references.json', goals: 'goals/goals.json', premise: 'premise/premise.json', constraints: 'constraints/constraints.json', connections: 'connections/connections.json', threads: 'threads/threads.json', 'world-map': 'world/map.json', media: 'media/canvases/default.json' };
+  const stores: Record<string, string> = { canon: 'canon/canon.json', plot: 'plot/plot.json', scenes: 'scenes/scenes.json', references: 'references/references.json', goals: 'goals/goals.json', premise: 'premise/premise.json', constraints: 'constraints/constraints.json', connections: 'connections/connections.json', 'world-map': 'world/map.json', media: 'media/canvases/default.json' };
   // Asking for what-ifs stores nothing, so it is not an undoable edit.
   if (route === 'premise/what-ifs') return null;
   const kind = route.split('/')[0];
   const verb = req.method === 'DELETE' ? 'Remove' : req.method === 'POST' ? 'Add' : 'Edit';
   // Only a media node delete can touch an asset file (deleteOrphanedImages/deleteOrphanedMedia);
   // a media edge delete never does, so it's excluded from the 'assets' undo scope.
-  if (stores[kind]) return { label: `${verb} ${kind === 'threads' ? 'note' : kind === 'canon' ? 'story card' : kind === 'world-map' ? 'atlas background' : kind === 'media' ? 'canvas placement' : kind}`, paths: [stores[kind], ...((kind === 'references' && req.method === 'DELETE') || kind === 'world-map' || (kind === 'media' && req.method === 'DELETE' && route.endsWith('/nodes/:nodeId')) ? ['assets'] : [])] };
+  if (stores[kind]) return { label: `${verb} ${kind === 'canon' ? 'story card' : kind === 'world-map' ? 'atlas background' : kind === 'media' ? 'canvas placement' : kind}`, paths: [stores[kind], ...((kind === 'references' && req.method === 'DELETE') || kind === 'world-map' || (kind === 'media' && req.method === 'DELETE' && route.endsWith('/nodes/:nodeId')) ? ['assets'] : [])] };
   if (route === 'documents/:docId' || route === 'patches/apply') {
     const doc = await readDocument(req.params.id, req.params.docId ?? req.body?.documentId);
     return { label: route === 'patches/apply' ? 'Accept suggested edit' : `Write ${doc.meta.title}`, paths: [doc.meta.path] };
@@ -224,50 +224,76 @@ app.get('/api/projects/:id/threads', wrap(async (req, res) => {
   res.json({ threads: await listThreads(await projectDir(req.params.id), target) });
 }));
 
+/**
+ * Thread writes validate first and write atomically, so each is its own short undoable edit (a rejected one does
+ * not clear undo history). They deliberately bypass `wrap`'s edit scope: a Muse reply's model call must never run
+ * inside the project-wide edit lock, or every manuscript save would queue behind it.
+ */
+async function threadWrite<T>(req: express.Request, res: express.Response, dir: string, label: string, write: () => Promise<T>): Promise<T> {
+  const session = historySession(req);
+  const value = await recordRejectable(dir, session, label, ['threads/threads.json'], write);
+  if (session) res.set('x-muse-history', encodeURIComponent(JSON.stringify(historyStatus(dir, session))));
+  return value;
+}
+
 app.post('/api/projects/:id/threads/merge', wrap(async (req, res) => {
   const dir = await projectDir(req.params.id);
   const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : [];
-  const thread = await mergeThreads(dir, ids);
+  const thread = await threadWrite(req, res, dir, 'Combine notes', () => mergeThreads(dir, ids));
   await emit(dir, 'thread.merged', { threadId: thread.id, merged: ids.length });
   res.json({ thread });
 }));
 
 app.post('/api/projects/:id/threads', wrap(async (req, res) => {
   const dir = await projectDir(req.params.id);
-  let thread = await createThread(dir, { target: req.body?.target, text: req.body?.text });
+  let thread = await threadWrite(req, res, dir, 'Add note', () => createThread(dir, { target: req.body?.target, text: req.body?.text }));
   await emit(dir, 'thread.created', { threadId: thread.id, target: thread.target });
-  if (hasMuseMention(thread.messages[0].text)) thread = await museReply(req.params.id, dir, thread.id, req.body?.agentId);
+  if (hasMuseMention(thread.messages[0].text)) {
+    thread = await museReply(req.params.id, dir, thread.id, req.body?.agentId, { record: (label, write) => threadWrite(req, res, dir, label, write) });
+  }
   res.json({ thread });
 }));
 
 app.post('/api/projects/:id/threads/:tid/messages', wrap(async (req, res) => {
   const dir = await projectDir(req.params.id);
-  const { thread: saved } = await addMessage(dir, req.params.tid, { author: { kind: 'user' }, text: req.body?.text, expectedUpdatedAt: req.body?.expectedUpdatedAt });
-  const thread = hasMuseMention(String(req.body?.text ?? '')) ? await museReply(req.params.id, dir, saved.id, req.body?.agentId) : saved;
+  const { thread: saved } = await threadWrite(req, res, dir, 'Add note', () => addMessage(dir, req.params.tid, { author: { kind: 'user' }, text: req.body?.text, expectedUpdatedAt: req.body?.expectedUpdatedAt }));
+  const thread = hasMuseMention(String(req.body?.text ?? ''))
+    ? await museReply(req.params.id, dir, saved.id, req.body?.agentId, { record: (label, write) => threadWrite(req, res, dir, label, write) })
+    : saved;
   res.json({ thread });
 }));
 
 app.post('/api/projects/:id/threads/:tid/messages/:mid/retry', wrap(async (req, res) => {
   const dir = await projectDir(req.params.id);
-  res.json({ thread: await museReply(req.params.id, dir, req.params.tid, req.body?.agentId, req.params.mid) });
+  const thread = await museReply(req.params.id, dir, req.params.tid, req.body?.agentId, {
+    replacingMessageId: req.params.mid, record: (label, write) => threadWrite(req, res, dir, label, write),
+  });
+  res.json({ thread });
 }));
 
 app.put('/api/projects/:id/threads/:tid', wrap(async (req, res) => {
   const dir = await projectDir(req.params.id);
   const { status, trashed, expectedUpdatedAt } = req.body ?? {};
-  let thread = (await readThreads(dir)).threads.find((item) => item.id === req.params.tid);
-  if (!thread) throw new Error(`No such thread: ${req.params.tid}`);
-  if (status !== undefined) thread = await setStatus(dir, thread.id, status, expectedUpdatedAt);
-  if (trashed !== undefined) thread = await setTrashed(dir, thread.id, Boolean(trashed), status === undefined ? expectedUpdatedAt : undefined);
+  const label = trashed !== undefined ? (trashed === true ? 'Trash note' : 'Restore note') : status === 'resolved' ? 'Resolve note' : 'Reopen note';
+  const thread = await threadWrite(req, res, dir, label, async () => {
+    let current = (await readThreads(dir)).threads.find((item) => item.id === req.params.tid);
+    if (!current) throw new Error(`No such thread: ${req.params.tid}`);
+    if (status !== undefined) current = await setStatus(dir, current.id, status, expectedUpdatedAt);
+    if (trashed !== undefined) current = await setTrashed(dir, current.id, trashed === true, status === undefined ? expectedUpdatedAt : undefined);
+    return current;
+  });
   res.json({ thread });
 }));
 
 app.put('/api/projects/:id/threads/:tid/messages/:mid', wrap(async (req, res) => {
-  res.json({ thread: await editMessage(await projectDir(req.params.id), req.params.tid, req.params.mid, { text: req.body?.text, expectedUpdatedAt: req.body?.expectedUpdatedAt }) });
+  const dir = await projectDir(req.params.id);
+  const thread = await threadWrite(req, res, dir, 'Edit note', () => editMessage(dir, req.params.tid, req.params.mid, { text: req.body?.text, expectedUpdatedAt: req.body?.expectedUpdatedAt }));
+  res.json({ thread });
 }));
 
 app.delete('/api/projects/:id/threads/:tid', wrap(async (req, res) => {
-  await deleteForever(await projectDir(req.params.id), req.params.tid);
+  const dir = await projectDir(req.params.id);
+  await threadWrite(req, res, dir, 'Delete note', () => deleteForever(dir, req.params.tid));
   res.json({ ok: true });
 }));
 

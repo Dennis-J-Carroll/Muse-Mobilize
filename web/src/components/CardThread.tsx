@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ConnectionTarget } from '../../../shared/connections';
-import { sameTarget, splitMentions } from '../../../shared/threads';
+import { THREAD_TEXT_MAX, sameTarget, splitMentions } from '../../../shared/threads';
 import type { Thread, ThreadMessage } from '../../../shared/threads';
 import { useStore } from '../store';
 import { useThreadPopover, useThreads } from '../threads';
@@ -28,8 +28,7 @@ function Bubble({ message, thread }: { message: ThreadMessage; thread: Thread })
   const name = mine ? 'You' : agents.find((agent) => agent.id === (message.author as { agentId: string }).agentId)?.name ?? 'Muse';
   return <li className={`thread-message ${mine ? 'is-user' : 'is-muse'}`}>
     <header><span className="thread-avatar" aria-hidden="true">{name[0]}</span><b>{name}</b><time dateTime={message.createdAt}>{relativeTime(message.createdAt)}{message.editedAt ? ' · edited' : ''}</time></header>
-    {message.state === 'pending' ? <p className="thread-pending" role="status">Muse is thinking…</p>
-      : message.state === 'failed' ? <p className="thread-failed" role="alert">Muse couldn’t reply: {message.text}{' '}
+    {message.state === 'failed' ? <p className="thread-failed" role="alert">Muse couldn’t reply: {message.text}{' '}
           <button type="button" className="linkish" disabled={busy} onClick={() => void useThreads.getState().retry(thread.id, message.id)}>Retry</button></p>
       : <p><MessageText text={message.text} /></p>}
   </li>;
@@ -39,6 +38,7 @@ function ThreadPopover({ target, initialThreadId }: { target: ConnectionTarget; 
   const all = useThreads((state) => state.threads);
   const busy = useThreads((state) => state.busy);
   const error = useThreads((state) => state.error);
+  const thinking = useThreads((state) => state.thinking);
   const panels = useStore((state) => state.floatingPanels);
   const mine = useMemo(() => threadsForTarget(all, target), [all, target]);
   const [selected, setSelected] = useState<string | null>(initialThreadId);
@@ -64,12 +64,14 @@ function ThreadPopover({ target, initialThreadId }: { target: ConnectionTarget; 
   const rect = panel ? document.getElementById(`floating-${panel.id}`)?.getBoundingClientRect() : undefined;
   const place = rect ? placePopover(rect, window.innerWidth, window.innerHeight) : null;
 
-  // Escape closes the thread first. Capture phase, so app-level Escape handlers cannot pre-empt it;
-  // inside a card form Escape keeps its normal meaning (the card docks).
+  // Escape closes the thread first. Capture phase, so app-level Escape handlers cannot pre-empt it
+  // when focus is on the page or in the thread.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.isComposing) return;
-      if ((event.target as Element | null)?.closest?.('.floating-drawer')) return;
+      // Another dialog (a card form, Settings, Connections...) owns Escape while focus is inside it.
+      const owner = (event.target as Element | null)?.closest?.('[role="dialog"]');
+      if (owner && !owner.classList.contains('thread-popover')) return;
       event.preventDefault();
       event.stopPropagation();
       useThreadPopover.getState().close();
@@ -103,11 +105,12 @@ function ThreadPopover({ target, initialThreadId }: { target: ConnectionTarget; 
     {thread?.status === 'resolved' && <p className="thread-resolved">Resolved</p>}
     <ul className="thread-messages" aria-live="polite">
       {thread ? thread.messages.map((message) => <Bubble key={message.id} message={message} thread={thread} />)
-        : <li className="thread-empty">{composingNew ? 'Start a new note below.' : 'No notes yet. Write one, or start with @Muse to ask.'}</li>}
+        : !thinking && <li className="thread-empty">{composingNew ? 'Start a new note below.' : 'No notes yet. Write one, or start with @Muse to ask.'}</li>}
+      {thinking && <li className="thread-message is-muse"><p className="thread-pending" role="status">Muse is thinking…</p></li>}
     </ul>
     {error && <p className="thread-failed" role="alert">{error}</p>}
     <form className="thread-compose" onSubmit={(event) => { event.preventDefault(); void send(); }}>
-      <textarea ref={input} rows={2} aria-label="Add a note or ask Muse" placeholder="Add a note, or @Muse to ask…" value={text} disabled={busy}
+      <textarea ref={input} rows={2} aria-label="Add a note or ask Muse" placeholder="Add a note, or @Muse to ask…" value={text} maxLength={THREAD_TEXT_MAX} disabled={busy}
         onChange={(event) => setText(event.target.value)}
         onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
       <button type="submit" className="btn btn-primary" disabled={busy || !text.trim()}>Send</button>

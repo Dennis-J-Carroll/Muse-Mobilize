@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import yaml from 'js-yaml';
-import { historyStatus, recordEdit, restoreEdit, withProjectEdit } from '../src/history.js';
+import { historyStatus, recordEdit, recordRejectable, restoreEdit, withProjectEdit } from '../src/history.js';
 import { SEED_AGENTS, SEED_CHAPTER, SEED_NOTES, SEED_OUTLINE } from '../src/seed.js';
 
 async function fixture(t: any) {
@@ -103,4 +103,17 @@ test('starter project has a neutral character persona and valid contact IDs', ()
   const agents = SEED_AGENTS.map((agent) => yaml.load(agent.yaml) as any);
   assert.equal(agents.find((a) => a.role === 'character').name, 'character-1');
   for (const agent of agents) for (const id of [...agent.communication?.may_contact ?? [], ...agent.communication?.may_be_contacted_by ?? []]) assert.ok(agents.some((a) => a.id === id), id);
+});
+
+test('a rejected atomic write is rethrown without clearing the undo history, unlike a failed save', async (t) => {
+  const f = await fixture(t);
+  await f.write('after');
+  const before = historyStatus(f.dir, 'phone-session').undo!.id;
+  await assert.rejects(recordRejectable(f.dir, 'phone-session', 'Bad note', ['draft.md'], async () => { throw new Error('A note cannot be empty'); }), /cannot be empty/);
+  assert.equal(historyStatus(f.dir, 'phone-session').undo!.id, before, 'undo entry survives a rejected write');
+  const saved = await recordRejectable(f.dir, 'phone-session', 'Good', ['draft.md'], async () => { await fs.writeFile(path.join(f.dir, 'draft.md'), 'again'); return 'ok'; });
+  assert.equal(saved, 'ok');
+  assert.equal(historyStatus(f.dir, 'phone-session').undo!.label, 'Good');
+  await assert.rejects(withProjectEdit(f.dir, () => recordEdit(f.dir, 'phone-session', 'Broken save', ['draft.md'], async () => { throw new Error('disk'); })), /disk/);
+  assert.equal(historyStatus(f.dir, 'phone-session').undo, null, 'a genuinely failed save still clears undo');
 });

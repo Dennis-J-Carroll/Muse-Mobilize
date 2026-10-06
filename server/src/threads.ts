@@ -31,7 +31,7 @@ function validateStore(value: unknown): ThreadStore {
       messageIds.add(message.id);
       const author = message.author;
       if (!isObject(author) || (author.kind !== 'user' && !(author.kind === 'muse' && isId(author.agentId)))) throw new Error('Malformed message author');
-      if (message.state !== undefined && message.state !== 'pending' && message.state !== 'failed') throw new Error('Malformed message state');
+      if (message.state !== undefined && message.state !== 'failed') throw new Error('Malformed message state');
     }
   }
   return value as unknown as ThreadStore;
@@ -104,7 +104,7 @@ export async function createThread(dir: string, input: { target: ConnectionTarge
 
 export async function addMessage(
   dir: string, threadId: string,
-  input: { author: ThreadAuthor; text: string; state?: 'pending' | 'failed'; expectedUpdatedAt?: string },
+  input: { author: ThreadAuthor; text: string; expectedUpdatedAt?: string },
 ): Promise<{ thread: Thread; message: ThreadMessage }> {
   const text = input.author.kind === 'user' ? noteText(input.text) : String(input.text ?? '');
   return mutate(dir, (store) => {
@@ -112,7 +112,7 @@ export async function addMessage(
     if (thread.trashedAt) throw new Error('Restore this note before replying');
     guard(thread, input.expectedUpdatedAt);
     const now = new Date().toISOString();
-    const message: ThreadMessage = { id: randomUUID(), author: input.author, text, createdAt: now, ...(input.state ? { state: input.state } : {}) };
+    const message: ThreadMessage = { id: randomUUID(), author: input.author, text, createdAt: now };
     thread.messages.push(message);
     touch(thread);
     return { thread, message };
@@ -134,25 +134,20 @@ export function editMessage(dir: string, threadId: string, messageId: string, in
   });
 }
 
-export function completeMuseMessage(dir: string, threadId: string, messageId: string, result: { text: string; failed?: boolean }): Promise<Thread> {
+/** One atomic write for a Muse reply (or its failure); a failed reply being retried is replaced, never stacked. */
+export function addMuseMessage(dir: string, threadId: string, input: { agentId: string; text: string; failed?: boolean; replacingMessageId?: string }): Promise<Thread> {
   return mutate(dir, (store) => {
     const thread = findThread(store, threadId);
-    const message = thread.messages.find((item) => item.id === messageId);
-    if (!message || message.author.kind !== 'muse') throw new Error(`No such Muse message: ${messageId}`);
-    message.text = result.text;
-    if (result.failed) message.state = 'failed'; else delete message.state;
-    touch(thread);
-    return thread;
-  });
-}
-
-export function removeMessage(dir: string, threadId: string, messageId: string, onlyState: 'failed'): Promise<Thread> {
-  return mutate(dir, (store) => {
-    const thread = findThread(store, threadId);
-    const index = thread.messages.findIndex((item) => item.id === messageId);
-    if (index === -1) throw new Error(`No such message: ${messageId}`);
-    if (thread.messages[index].state !== onlyState) throw new Error(`Only a ${onlyState} message can be removed`);
-    thread.messages.splice(index, 1);
+    if (thread.trashedAt) throw new Error('Restore this note before replying');
+    if (input.replacingMessageId !== undefined) {
+      const index = thread.messages.findIndex((item) => item.id === input.replacingMessageId);
+      if (index === -1 || thread.messages[index].state !== 'failed') throw new Error('Only a failed Muse reply can be replaced');
+      thread.messages.splice(index, 1);
+    }
+    thread.messages.push({
+      id: randomUUID(), author: { kind: 'muse', agentId: input.agentId }, text: input.text, createdAt: new Date().toISOString(),
+      ...(input.failed ? { state: 'failed' as const } : {}),
+    });
     touch(thread);
     return thread;
   });
@@ -186,7 +181,6 @@ export function mergeThreads(dir: string, ids: string[]): Promise<Thread> {
     const picked = unique.map((id) => findThread(store, id));
     if (picked.some((thread) => thread.trashedAt)) throw new Error('Restore trashed notes before combining');
     if (!picked.every((thread) => sameTarget(thread.target, picked[0].target))) throw new Error('Combine works within one card');
-    if (picked.some((thread) => thread.messages.some((message) => message.state === 'pending'))) throw new Error('Wait for Muse to finish replying before combining');
     picked.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
     const [primary, ...rest] = picked;
     primary.messages = mergeThreadMessages(picked);

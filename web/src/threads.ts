@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { ConnectionTarget } from '../../shared/connections';
+import { hasMuseMention } from '../../shared/threads';
 import type { Thread } from '../../shared/threads';
 import { api } from './api';
 import { useStore } from './store';
@@ -15,7 +16,10 @@ interface ThreadsState {
   projectId: string | null;
   threads: Thread[];
   loaded: boolean;
+  /** One request at a time; Send, Resolve, Trash and the rest are disabled while it runs. */
   busy: boolean;
+  /** True while a request that asked @Muse is in flight, so the thread can show "Muse is thinking…". */
+  thinking: boolean;
   error: string;
   ensureLoaded: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -29,25 +33,34 @@ interface ThreadsState {
   deleteForever: (threadId: string) => Promise<boolean>;
 }
 
+/** Each request takes a number; only the newest request may clear `busy`, and a project switch invalidates all. */
+let requestSeq = 0;
+
 export const useThreads = create<ThreadsState>((set, get) => {
-  /** Runs a mutation for the current project; results for a project that was switched away from are dropped. */
-  async function apply(op: (projectId: string) => Promise<{ thread: Thread }>, afterMerge?: boolean): Promise<Thread | null> {
+  /** Runs one request for the current project. A result for a project that was switched away from is dropped. */
+  async function run<T>(op: (projectId: string) => Promise<T>, commit: (value: T) => void, options: { thinking?: boolean; refreshAfter?: boolean } = {}): Promise<T | null> {
     const projectId = currentProject();
     if (!projectId || get().busy) return null;
-    set({ busy: true, error: '' });
+    const mine = ++requestSeq;
+    const settle = (error = '') => { if (mine === requestSeq) set({ busy: false, thinking: false, ...(error ? { error } : {}) }); };
+    set({ busy: true, thinking: Boolean(options.thinking), error: '' });
     try {
-      const { thread } = await op(projectId);
-      if (currentProject() !== projectId) return null;
-      set((state) => ({ threads: upsert(state.threads, thread), busy: false }));
-      if (afterMerge) await get().refresh();
-      return thread;
+      const value = await op(projectId);
+      if (currentProject() !== projectId) { settle(); return null; }
+      commit(value);
+      settle();
+      if (options.refreshAfter) await get().refresh();
+      return value;
     } catch (err: any) {
-      if (currentProject() === projectId) { set({ busy: false, error: String(err?.message ?? err) }); await get().refresh(); }
+      if (currentProject() === projectId) { settle(String(err?.message ?? err)); await get().refresh(); } else settle();
       return null;
     }
   }
+  const putThread = (thread: Thread) => set((state) => ({ threads: upsert(state.threads, thread) }));
+  const apply = (op: (projectId: string) => Promise<{ thread: Thread }>, options?: { thinking?: boolean; refreshAfter?: boolean }) =>
+    run(op, ({ thread }) => putThread(thread), options).then((result) => result?.thread ?? null);
   return {
-    projectId: null, threads: [], loaded: false, busy: false, error: '',
+    projectId: null, threads: [], loaded: false, busy: false, thinking: false, error: '',
     async refresh() {
       const projectId = currentProject();
       if (!projectId) return;
@@ -61,28 +74,22 @@ export const useThreads = create<ThreadsState>((set, get) => {
     async ensureLoaded() {
       const projectId = currentProject();
       if (!projectId) return;
-      if (get().projectId !== projectId) set({ projectId, threads: [], loaded: false, error: '' });
+      if (get().projectId !== projectId) {
+        requestSeq++; // a request still running for the old project must not hold this one busy
+        set({ projectId, threads: [], loaded: false, busy: false, thinking: false, error: '' });
+      }
       if (!get().loaded) await get().refresh();
     },
-    create: (target, text) => apply((id) => api.createThread(id, { target, text })),
-    reply: (threadId, text) => apply((id) => api.replyThread(id, threadId, { text, expectedUpdatedAt: get().threads.find((t) => t.id === threadId)?.updatedAt })),
-    retry: (threadId, messageId) => apply((id) => api.retryThreadMessage(id, threadId, messageId)),
+    create: (target, text) => apply((id) => api.createThread(id, { target, text }), { thinking: hasMuseMention(text) }),
+    reply: (threadId, text) => apply((id) => api.replyThread(id, threadId, { text, expectedUpdatedAt: get().threads.find((t) => t.id === threadId)?.updatedAt }), { thinking: hasMuseMention(text) }),
+    retry: (threadId, messageId) => apply((id) => api.retryThreadMessage(id, threadId, messageId), { thinking: true }),
     editMessage: (threadId, messageId, text) => apply((id) => api.editThreadMessage(id, threadId, messageId, { text })),
     setStatus: (threadId, status) => apply((id) => api.updateThread(id, threadId, { status })),
     setTrashed: (threadId, trashed) => apply((id) => api.updateThread(id, threadId, { trashed })),
-    merge: (ids) => apply((id) => api.mergeThreads(id, ids), true),
+    merge: (ids) => apply((id) => api.mergeThreads(id, ids), { refreshAfter: true }),
     async deleteForever(threadId) {
-      const projectId = currentProject();
-      if (!projectId || get().busy) return false;
-      set({ busy: true, error: '' });
-      try {
-        await api.deleteThread(projectId, threadId);
-        if (currentProject() === projectId) set((state) => ({ threads: state.threads.filter((t) => t.id !== threadId), busy: false }));
-        return true;
-      } catch (err: any) {
-        if (currentProject() === projectId) { set({ busy: false, error: String(err?.message ?? err) }); await get().refresh(); }
-        return false;
-      }
+      const done = await run((id) => api.deleteThread(id, threadId), () => set((state) => ({ threads: state.threads.filter((t) => t.id !== threadId) })));
+      return done !== null;
     },
   };
 });
