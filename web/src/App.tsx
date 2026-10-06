@@ -8,6 +8,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { FloatingEditorHost } from './components/floatingEditors';
 import { FocusStoryCards } from './components/FocusStoryCards';
 import { ConnectionsPanel } from './components/ConnectionsPanel';
+import { CardThreadHost } from './components/CardThread';
 import { RecoveryPanel } from './useRecoverableDraft';
 import { ProjectBackups } from './components/ProjectBackups';
 import { ProjectTools, type ProjectTool } from './components/ProjectTools';
@@ -186,6 +187,7 @@ export default function App() {
       <FloatingEditorHost />
       <FocusStoryCards />
       <ConnectionsPanel />
+      <CardThreadHost />
       <RecoveryPanel />
       {projectTool && <ProjectTools key={`${project.id}-${projectTool.tool}`} {...projectTool} projectId={project.id} projectName={project.name} onClose={() => setProjectTool(null)} />}
     </div>

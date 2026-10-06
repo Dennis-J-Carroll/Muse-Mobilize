@@ -18,6 +18,7 @@ import './styles/writing-page.css';
 import './styles/tool-drawer.css';
 import './styles/workspace-layout.css';
 import './styles/connections.css';
+import './styles/threads.css';
 import './styles/sources.css';
 import './styles/mobile.css';
 import './styles/project-tools.css';

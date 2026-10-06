@@ -6,6 +6,7 @@ import { useWritingView } from '../writingView';
 import { recallGutter } from '../workspaceLayout';
 import { dismissFocusLayer, trapLayerTab } from '../focusLayers';
 import { openConnections, targetForEditor } from '../connectionsView';
+import { ThreadButton } from './ThreadButton';
 
 export function FloatingDrawer({ panel, order, children, hidden = false, focusMode = false }: { panel: FloatingPanel; order: number; children: ReactNode; hidden?: boolean; focusMode?: boolean }) {
   const root = useRef<HTMLDivElement>(null);
@@ -72,6 +73,7 @@ export function FloatingDrawer({ panel, order, children, hidden = false, focusMo
           const delta = event.key === 'ArrowLeft' ? [-step, 0] : event.key === 'ArrowRight' ? [step, 0] : event.key === 'ArrowUp' ? [0, -step] : event.key === 'ArrowDown' ? [0, step] : null;
           if (delta) { event.preventDefault(); move(delta[0], delta[1]); }
         }}><span aria-hidden="true">⠿</span><span>{panel.title}</span></button>
+      {connectionTarget && <ThreadButton target={connectionTarget} />}
       {connectionTarget && <button type="button" className="floating-drawer-dock" aria-label="Tags and links" title="Tags and links" onClick={() => openConnections({ target: connectionTarget })}>#</button>}
       <button type="button" className="floating-drawer-dock" aria-label={focusMode ? 'Return to writing' : 'Send to side'} title={focusMode ? 'Return to writing, keep card draft (Escape)' : 'Send to side (Escape)'}
         onClick={() => focusMode ? dismissFocusLayer() : useStore.getState().dockFloatingPanel(panel.id)}>−</button>
