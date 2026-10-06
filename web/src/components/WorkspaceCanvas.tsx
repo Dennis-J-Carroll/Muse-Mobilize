@@ -16,6 +16,7 @@ import { ThemesPane } from '../panes/ThemesPane';
 import { ReferencesPane } from '../panes/ReferencesPane';
 import { GoalsPane } from '../panes/GoalsPane';
 import { PremisePane } from '../panes/PremisePane';
+import { ThreadsPane } from '../panes/ThreadsPane';
 import { ConstraintsPane } from '../panes/ConstraintsPane';
 import { ProgressPane } from '../panes/ProgressPane';
 import { SourcesPane } from '../panes/SourcesPane';
@@ -68,6 +69,8 @@ function PaneBody({ pane }: { pane: Pane }) {
       return <PremisePane />;
     case 'constraints':
       return <ConstraintsPane pane={pane} />;
+    case 'threads':
+      return <ThreadsPane />;
     case 'progress':
       return <ProgressPane />;
     case 'sources':
