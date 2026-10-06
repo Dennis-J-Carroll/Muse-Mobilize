@@ -23,7 +23,7 @@ phone.
 2. **Notes Board** — a pane over the same store: edit, trash, combine, jump back.
 3. **Apply edit (later, not built now)** — Muse proposes a field change; the user accepts it from the thread. Slice 1 only reserves the message field and a UI slot.
 
-Out of scope for all slices: multi-user, notifications, emoji reactions,
+Out of scope for all slices: combining notes across different cards (follow-up; would add an `alsoTargets` list to `Thread`), multi-user, notifications, emoji reactions,
 passage-level anchoring (reuses `PassageAnchor` later; documents anchor to the
 whole document for now).
 
@@ -46,7 +46,6 @@ File: `<project>/threads/threads.json`, `{ version: 1, threads: Thread[] }`.
 interface Thread {
   id: string;
   target: ConnectionTarget;        // primary card
-  alsoTargets?: ConnectionTarget[]; // set when notes on different cards are combined
   status: 'open' | 'resolved';
   messages: ThreadMessage[];
   createdAt: string; updatedAt: string;
@@ -78,7 +77,7 @@ session start; the server stays stateless about sessions.
 - `POST /:tid/messages/:mid/retry` — re-run a failed Muse reply.
 - `PATCH /:tid` — `{status}` resolve/reopen; `{trashed: boolean}` trash/restore.
 - `PATCH /:tid/messages/:mid` — edit the text of a user message (sets `editedAt`).
-- `POST /merge` — `{ids: string[], primaryId}` combine (slice 2).
+- `POST /merge` — `{ids: string[]}` combine; the server rejects ids whose targets differ (slice 2).
 - `DELETE /:tid` — permanent delete, allowed only for threads already in trash.
 
 All writes go through one per-project lock like the other stores. Reads
@@ -117,8 +116,8 @@ the first message, reply count, and status.
 
 - **Edit** — click a note to edit its messages' text inline.
 - **Trash** — move to a Trash lane; restore or delete forever from there. Uses the existing undo toast pattern.
-- **Combine** — multi-select two or more, choose a primary, merge. Messages interleave by time; the primary's target stays, other targets become `alsoTargets` chips; the originals are recorded in `mergedFrom` and removed. One undo restores them.
-- **Jump back** — "Open card" calls the target's `open()` from `storyRecords()` and then opens its thread. For combined notes, a target picker.
+- **Combine** — multi-select two or more notes **on the same card** and merge. Messages interleave by time; the earliest thread is kept and the others are recorded in `mergedFrom` and removed. One undo restores them. Selecting notes from different cards disables Combine with a hint ("Combine works within one card").
+- **Jump back** — "Open card" calls the target's `open()` from `storyRecords()` and then opens its thread.
 - Filters: This session (default), Open, Resolved, All, Trash.
 
 ## Errors and edge cases
@@ -137,4 +136,7 @@ the first message, reply count, and status.
 ## Open questions to settle in planning
 
 1. Can `runAgent` take a non-document target, or do we add the thin path?
-2. Should combined notes across different cards be allowed in v1, or limited to the same card? The spec currently allows it via `alsoTargets`.
+
+## Decisions
+
+- Combine is same-card only in v1 (decided 2026-10-06). Cross-card combining is a later follow-up.
