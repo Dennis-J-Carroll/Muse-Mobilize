@@ -30,6 +30,7 @@ export function ThreadsPane() {
   const chosen = visible.filter((thread) => picked.has(thread.id));
   const combine = canCombine(chosen);
   const records = recordsReady ? storyRecords() : [];
+  const older = filter === 'session' ? filterThreads(threads, 'all', SESSION_START).length : 0;
 
   if (!loaded) return <div className="pane-body pane-loading">Gathering notes…</div>;
   return <div className="threads-board">
@@ -47,7 +48,8 @@ export function ThreadsPane() {
     {chosen.length > 1 && !combine.ok && <p className="board-hint" role="status">{combine.reason}</p>}
     {error && <p className="thread-failed" role="alert">{error}</p>}
     {visible.length === 0
-      ? <div className="story-empty"><span>¶</span><h3>{filter === 'trash' ? 'Trash is empty.' : 'No notes here yet.'}</h3><p>Open any story card and use its notes button to leave a margin note, or ask @Muse.</p></div>
+      ? <div className="story-empty"><span>¶</span><h3>{filter === 'trash' ? 'Trash is empty.' : 'No notes here yet.'}</h3><p>Open any story card and use its notes button to leave a margin note, or ask @Muse.</p>
+        {older > 0 && <p className="board-older">{older === 1 ? '1 older note' : `${older} older notes`} from before this session. <button type="button" className="linkish" onClick={() => setFilter('all')}>Show all notes</button></p>}</div>
       : <ul className="board-grid" aria-label="Notes">
           {visible.map((thread) => <NoteCard key={thread.id} thread={thread} card={recordsReady ? cardLabel(records, thread.target) : undefined}
             selected={picked.has(thread.id)} onSelect={(on) => setPicked((prev) => { const next = new Set(prev); if (on) next.add(thread.id); else next.delete(thread.id); return next; })} />)}

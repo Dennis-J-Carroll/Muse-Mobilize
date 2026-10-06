@@ -64,15 +64,30 @@ function ThreadPopover({ target, initialThreadId }: { target: ConnectionTarget; 
   const rect = panel ? document.getElementById(`floating-${panel.id}`)?.getBoundingClientRect() : undefined;
   const place = rect ? placePopover(rect, window.innerWidth, window.innerHeight) : null;
 
+  // Escape closes the thread first. Capture phase, so app-level Escape handlers cannot pre-empt it;
+  // inside a card form Escape keeps its normal meaning (the card docks).
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.isComposing) return;
+      if ((event.target as Element | null)?.closest?.('.floating-drawer')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      useThreadPopover.getState().close();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
+
   async function send() {
     const body = text.trim();
     if (!body || busy) return;
     const result = thread ? await useThreads.getState().reply(thread.id, body) : await useThreads.getState().create(target, body);
     if (result) { setText(''); setSelected(result.id); setComposingNew(false); }
+    // The composer is disabled while a request runs, which drops focus; put it back.
+    requestAnimationFrame(() => input.current?.focus());
   }
 
-  return <div className="thread-popover" role="dialog" aria-label={`Notes on ${label}`} style={place ? { left: place.left, top: place.top } : undefined}
-    onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); useThreadPopover.getState().close(); } }}>
+  return <div className="thread-popover" role="dialog" aria-label={`Notes on ${label}`} style={place ? { left: place.left, top: place.top } : undefined}>
     <header className="thread-head">
       <b>Notes on {label}</b>
       {mine.length > 1 && !composingNew && <span className="thread-switch">
