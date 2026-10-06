@@ -32,6 +32,9 @@ import {
 import { managedMediaFileName, saveMediaAsset, mediaAssetPath } from './mediaAssets.js';
 import { deleteOrphanedMedia } from './mediaGc.js';
 import { readConnections, createTag, renameTag, attachConnection, removeConnection } from './connections.js';
+import { hasMuseMention } from '../../shared/threads.js';
+import { addMessage, createThread, deleteForever, editMessage, listThreads, mergeThreads, readThreads, setStatus, setTrashed, ThreadConflictError } from './threads.js';
+import { museReply } from './thread-reply.js';
 import { exportProjectBackup, restoreProjectBackup, BackupError } from './backups.js';
 import {
   readSources, importSource, updateSourceMetadata, deleteSource, readSourceText, readSourceOriginal,
@@ -53,14 +56,14 @@ function historySession(req: express.Request): string | null {
 async function editScope(req: express.Request): Promise<{ label: string; paths: string[] } | null> {
   if (!req.params.id || !['POST', 'PUT', 'DELETE'].includes(req.method)) return null;
   const route = String(req.route?.path ?? '').replace('/api/projects/:id/', '');
-  const stores: Record<string, string> = { canon: 'canon/canon.json', plot: 'plot/plot.json', scenes: 'scenes/scenes.json', references: 'references/references.json', goals: 'goals/goals.json', premise: 'premise/premise.json', constraints: 'constraints/constraints.json', connections: 'connections/connections.json', 'world-map': 'world/map.json', media: 'media/canvases/default.json' };
+  const stores: Record<string, string> = { canon: 'canon/canon.json', plot: 'plot/plot.json', scenes: 'scenes/scenes.json', references: 'references/references.json', goals: 'goals/goals.json', premise: 'premise/premise.json', constraints: 'constraints/constraints.json', connections: 'connections/connections.json', threads: 'threads/threads.json', 'world-map': 'world/map.json', media: 'media/canvases/default.json' };
   // Asking for what-ifs stores nothing, so it is not an undoable edit.
   if (route === 'premise/what-ifs') return null;
   const kind = route.split('/')[0];
   const verb = req.method === 'DELETE' ? 'Remove' : req.method === 'POST' ? 'Add' : 'Edit';
   // Only a media node delete can touch an asset file (deleteOrphanedImages/deleteOrphanedMedia);
   // a media edge delete never does, so it's excluded from the 'assets' undo scope.
-  if (stores[kind]) return { label: `${verb} ${kind === 'canon' ? 'story card' : kind === 'world-map' ? 'atlas background' : kind === 'media' ? 'canvas placement' : kind}`, paths: [stores[kind], ...((kind === 'references' && req.method === 'DELETE') || kind === 'world-map' || (kind === 'media' && req.method === 'DELETE' && route.endsWith('/nodes/:nodeId')) ? ['assets'] : [])] };
+  if (stores[kind]) return { label: `${verb} ${kind === 'threads' ? 'note' : kind === 'canon' ? 'story card' : kind === 'world-map' ? 'atlas background' : kind === 'media' ? 'canvas placement' : kind}`, paths: [stores[kind], ...((kind === 'references' && req.method === 'DELETE') || kind === 'world-map' || (kind === 'media' && req.method === 'DELETE' && route.endsWith('/nodes/:nodeId')) ? ['assets'] : [])] };
   if (route === 'documents/:docId' || route === 'patches/apply') {
     const doc = await readDocument(req.params.id, req.params.docId ?? req.body?.documentId);
     return { label: route === 'patches/apply' ? 'Accept suggested edit' : `Write ${doc.meta.title}`, paths: [doc.meta.path] };
@@ -89,7 +92,7 @@ const wrap = (fn: express.RequestHandler): express.RequestHandler => async (req,
     } finally { res.json = sendJson; }
     res.json(payload);
   } catch (err: any) {
-    res.status(err instanceof BackupError ? err.status : 400).json({ error: String(err?.message ?? err) });
+    res.status(err instanceof BackupError || err instanceof ThreadConflictError ? err.status : 400).json({ error: String(err?.message ?? err) });
   }
 };
 
@@ -205,6 +208,66 @@ app.delete('/api/projects/:id/connections/attachments/:attachmentId', wrap(async
   const dir = await projectDir(req.params.id);
   await removeConnection(dir, req.params.attachmentId);
   await emit(dir, 'connection.removed', { attachmentId: req.params.attachmentId });
+  res.json({ ok: true });
+}));
+
+/* ------------------------------------------------------------------ threads */
+
+function parseTargetKey(value: string) {
+  const split = value.indexOf(':');
+  if (split < 1) throw new Error('target must look like kind:id');
+  return { kind: value.slice(0, split) as 'canon', id: value.slice(split + 1) };
+}
+
+app.get('/api/projects/:id/threads', wrap(async (req, res) => {
+  const target = typeof req.query.target === 'string' ? parseTargetKey(req.query.target) : undefined;
+  res.json({ threads: await listThreads(await projectDir(req.params.id), target) });
+}));
+
+app.post('/api/projects/:id/threads/merge', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : [];
+  const thread = await mergeThreads(dir, ids);
+  await emit(dir, 'thread.merged', { threadId: thread.id, merged: ids.length });
+  res.json({ thread });
+}));
+
+app.post('/api/projects/:id/threads', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  let thread = await createThread(dir, { target: req.body?.target, text: req.body?.text });
+  await emit(dir, 'thread.created', { threadId: thread.id, target: thread.target });
+  if (hasMuseMention(thread.messages[0].text)) thread = await museReply(req.params.id, dir, thread.id, req.body?.agentId);
+  res.json({ thread });
+}));
+
+app.post('/api/projects/:id/threads/:tid/messages', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { thread: saved } = await addMessage(dir, req.params.tid, { author: { kind: 'user' }, text: req.body?.text, expectedUpdatedAt: req.body?.expectedUpdatedAt });
+  const thread = hasMuseMention(String(req.body?.text ?? '')) ? await museReply(req.params.id, dir, saved.id, req.body?.agentId) : saved;
+  res.json({ thread });
+}));
+
+app.post('/api/projects/:id/threads/:tid/messages/:mid/retry', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  res.json({ thread: await museReply(req.params.id, dir, req.params.tid, req.body?.agentId, req.params.mid) });
+}));
+
+app.put('/api/projects/:id/threads/:tid', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { status, trashed, expectedUpdatedAt } = req.body ?? {};
+  let thread = (await readThreads(dir)).threads.find((item) => item.id === req.params.tid);
+  if (!thread) throw new Error(`No such thread: ${req.params.tid}`);
+  if (status !== undefined) thread = await setStatus(dir, thread.id, status, expectedUpdatedAt);
+  if (trashed !== undefined) thread = await setTrashed(dir, thread.id, Boolean(trashed), status === undefined ? expectedUpdatedAt : undefined);
+  res.json({ thread });
+}));
+
+app.put('/api/projects/:id/threads/:tid/messages/:mid', wrap(async (req, res) => {
+  res.json({ thread: await editMessage(await projectDir(req.params.id), req.params.tid, req.params.mid, { text: req.body?.text, expectedUpdatedAt: req.body?.expectedUpdatedAt }) });
+}));
+
+app.delete('/api/projects/:id/threads/:tid', wrap(async (req, res) => {
+  await deleteForever(await projectDir(req.params.id), req.params.tid);
   res.json({ ok: true });
 }));
 
