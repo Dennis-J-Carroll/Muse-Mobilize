@@ -69,7 +69,7 @@ test('failed Muse messages stay out of the prompt, and the latest user note is c
   const thread = await createThread(dir, { target, text: 'plain note' });
   await addMessage(dir, thread.id, { author: { kind: 'muse', agentId: 'muse' }, text: 'old error', state: 'failed' });
   let seen = '';
-  const spy: ModelProvider = { id: 'spy', complete: async (req) => { seen = req.messages.map((m) => m.content).join('\n'); return { text: 'ok', model: 'spy' }; } } as unknown as ModelProvider;
+  const spy: ModelProvider = { id: 'spy', complete: async (req: { messages: { content: string }[] }) => { seen = req.messages.map((m) => m.content).join('\n'); return { text: 'ok', model: 'spy' }; } } as unknown as ModelProvider;
   await addMessage(dir, thread.id, { author: { kind: 'user' }, text: '@Muse now?' });
   await respondAsMuse(dir, thread.id, agent('muse', 'muse'), spy);
   assert.doesNotMatch(seen, /old error/);
