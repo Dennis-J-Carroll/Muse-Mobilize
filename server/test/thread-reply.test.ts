@@ -6,6 +6,8 @@ import path from 'node:path';
 import { cardSnapshot, pickAgent, respondAsMuse } from '../src/thread-reply.js';
 import { createThread, readThreads, addMessage, addMuseMessage } from '../src/threads.js';
 import { createCanonEntity } from '../src/canon.js';
+import { createPlotNode } from '../src/plot.js';
+import { attachConnection, createTag } from '../src/connections.js';
 import { mockProvider } from '../src/providers/mock.js';
 import type { AgentDef, ModelProvider } from '../src/types.js';
 
@@ -110,4 +112,31 @@ test('an agent whose access rules exclude the card never sees its contents', asy
   const open = { ...restricted, access: { ...(restricted.access as object), allow: [{ kind: 'character', selection: { mode: 'all' } }] } } as unknown as AgentDef;
   await respondAsMuse(dir, thread.id, open, spy);
   assert.match(seen, /Keeper of the lantern/);
+});
+
+test("Muse sees the card's tags, outgoing links, and backlinks, but never titles the agent may not read", async (t) => {
+  const { dir, target } = await fixture(t);
+  const arrival = await createPlotNode(dir, { title: 'Arrival' });
+  const gate = await createPlotNode(dir, { title: 'Burning Gate' });
+  const fear = await createTag(dir, { label: 'fear' });
+  await attachConnection(dir, { target, tagId: fear.id });
+  await attachConnection(dir, { target, entity: { kind: 'plot', id: gate.id } });
+  await attachConnection(dir, { target: { kind: 'plot', id: arrival.id }, entity: target });
+  const thread = await createThread(dir, { target, text: '@Muse how does she connect?' });
+  let seen = '';
+  const spy: ModelProvider = { id: 'spy', complete: async (req: { messages: { content: string }[] }) => { seen = req.messages.map((m) => m.content).join('\n'); return { text: 'ok', model: 'spy' }; } } as unknown as ModelProvider;
+
+  await respondAsMuse(dir, thread.id, agent('muse', 'muse'), spy);
+  assert.match(seen, /<connections>[\s\S]*#fear[\s\S]*<\/connections>/);
+  assert.match(seen, /links to:.*Burning Gate/);
+  assert.match(seen, /linked from:.*Arrival/);
+
+  const noPlot = { ...agent('muse', 'muse'), access: { version: 1, revision: 'r1', allow: [{ kind: 'character', selection: { mode: 'all' } }], deny: [], selection: false, proposeEdits: false } } as unknown as AgentDef;
+  await respondAsMuse(dir, thread.id, noPlot, spy);
+  assert.match(seen, /#fear/);
+  assert.doesNotMatch(seen, /Burning Gate|Arrival/);
+
+  const plain = await createThread(dir, { target: { kind: 'plot', id: gate.id }, text: '@Muse and this?' });
+  await respondAsMuse(dir, plain.id, agent('muse', 'muse'), spy);
+  assert.doesNotMatch(seen, /#fear/, 'tags on another card do not leak in');
 });
