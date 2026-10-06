@@ -140,3 +140,13 @@ test("Muse sees the card's tags, outgoing links, and backlinks, but never titles
   await respondAsMuse(dir, plain.id, agent('muse', 'muse'), spy);
   assert.doesNotMatch(seen, /#fear/, 'tags on another card do not leak in');
 });
+
+test('a malformed connections file does not stop Muse from replying', async (t) => {
+  const { dir, target } = await fixture(t);
+  await fs.mkdir(path.join(dir, 'connections'));
+  await fs.writeFile(path.join(dir, 'connections/connections.json'), '{"version":9}');
+  const thread = await createThread(dir, { target, text: '@Muse still there?' });
+  const result = await respondAsMuse(dir, thread.id, agent('muse', 'muse'), mockProvider);
+  assert.equal(result.messages.at(-1)!.state, undefined);
+  assert.match(result.messages.at(-1)!.text, /^Muse \(mock\)/);
+});

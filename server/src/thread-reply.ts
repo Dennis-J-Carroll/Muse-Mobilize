@@ -147,7 +147,8 @@ export async function respondAsMuse(dir: string, threadId: string, agent: AgentD
   try {
     const history = thread.messages.filter((m) => m.state !== 'failed');
     const snapshot = await cardSnapshot(dir, thread.target, agent);
-    const connections = await cardConnections(dir, thread.target, agent);
+    // Tags and links are context, not the question: a broken connections file must not stop a reply.
+    const connections = await cardConnections(dir, thread.target, agent).catch(() => '');
     const result = await withTimeout(provider.complete({
       system: `<task>card-thread</task>\n${systemFor(agent, THREAD_PROTOCOL)}`,
       messages: [{ role: 'user', content: renderPrompt(thread.target, snapshot, connections, history) }],
