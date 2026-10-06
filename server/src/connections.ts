@@ -32,7 +32,7 @@ function labelText(value: unknown): string {
   return value.trim();
 }
 
-function connectionTarget(value: unknown): ConnectionTarget {
+export function connectionTarget(value: unknown): ConnectionTarget {
   if (!isObject(value) || typeof value.kind !== 'string' || !TARGET_KINDS.has(value.kind) || !isId(value.id)) {
     throw new Error('Connection target requires a supported kind and nonempty id');
   }
@@ -149,7 +149,7 @@ export async function renameTag(projectDir: string, tagId: string, input: { labe
   });
 }
 
-async function requireTarget(projectDir: string, target: ConnectionTarget): Promise<DocumentMeta | undefined> {
+export async function requireTarget(projectDir: string, target: ConnectionTarget): Promise<DocumentMeta | undefined> {
   let found = false;
   switch (target.kind) {
     case 'document': {
