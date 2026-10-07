@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { ConnectionTarget } from '../../shared/connections.js';
+import { resolvePassageAnchor } from '../../shared/connections.js';
 import { parseAccess, permits } from '../../shared/project-tools.js';
 import type { ResourceRef } from '../../shared/project-tools.js';
 import { sameTarget } from '../../shared/threads.js';
@@ -47,7 +48,7 @@ const gone = (target: ConnectionTarget) => ({ label: 'Removed card', body: `(The
 const withheld = { label: 'Restricted card', body: '(Withheld: this agent is not allowed to read this card.)' };
 
 /** Mirrors the access rules `runAgent` applies: explicit assignments, or the legacy forbidden list. */
-async function mayRead(dir: string, agent: AgentDef | undefined, target: ConnectionTarget): Promise<boolean> {
+async function mayRead(dir: string, agent: AgentDef | undefined, target: ConnectionTarget, options: { current?: boolean } = {}): Promise<boolean> {
   if (!agent) return true;
   if (agent.access !== undefined) {
     let ref: ResourceRef;
@@ -63,13 +64,14 @@ async function mayRead(dir: string, agent: AgentDef | undefined, target: Connect
     const manifest = JSON.parse(await fs.readFile(path.join(dir, 'project.json'), 'utf8')) as ProjectManifest;
     const doc = manifest.documents.find((item) => item.id === target.id);
     if (!doc) return true;
-    return !forbidden.has(doc.kind) && !(forbidden.has('future_chapters') && doc.kind === 'manuscript');
+    // The document a note is written on is the "current" one, so future-chapter rules only hide OTHER manuscripts.
+    return !forbidden.has(doc.kind) && !(forbidden.has('future_chapters') && doc.kind === 'manuscript' && !options.current);
   }
   return true;
 }
 
-export async function cardSnapshot(dir: string, target: ConnectionTarget, agent?: AgentDef): Promise<{ label: string; body: string }> {
-  if (!(await mayRead(dir, agent, target))) return withheld;
+export async function cardSnapshot(dir: string, target: ConnectionTarget, agent?: AgentDef, options: { current?: boolean } = {}): Promise<{ label: string; body: string }> {
+  if (!(await mayRead(dir, agent, target, options))) return withheld;
   const dump = (record: unknown) => JSON.stringify(record, null, 1).slice(0, SNAPSHOT_MAX);
   switch (target.kind) {
     case 'canon': { const item = (await readCanon(dir)).entities.find((x) => x.id === target.id); return item ? { label: item.name, body: dump(item) } : gone(target); }
@@ -114,7 +116,7 @@ export async function noteContext(dir: string, thread: Thread, agent?: AgentDef)
 
 /** The card's tags, outgoing links, and backlinks, as plain text. Titles the agent may not read are left out. */
 export async function cardConnections(dir: string, target: ConnectionTarget, agent?: AgentDef): Promise<string> {
-  if (!(await mayRead(dir, agent, target))) return '';
+  if (!(await mayRead(dir, agent, target, { current: true }))) return '';
   const store = await readConnections(dir);
   const tagLabel = new Map(store.tags.map((tag) => [tag.id, tag.label]));
   const tags = new Set<string>();
@@ -122,6 +124,7 @@ export async function cardConnections(dir: string, target: ConnectionTarget, age
   const into = new Map<string, ConnectionTarget>();
   for (const item of store.attachments) {
     if (sameTarget(item.target, target)) {
+      if (item.anchor) continue; // passage tags belong to passages, not to the whole document
       if (item.tagId && tagLabel.has(item.tagId)) tags.add(`#${tagLabel.get(item.tagId)}`);
       if (item.entity) out.set(`${item.entity.kind}:${item.entity.id}`, item.entity);
     } else if (item.entity && sameTarget(item.entity, target)) into.set(`${item.target.kind}:${item.target.id}`, item.target);
@@ -140,6 +143,26 @@ export async function cardConnections(dir: string, target: ConnectionTarget, age
     ...[['links to', await named(out)], ['linked from', await named(into)]].map(([name, list]) => (list as string[]).length ? `${name}: ${(list as string[]).join('; ')}` : ''),
   ].filter(Boolean);
   return lines.join('\n');
+}
+
+const PASSAGE_WINDOW = 1500;
+
+/** A passage note's view of its document: the passage with its surroundings, or an honest "can't be located". */
+async function passageSnapshot(dir: string, thread: Thread, agent: AgentDef): Promise<{ label: string; body: string }> {
+  if (!(await mayRead(dir, agent, thread.target, { current: true }))) return withheld;
+  const manifest = JSON.parse(await fs.readFile(path.join(dir, 'project.json'), 'utf8')) as ProjectManifest;
+  const doc = manifest.documents.find((item) => item.id === thread.target.id);
+  if (!doc) return gone(thread.target);
+  const content = await fs.readFile(safeJoin(dir, doc.path), 'utf8');
+  const title = doc.title.replace(/"/g, '&quot;');
+  const found = resolvePassageAnchor(content, thread.anchor!);
+  if (found.status === 'resolved') {
+    const before = content.slice(Math.max(0, found.start - PASSAGE_WINDOW), found.start);
+    const after = content.slice(found.end, found.end + PASSAGE_WINDOW);
+    return { label: doc.title, body: `<passage document="${title}" status="found">\n${escapeTag(before)}«${escapeTag(content.slice(found.start, found.end))}»${escapeTag(after)}\n</passage>` };
+  }
+  const why = found.status === 'ambiguous' ? 'it now matches more than once' : 'its text or surroundings have changed';
+  return { label: doc.title, body: `<passage document="${title}" status="unresolved">\nThe passage's location could not be resolved (${why}); the original quote was:\n${escapeTag(thread.anchor!.quote)}\n</passage>` };
 }
 
 const escapeTag = (text: string) => text.replace(/<\/(card|thread|latest-note|connections|note-context|linked-card|passage)>/gi, '<\\/$1>');
@@ -168,7 +191,9 @@ export async function respondAsMuse(dir: string, threadId: string, agent: AgentD
   let outcome: { text: string; failed?: boolean };
   try {
     const history = thread.messages.filter((m) => m.state !== 'failed');
-    const snapshot = await cardSnapshot(dir, thread.target, agent);
+    const snapshot = thread.anchor && thread.target.kind === 'document'
+      ? await passageSnapshot(dir, thread, agent)
+      : await cardSnapshot(dir, thread.target, agent, { current: true });
     // Tags and links are context, not the question: a broken connections file must not stop a reply.
     const connections = await cardConnections(dir, thread.target, agent).catch(() => '');
     const noteBlock = await noteContext(dir, thread, agent).catch(() => '');

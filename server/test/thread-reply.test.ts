@@ -167,3 +167,59 @@ test("Muse sees a note's own tags and a short excerpt of the cards it links, and
   assert.match(seen, /#pacing/);
   assert.doesNotMatch(seen, /Burning Gate|burns at dawn/);
 });
+
+async function docFixture(t: TestContext) {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-passage-'));
+  t.after(() => fs.rm(dir, { recursive: true, force: true }));
+  const body = `${'Earlier prose. '.repeat(200)}Mara lit the lantern at dusk. ${'Later prose. '.repeat(200)}`;
+  await fs.mkdir(path.join(dir, 'manuscript'), { recursive: true });
+  await fs.writeFile(path.join(dir, 'manuscript/one.md'), body);
+  await fs.writeFile(path.join(dir, 'project.json'), JSON.stringify({ id: 'p', name: 'T', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    documents: [{ id: 'one', title: 'One', kind: 'manuscript', path: 'manuscript/one.md', order: 0 }] }));
+  return { dir, body, doc: { kind: 'document' as const, id: 'one' } };
+}
+const spyProvider = (sink: { seen: string }): ModelProvider => ({ id: 'spy', complete: async (req: { messages: { content: string }[] }) => { sink.seen = req.messages.map((m) => m.content).join('\n'); return { text: 'ok', model: 'spy' }; } } as unknown as ModelProvider);
+
+test('a passage note sends the quote with its surroundings, not the head of the document', async (t) => {
+  const { dir, body, doc } = await docFixture(t);
+  const start = body.indexOf('lantern');
+  const thread = await createThread(dir, { target: doc, text: '@Muse why a lantern?', range: { start, end: start + 7, quote: 'lantern' } });
+  const sink = { seen: '' };
+  await respondAsMuse(dir, thread.id, agent('muse', 'muse'), spyProvider(sink));
+  assert.match(sink.seen, /<passage[^>]*>[\s\S]*Mara lit the «lantern» at dusk\./);
+  assert.ok(sink.seen.length < 6000, 'a window, not the document');
+  assert.ok((sink.seen.match(/Earlier prose\./g) ?? []).length < 150, 'the head of the document is not sent');
+});
+
+test('a passage that can no longer be found is reported honestly with the original quote', async (t) => {
+  const { dir, body, doc } = await docFixture(t);
+  const start = body.indexOf('lantern');
+  const thread = await createThread(dir, { target: doc, text: '@Muse still there?', range: { start, end: start + 7, quote: 'lantern' } });
+  await fs.writeFile(path.join(dir, 'manuscript/one.md'), 'Completely rewritten.');
+  const sink = { seen: '' };
+  await respondAsMuse(dir, thread.id, agent('muse', 'muse'), spyProvider(sink));
+  assert.match(sink.seen, /location could not be resolved/i);
+  assert.match(sink.seen, /lantern/);
+});
+
+test('an agent restricted from future chapters can still read the document its own note is on', async (t) => {
+  const { dir, body, doc } = await docFixture(t);
+  const start = body.indexOf('lantern');
+  const thread = await createThread(dir, { target: doc, text: '@Muse thoughts?', range: { start, end: start + 7, quote: 'lantern' } });
+  const restricted = { ...agent('character', 'character'), context: { scope: ['selection', 'current_scene'], forbidden: ['future_chapters'] } } as unknown as AgentDef;
+  const sink = { seen: '' };
+  await respondAsMuse(dir, thread.id, restricted, spyProvider(sink));
+  assert.match(sink.seen, /«lantern»/);
+  assert.doesNotMatch(sink.seen, /Withheld/);
+});
+
+test('a tag on a passage is not reported as a tag of the whole document', async (t) => {
+  const { dir, body, doc } = await docFixture(t);
+  const start = body.indexOf('lantern');
+  const imagery = await createTag(dir, { label: 'imagery' });
+  await attachConnection(dir, { target: doc, tagId: imagery.id, range: { start, end: start + 7, quote: 'lantern' } });
+  const thread = await createThread(dir, { target: doc, text: '@Muse overall?' });
+  const sink = { seen: '' };
+  await respondAsMuse(dir, thread.id, agent('muse', 'muse'), spyProvider(sink));
+  assert.doesNotMatch(sink.seen, /#imagery/);
+});
