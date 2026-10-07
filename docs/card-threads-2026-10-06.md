@@ -23,6 +23,17 @@ many and offers **Show all notes**.
 - **Open card** opens the card and its thread. A note whose card was deleted shows "Card removed".
 - Trash, combine, and edits are undoable with the app's normal undo.
 
+## Tags and links on notes
+
+- In a thread, the chip row under the header holds the note's tags (`#pacing`) and links to other cards
+  (`↗ Return`). **+ Tag** picks an existing tag or creates one; **+ Link** searches your story cards.
+  Click a chip to remove it. Each change is one undoable edit ("Tag note").
+- The **Tags & links** (`#`) panel includes notes: choosing a tag lists **Notes tagged #…**, a card shows
+  **Notes here**, and **Linked from** also lists notes that link to the card. **Open note** jumps to it.
+- The Notes Board shows each note's tags and links and has a **Filter by tag** menu.
+- `@Muse` also sees the note's own tags, the cards it links (title, plus a short excerpt of up to three),
+  never anything the agent is not allowed to read.
+
 ## Where notes live
 
 `<project>/threads/threads.json`. Notes are part of the project folder and are included in

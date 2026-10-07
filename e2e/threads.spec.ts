@@ -32,10 +32,10 @@ test('a card thread takes a note and an @Muse reply, resolves, and survives relo
   const thread = page.getByRole('dialog', { name: 'Notes on Arrival', exact: true });
   await thread.getByLabel('Add a note or ask Muse').fill('The harbour opening feels thin.');
   await thread.getByRole('button', { name: 'Send', exact: true }).click();
-  await expect(thread.getByText('The harbour opening feels thin.')).toBeVisible();
+  await expect(thread.locator('.thread-messages').getByText('The harbour opening feels thin.')).toBeVisible();
   await thread.getByLabel('Add a note or ask Muse').fill('@Muse is the stake clear enough?');
   await thread.getByRole('button', { name: 'Send', exact: true }).click();
-  await expect(thread.getByText(/Muse \(mock\) on "Arrival": is the stake clear enough\?/)).toBeVisible();
+  await expect(thread.locator('.thread-messages').getByText(/Muse \(mock\) on "Arrival": is the stake clear enough\?/)).toBeVisible();
   await thread.getByRole('button', { name: 'Resolve note', exact: true }).click();
   await expect(thread.getByText('Resolved', { exact: true })).toBeVisible();
   await thread.press('Escape');
@@ -44,7 +44,7 @@ test('a card thread takes a note and an @Muse reply, resolves, and survives relo
   await page.reload();
   const again = await openSceneCard(page, 'Arrival');
   await again.getByRole('button', { name: 'Notes', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: 'Notes on Arrival', exact: true }).getByText('The harbour opening feels thin.')).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Notes on Arrival', exact: true }).locator('.thread-messages').getByText('The harbour opening feels thin.')).toBeVisible();
 });
 
 test('the Notes Board edits, trashes, restores, combines same-card notes, and jumps back to the card', async ({ page, projectId, request }) => {
@@ -143,4 +143,30 @@ test('Escape inside another dialog is left to that dialog while a thread is open
   await expect(thread).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(thread).toHaveCount(0);
+});
+
+test('a note takes a tag and a link, and shows up in the # panel by tag and under the linked card', async ({ page, projectId, request }) => {
+  const arrival = await seedScene(request, projectId, 'Arrival');
+  await seedScene(request, projectId, 'Return');
+  await seedThread(request, projectId, arrival, 'Opening feels thin');
+  const card = await openSceneCard(page, 'Arrival');
+  await card.getByRole('button', { name: /^Notes/ }).click();
+  const thread = page.getByRole('dialog', { name: 'Notes on Arrival', exact: true });
+  await thread.getByRole('button', { name: '+ Tag' }).click();
+  await thread.getByLabel('New tag', { exact: true }).fill('pacing');
+  await thread.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(thread.getByRole('button', { name: 'Remove tag pacing' })).toBeVisible();
+  await thread.getByRole('button', { name: '+ Link' }).click();
+  await thread.getByLabel('Find a card to link').fill('Return');
+  await thread.getByRole('button', { name: /^Link Scene: Return/ }).click();
+  await expect(thread.getByRole('button', { name: 'Remove link Return' })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', { name: 'Open connections', exact: true }).press('Enter');
+  const panel = page.getByRole('dialog', { name: 'Tags and connections', exact: true });
+  await panel.getByRole('button', { name: 'Filter tag pacing', exact: true }).click();
+  await expect(panel.getByText('Opening feels thin')).toBeVisible();
+  await panel.getByRole('button', { name: 'All records', exact: true }).click();
+  await panel.getByRole('button', { name: /^Inspect Scene: Return/ }).click();
+  await expect(panel.getByText('Note on Arrival')).toBeVisible();
 });
