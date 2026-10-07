@@ -16,7 +16,7 @@
 
 - Thread store file stays `<project>/threads/threads.json` with `version: 1`; new fields are optional and old files read as "no tags, no links, no anchor".
 - Limits: at most 12 tags and 12 links per note (`THREAD_TAG_MAX`, `THREAD_LINK_MAX`); note text 1 to 4000 characters.
-- **Tolerant edits:** a re-save of a note's tags/links validates only *newly added* ids/targets. A tag id or linked card that was already on the note and has since disappeared (a tag created then undone, a removed card) is kept for tags? No: unknown tag ids already on the note are dropped silently; links to removed cards already on the note are kept and shown as "Card removed". Reads never fail on them.
+- **Tolerant edits:** a re-save of a note's tags/links validates only *newly added* ids and targets. A tag id already on the note that has since disappeared (a tag created then undone) is dropped silently; a link already on the note to a card that was since removed is kept and shown as "Card removed". A new unknown tag or card is refused. Reads never fail on either.
 - Combine requires the same card **and** the same passage (`samePassage`: equal quote, prefix and suffix, or both unanchored).
 - A note anchor is allowed only on `document` targets and must match the saved text (`makePassageAnchor`); unsaved or stale selections are refused.
 - Muse: every card, excerpt and document goes through `mayRead` for the replying agent; the model call stays outside any lock; replies stay in the thread only. For a **document-target thread** the document itself is always readable by a restricted agent (it is the "current" document); only *linked* manuscript documents obey the legacy `future_chapters` rule.

@@ -36,3 +36,15 @@ test('target helpers compare by kind and id', () => {
   assert.equal(sameTarget({ kind: 'canon', id: 'x' }, { kind: 'scene', id: 'x' }), false);
   assert.equal(sameTarget({ kind: 'canon', id: 'x' }, undefined), false);
 });
+
+import { samePassage, THREAD_LINK_MAX, THREAD_TAG_MAX } from '../../shared/threads.ts';
+
+test('samePassage compares quote, prefix and suffix, never start offsets; two unanchored notes match', () => {
+  const a = { start: 10, end: 15, quote: 'lantern', prefix: 'Mara lit the ', suffix: ' at dusk' };
+  assert.equal(samePassage(undefined, undefined), true);
+  assert.equal(samePassage(a, undefined), false);
+  assert.equal(samePassage(a, { ...a, start: 400, end: 407 }), true);
+  assert.equal(samePassage(a, { ...a, suffix: ' at dawn' }), false);
+  assert.equal(THREAD_TAG_MAX, 12);
+  assert.equal(THREAD_LINK_MAX, 12);
+});

@@ -1,6 +1,8 @@
-import type { ConnectionTarget } from './connections.js';
+import type { ConnectionTarget, PassageAnchor } from './connections.js';
 
 export const THREAD_TEXT_MAX = 4000;
+export const THREAD_TAG_MAX = 12;
+export const THREAD_LINK_MAX = 12;
 
 export type ThreadAuthor = { kind: 'user' } | { kind: 'muse'; agentId: string };
 
@@ -26,9 +28,21 @@ export interface Thread {
   trashedAt?: string;
   /** Ids of threads folded into this one by Combine. */
   mergedFrom?: string[];
+  /** Connection-store tag ids on this note; absent means none. */
+  tagIds?: string[];
+  /** Cards this note is about; absent means none. */
+  links?: ConnectionTarget[];
+  /** Passage this note is attached to; document targets only. */
+  anchor?: PassageAnchor;
 }
 
 export interface ThreadStore { version: 1; threads: Thread[] }
+
+/** Same passage means same text and surroundings; start offsets drift as the document is edited. */
+export function samePassage(a?: PassageAnchor, b?: PassageAnchor): boolean {
+  if (!a || !b) return !a && !b;
+  return a.quote === b.quote && a.prefix === b.prefix && a.suffix === b.suffix;
+}
 
 export const targetKey = (target: ConnectionTarget) => `${target.kind}:${target.id}`;
 export const sameTarget = (a: ConnectionTarget, b?: ConnectionTarget) => Boolean(b && targetKey(a) === targetKey(b));
