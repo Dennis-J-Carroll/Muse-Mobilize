@@ -77,7 +77,7 @@ export const api = {
   verifyBinder: (id: string, snapshotHash: string) => req<{ ok: true }>(`/api/projects/${id}/binder/verify`, { method: 'POST', body: JSON.stringify({ snapshotHash }) }),
   connections: (id: string) => req<{ connections: ConnectionStore }>(`/api/projects/${id}/connections`),
   threads: (id: string) => req<{ threads: Thread[] }>(`/api/projects/${id}/threads`),
-  createThread: (id: string, body: { target: ConnectionTarget; text: string; agentId?: string }) =>
+  createThread: (id: string, body: { target: ConnectionTarget; text: string; agentId?: string; tagIds?: string[]; links?: ConnectionTarget[]; range?: { start: number; end: number; quote: string } }) =>
     req<{ thread: Thread }>(`/api/projects/${id}/threads`, { method: 'POST', body: JSON.stringify(body) }),
   replyThread: (id: string, threadId: string, body: { text: string; agentId?: string; expectedUpdatedAt?: string }) =>
     req<{ thread: Thread }>(`/api/projects/${id}/threads/${threadId}/messages`, { method: 'POST', body: JSON.stringify(body) }),
@@ -87,6 +87,8 @@ export const api = {
     req<{ thread: Thread }>(`/api/projects/${id}/threads/${threadId}`, { method: 'PUT', body: JSON.stringify(body) }),
   editThreadMessage: (id: string, threadId: string, messageId: string, body: { text: string; expectedUpdatedAt?: string }) =>
     req<{ thread: Thread }>(`/api/projects/${id}/threads/${threadId}/messages/${messageId}`, { method: 'PUT', body: JSON.stringify(body) }),
+  updateThreadConnections: (id: string, threadId: string, body: { tagIds?: string[]; links?: ConnectionTarget[]; expectedUpdatedAt?: string }) =>
+    req<{ thread: Thread }>(`/api/projects/${id}/threads/${threadId}/connections`, { method: 'PUT', body: JSON.stringify(body) }),
   mergeThreads: (id: string, ids: string[]) =>
     req<{ thread: Thread }>(`/api/projects/${id}/threads/merge`, { method: 'POST', body: JSON.stringify({ ids }) }),
   deleteThread: (id: string, threadId: string) =>

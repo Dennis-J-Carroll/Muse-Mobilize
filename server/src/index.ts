@@ -33,7 +33,7 @@ import { managedMediaFileName, saveMediaAsset, mediaAssetPath } from './mediaAss
 import { deleteOrphanedMedia } from './mediaGc.js';
 import { readConnections, createTag, renameTag, attachConnection, removeConnection } from './connections.js';
 import { hasMuseMention } from '../../shared/threads.js';
-import { addMessage, createThread, deleteForever, editMessage, listThreads, mergeThreads, readThreads, setStatus, setTrashed, ThreadConflictError } from './threads.js';
+import { addMessage, createThread, deleteForever, editMessage, listThreads, mergeThreads, readThreads, setConnections, setStatus, setTrashed, ThreadConflictError } from './threads.js';
 import { museReply } from './thread-reply.js';
 import { exportProjectBackup, restoreProjectBackup, BackupError } from './backups.js';
 import {
@@ -246,7 +246,7 @@ app.post('/api/projects/:id/threads/merge', wrap(async (req, res) => {
 
 app.post('/api/projects/:id/threads', wrap(async (req, res) => {
   const dir = await projectDir(req.params.id);
-  let thread = await threadWrite(req, res, dir, 'Add note', () => createThread(dir, { target: req.body?.target, text: req.body?.text }));
+  let thread = await threadWrite(req, res, dir, 'Add note', () => createThread(dir, { target: req.body?.target, text: req.body?.text, tagIds: req.body?.tagIds, links: req.body?.links, range: req.body?.range }));
   await emit(dir, 'thread.created', { threadId: thread.id, target: thread.target });
   if (hasMuseMention(thread.messages[0].text)) {
     thread = await museReply(req.params.id, dir, thread.id, req.body?.agentId, { record: (label, write) => threadWrite(req, res, dir, label, write) });
@@ -268,6 +268,13 @@ app.post('/api/projects/:id/threads/:tid/messages/:mid/retry', wrap(async (req, 
   const thread = await museReply(req.params.id, dir, req.params.tid, req.body?.agentId, {
     replacingMessageId: req.params.mid, record: (label, write) => threadWrite(req, res, dir, label, write),
   });
+  res.json({ thread });
+}));
+
+app.put('/api/projects/:id/threads/:tid/connections', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { tagIds, links, expectedUpdatedAt } = req.body ?? {};
+  const thread = await threadWrite(req, res, dir, 'Tag note', () => setConnections(dir, req.params.tid, { tagIds, links, expectedUpdatedAt }));
   res.json({ thread });
 }));
 

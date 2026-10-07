@@ -141,7 +141,7 @@ export async function listThreads(dir: string, target?: ConnectionTarget): Promi
   return target ? threads.filter((thread) => sameTarget(thread.target, target)) : threads;
 }
 
-export async function createThread(dir: string, input: { target: ConnectionTarget; text: string; tagIds?: unknown; links?: unknown }): Promise<Thread> {
+export async function createThread(dir: string, input: { target: ConnectionTarget; text: string; tagIds?: unknown; links?: unknown; range?: unknown }): Promise<Thread> {
   const target = connectionTarget(input?.target);
   const text = noteText(input?.text);
   await requireTarget(dir, target);
