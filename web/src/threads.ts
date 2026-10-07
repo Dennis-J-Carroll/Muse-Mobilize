@@ -98,10 +98,13 @@ export const useThreads = create<ThreadsState>((set, get) => {
 
 export const useThreadPopover = create<{
   target: ConnectionTarget | null; threadId: string | null; range: { start: number; end: number; quote: string } | null; opener: HTMLElement | null;
+  /** Bumped on every open(), so asking for a different note or passage rebuilds the popover instead of being ignored. */
+  nonce: number;
   open: (target: ConnectionTarget, threadId?: string, range?: { start: number; end: number; quote: string }) => void; close: () => void;
 }>((set, get) => ({
-  target: null, threadId: null, range: null, opener: null,
-  open: (target, threadId, range) => set({ target, threadId: threadId ?? null, range: range ?? null, opener: document.activeElement instanceof HTMLElement ? document.activeElement : null }),
+  target: null, threadId: null, range: null, opener: null, nonce: 0,
+  open: (target, threadId, range) => set({ target, threadId: threadId ?? null, range: range ?? null, nonce: get().nonce + 1,
+    opener: typeof document !== 'undefined' && document.activeElement instanceof HTMLElement ? document.activeElement : null }),
   close: () => {
     const { opener } = get();
     set({ target: null, threadId: null, range: null, opener: null });

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { canCombine, cardLabel, filterThreads, anchorStatusText, noteSummary, notesLinkingTo, notesTaggedWith, openCount, placePopover, relativeTime, threadsForTarget } from '../src/threadView.ts';
+import { effectiveTagFilter, canCombine, cardLabel, filterThreads, anchorStatusText, noteSummary, notesLinkingTo, notesTaggedWith, openCount, placePopover, relativeTime, threadsForTarget } from '../src/threadView.ts';
 import type { Thread } from '../../shared/threads.ts';
 
 const T0 = '2026-10-06T10:00:00.000Z';
@@ -107,4 +107,12 @@ test('anchorStatusText uses plain wording for each passage state', () => {
   assert.equal(anchorStatusText('moved'), 'moved');
   assert.equal(anchorStatusText('missing'), "can't be found");
   assert.equal(anchorStatusText('ambiguous'), 'matches more than once');
+});
+
+test('effectiveTagFilter drops a filter whose tag no longer exists, so the board can never be stuck empty', () => {
+  const tags = [{ id: 't1' }, { id: 't2' }];
+  assert.equal(effectiveTagFilter(tags, 't2'), 't2');
+  assert.equal(effectiveTagFilter(tags, 'gone'), '');
+  assert.equal(effectiveTagFilter([], 't1'), '');
+  assert.equal(effectiveTagFilter(tags, ''), '');
 });

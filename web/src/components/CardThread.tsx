@@ -15,9 +15,10 @@ export function CardThreadHost() {
   const target = useThreadPopover((state) => state.target);
   const threadId = useThreadPopover((state) => state.threadId);
   const range = useThreadPopover((state) => state.range);
+  const nonce = useThreadPopover((state) => state.nonce);
   const projectId = useStore((state) => state.project?.id);
   useEffect(() => { useThreadPopover.getState().close(); }, [projectId]);
-  return target ? createPortal(<ThreadPopover key={`${target.kind}:${target.id}`} target={target} initialThreadId={threadId} range={range} />, document.body) : null;
+  return target ? createPortal(<ThreadPopover key={`${target.kind}:${target.id}:${nonce}`} target={target} initialThreadId={threadId} range={range} />, document.body) : null;
 }
 
 function MessageText({ text }: { text: string }) {

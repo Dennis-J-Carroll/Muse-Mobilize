@@ -236,3 +236,18 @@ test('the document popover with a passage note and the chip row fit a phone view
   expect(box!.x + box!.width).toBeLessThanOrEqual(390);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
+
+test('selecting another passage and pressing Note while the thread is open starts a note on the new passage', async ({ page, projectId }) => {
+  const draft = page.locator('.pane-editor textarea.draft');
+  await draft.fill('Mara lit the lantern at dusk. The harbour held its breath.');
+  await draft.evaluate((el: HTMLTextAreaElement) => { el.focus(); el.setSelectionRange(13, 20); });
+  await page.getByRole('button', { name: 'Note on selection', exact: true }).click();
+  const thread = page.getByRole('dialog', { name: /^Notes on / });
+  await expect(thread.locator('.thread-quote')).toContainText('lantern');
+  await draft.evaluate((el: HTMLTextAreaElement) => { el.focus(); el.setSelectionRange(30, 41); });
+  await page.getByRole('button', { name: 'Note on selection', exact: true }).click();
+  await expect(thread.locator('.thread-quote')).toContainText('The harbour');
+  await thread.getByLabel('Add a note or ask Muse').fill('about the harbour');
+  await thread.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(thread.locator('.thread-passages')).toContainText('The harbour');
+});

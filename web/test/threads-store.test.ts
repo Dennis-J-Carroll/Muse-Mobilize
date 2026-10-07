@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { useStore } from '../src/store.ts';
-import { useThreads } from '../src/threads.ts';
+import { useThreadPopover, useThreads } from '../src/threads.ts';
 
 const T = '2026-10-06T10:00:00.000Z';
 const thread = (id: string) => ({ id, target: { kind: 'scene' as const, id: 's' }, status: 'open' as const, createdAt: T, updatedAt: T,
@@ -71,4 +71,13 @@ test('a note created from a selection sends its range to the server', async () =
   await useThreads.getState().create({ kind: 'document', id: 'd1' }, 'why a lantern?', { range: { start: 13, end: 20, quote: 'lantern' } });
   assert.equal(JSON.parse(sent).range.quote, 'lantern');
   assert.equal(JSON.parse(sent).text, 'why a lantern?');
+});
+
+test('opening the popover again always yields a fresh popover, so a new selection is never ignored', () => {
+  useThreadPopover.setState({ target: null, threadId: null, range: null, opener: null, nonce: 0 });
+  useThreadPopover.getState().open({ kind: 'document', id: 'd' });
+  const first = useThreadPopover.getState().nonce;
+  useThreadPopover.getState().open({ kind: 'document', id: 'd' }, undefined, { start: 0, end: 4, quote: 'Mara' });
+  assert.ok(useThreadPopover.getState().nonce > first);
+  assert.equal(useThreadPopover.getState().range?.quote, 'Mara');
 });

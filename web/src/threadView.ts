@@ -40,6 +40,9 @@ export function canCombine(picked: Thread[]): { ok: boolean; reason?: string } {
   return { ok: true };
 }
 
+/** A tag filter whose tag has disappeared (for example its creation was undone) must not keep hiding every note. */
+export const effectiveTagFilter = (tags: { id: string }[], tagFilter: string) => (tags.some((tag) => tag.id === tagFilter) ? tagFilter : '');
+
 export function anchorStatusText(status: 'resolved' | 'moved' | 'missing' | 'ambiguous'): string {
   return status === 'resolved' ? 'found' : status === 'moved' ? 'moved' : status === 'missing' ? "can't be found" : 'matches more than once';
 }

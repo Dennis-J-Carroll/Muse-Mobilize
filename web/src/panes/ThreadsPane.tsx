@@ -3,7 +3,7 @@ import { THREAD_TEXT_MAX, splitMentions } from '../../../shared/threads';
 import type { Thread, ThreadMessage } from '../../../shared/threads';
 import type { ConnectionTarget } from '../../../shared/connections';
 import { SESSION_START, useThreads } from '../threads';
-import { canCombine, cardLabel, filterThreads } from '../threadView';
+import { canCombine, cardLabel, effectiveTagFilter, filterThreads } from '../threadView';
 import type { BoardFilter } from '../threadView';
 import { relativeTime } from '../threadView';
 import { loadStoryRecords, storyRecords } from '../storyRecords';
@@ -30,10 +30,20 @@ export function ThreadsPane() {
   const [tagFilter, setTagFilter] = useState('');
 
   useEffect(() => { void useThreads.getState().ensureLoaded(); void loadStoryRecords().then(() => setRecordsReady(true)); }, [projectId]);
-  useEffect(() => { if (projectId) void api.connections(projectId).then((result) => setTags(result.connections.tags)).catch(() => setTags([])); }, [projectId, threads]);
-  useEffect(() => { setPicked(new Set()); }, [filter, tagFilter, projectId]);
+  // Tags are refetched only when the set of tags in use changes (or the project does), and a late answer for
+  // another project is ignored.
+  const tagSignature = useMemo(() => [...new Set(threads.flatMap((thread) => thread.tagIds ?? []))].sort().join(','), [threads]);
+  useEffect(() => { setTagFilter(''); setTags([]); }, [projectId]);
+  useEffect(() => {
+    if (!projectId) return;
+    let live = true;
+    void api.connections(projectId).then((result) => { if (live) setTags(result.connections.tags); }).catch(() => { if (live) setTags([]); });
+    return () => { live = false; };
+  }, [projectId, tagSignature]);
+  const activeTag = effectiveTagFilter(tags, tagFilter);
+  useEffect(() => { setPicked(new Set()); }, [filter, activeTag, projectId]);
 
-  const visible = useMemo(() => filterThreads(threads, filter, SESSION_START).filter((thread) => !tagFilter || thread.tagIds?.includes(tagFilter)).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)), [threads, filter, tagFilter]);
+  const visible = useMemo(() => filterThreads(threads, filter, SESSION_START).filter((thread) => !activeTag || thread.tagIds?.includes(activeTag)).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)), [threads, filter, activeTag]);
   const chosen = visible.filter((thread) => picked.has(thread.id));
   const combine = canCombine(chosen);
   const records = recordsReady ? storyRecords() : [];
@@ -46,7 +56,7 @@ export function ThreadsPane() {
       <nav className="board-filters" aria-label="Filter notes">
         {FILTERS.map((item) => <button key={item.key} type="button" aria-pressed={filter === item.key} className={filter === item.key ? 'is-on' : ''} onClick={() => setFilter(item.key)}>{item.label}</button>)}
       </nav>
-      {tags.length > 0 && <select aria-label="Filter by tag" value={tagFilter} onChange={(event) => setTagFilter(event.target.value)}><option value="">Any tag</option>{tags.map((tag) => <option key={tag.id} value={tag.id}>#{tag.label}</option>)}</select>}
+      {tags.length > 0 && <select aria-label="Filter by tag" value={activeTag} onChange={(event) => setTagFilter(event.target.value)}><option value="">Any tag</option>{tags.map((tag) => <option key={tag.id} value={tag.id}>#{tag.label}</option>)}</select>}
       <button type="button" className="btn btn-primary" disabled={!combine.ok || busy}
         title={combine.ok ? 'Merge the selected notes into one thread' : combine.reason}
         onClick={() => void useThreads.getState().merge(chosen.map((thread) => thread.id)).then((merged) => { if (merged) setPicked(new Set()); })}>
@@ -56,7 +66,7 @@ export function ThreadsPane() {
     {chosen.length > 1 && !combine.ok && <p className="board-hint" role="status">{combine.reason}</p>}
     {error && <p className="thread-failed" role="alert">{error}</p>}
     {visible.length === 0
-      ? <div className="story-empty"><span>¶</span><h3>{filter === 'trash' ? 'Trash is empty.' : 'No notes here yet.'}</h3><p>Open any story card and use its notes button to leave a margin note, or ask @Muse.</p>
+      ? <div className="story-empty"><span>¶</span><h3>{filter === 'trash' ? 'Trash is empty.' : activeTag ? 'No notes with this tag here.' : 'No notes here yet.'}</h3><p>Open any story card and use its notes button to leave a margin note, or ask @Muse.</p>
         {older > 0 && <p className="board-older">{older === 1 ? '1 older note' : `${older} older notes`} from before this session. <button type="button" className="linkish" onClick={() => setFilter('all')}>Show all notes</button></p>}</div>
       : <ul className="board-grid" aria-label="Notes">
           {visible.map((thread) => <NoteCard key={thread.id} thread={thread} tags={tags} records={records} card={recordsReady ? cardLabel(records, thread.target) : undefined}
