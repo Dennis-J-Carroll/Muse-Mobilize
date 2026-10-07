@@ -79,6 +79,7 @@ function NoteCard({ thread, card, tags, records, selected, onSelect }: { thread:
       <label className="board-pick"><input type="checkbox" checked={selected} onChange={(event) => onSelect(event.target.checked)} aria-label={`Select note on ${name}`} /></label>
       <div><b>{name}</b><small>{card ? card.group : removed ? 'no longer in this project' : ''} · {relativeTime(thread.updatedAt)}{thread.status === 'resolved' ? ' · resolved' : ''}</small></div>
     </header>
+    {thread.anchor && <blockquote className="thread-quote">{thread.anchor.quote}</blockquote>}
     {(thread.tagIds?.length || thread.links?.length) ? <div className="board-chips">
       {(thread.tagIds ?? []).map((id) => <span key={id}>#{tags.find((tag) => tag.id === id)?.label ?? 'Missing tag'}</span>)}
       {(thread.links ?? []).map((link) => <span key={`${link.kind}:${link.id}`}>↗ {cardLabel(records, link)?.label ?? 'Card removed'}</span>)}
