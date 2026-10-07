@@ -8,6 +8,14 @@ import { loadStoryRecords, sameTarget, storyRecords, targetKey } from '../storyR
 import { trapLayerTab } from '../focusLayers';
 import { revealRange } from '../panes/EditorPane';
 import { useWritingView } from '../writingView';
+import { useThreads } from '../threads';
+import { noteSummary, notesLinkingTo, notesTaggedWith, threadsForTarget } from '../threadView';
+import { openNote } from '../openNote';
+import type { Thread } from '../../../shared/threads';
+
+function NoteRow({ thread, label, onOpen }: { thread: Thread; label: string; onOpen: () => void }) {
+  return <li><small>{label}</small> <span>{noteSummary(thread)}</span> <button type="button" aria-label={`Open note: ${noteSummary(thread, 40)}`} onClick={onOpen}>Open note</button></li>;
+}
 
 export function ConnectionsPanel() {
   const view = useConnectionsView();
@@ -43,6 +51,8 @@ function ConnectionContents({ projectId }: { projectId: string }) {
     return () => { live.current = false; };
   }, [projectId, attempt]);
 
+  const threads = useThreads((s) => s.threads);
+  useEffect(() => { void useThreads.getState().ensureLoaded(); }, [projectId]);
   const records = storyRecords(state);
   const record = (target: ConnectionTarget) => records.find((item) => sameTarget(target, item.target));
   const name = (target: ConnectionTarget) => record(target)?.label ?? `Missing ${target.kind}: ${target.id}`;
@@ -55,6 +65,11 @@ function ConnectionContents({ projectId }: { projectId: string }) {
     && `${item.group} ${item.words}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
     && (!filter || data?.attachments.some((link) => link.tagId === filter && sameTarget(link.target, item.target))));
   const source = context ? name(context.target) : null;
+  const noteCard = (thread: Thread) => record(thread.target)?.label ?? 'Card removed';
+  const hereNotes = context && !context.range ? threadsForTarget(threads, context.target).filter((thread) => thread.status === 'open') : [];
+  const linkingNotes = context ? notesLinkingTo(threads, context.target) : [];
+  const taggedNotes = filter ? notesTaggedWith(threads, filter) : [];
+  const openNoteRow = (thread: Thread) => { closeConnections(false); void openNote(thread); };
 
   const mutate = async (action: () => Promise<unknown>) => {
     if (pending || !data) return;
@@ -149,7 +164,8 @@ function ConnectionContents({ projectId }: { projectId: string }) {
               const label = item.tagId ? data?.tags.find((tag) => tag.id === item.tagId)?.label ?? 'Missing tag' : name(item.entity!);
               return <button key={item.id} type="button" disabled={pending} aria-label={`Remove ${item.tagId ? 'tag' : 'link'} ${label}`} onClick={() => void mutate(() => api.removeConnection(projectId, item.id))}>{item.tagId ? '#' : '↗'} {label} <span aria-hidden="true">×</span></button>;
             })}</div>
-            {backlinks.length > 0 && <><h4>Linked from</h4><ul className="connection-passages">{backlinks.map(showLink)}</ul></>}
+            {hereNotes.length > 0 && <><h4>Notes here</h4><ul className="connection-passages">{hereNotes.map((thread) => <NoteRow key={thread.id} thread={thread} label={`${thread.messages.length} message${thread.messages.length === 1 ? '' : 's'}${thread.tagIds?.length ? ` · ${thread.tagIds.length} tag${thread.tagIds.length === 1 ? '' : 's'}` : ''}`} onOpen={() => openNoteRow(thread)} />)}</ul></>}
+            {(backlinks.length > 0 || linkingNotes.length > 0) && <><h4>Linked from</h4><ul className="connection-passages">{backlinks.map(showLink)}{linkingNotes.map((thread) => <NoteRow key={thread.id} thread={thread} label={`Note on ${noteCard(thread)}`} onOpen={() => openNoteRow(thread)} />)}</ul></>}
             {passages.length > 0 && <><h4>Passage annotations</h4><ul className="connection-passages">{passages.map(showLink)}</ul></>}
           </section>}
           <div className="connections-search"><label>Find story record<input ref={input} type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name, alias, motif…" /></label>
@@ -161,6 +177,8 @@ function ConnectionContents({ projectId }: { projectId: string }) {
             {filter && <ul className="connection-passages">{data?.attachments.filter((link) => link.tagId === filter && sameTarget(link.target, item.target) && link.anchor).map(showLink)}</ul>}
           </article>)}</div>
           {data && !filtered.length && <p>No matching records. Try another tag, type, or name.</p>}
+          {taggedNotes.length > 0 && <section className="connections-notes" aria-label="Notes with this tag"><h4>Notes tagged #{selectedTag?.label}</h4>
+            <ul className="connection-passages">{taggedNotes.map((thread) => <NoteRow key={thread.id} thread={thread} label={`Note on ${noteCard(thread)}`} onOpen={() => openNoteRow(thread)} />)}</ul></section>}
           {data && (!state.canon || !state.plot || !state.sceneBoard || !state.references || !state.goals) && <p role="status">Some tools could not load. <button type="button" onClick={() => setAttempt((value) => value + 1)}>Retry story records</button></p>}
         </div>
       </div>
