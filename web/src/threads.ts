@@ -23,12 +23,13 @@ interface ThreadsState {
   error: string;
   ensureLoaded: () => Promise<void>;
   refresh: () => Promise<void>;
-  create: (target: ConnectionTarget, text: string) => Promise<Thread | null>;
+  create: (target: ConnectionTarget, text: string, extra?: { range?: { start: number; end: number; quote: string }; tagIds?: string[]; links?: ConnectionTarget[] }) => Promise<Thread | null>;
   reply: (threadId: string, text: string) => Promise<Thread | null>;
   retry: (threadId: string, messageId: string) => Promise<Thread | null>;
   editMessage: (threadId: string, messageId: string, text: string) => Promise<Thread | null>;
   setStatus: (threadId: string, status: 'open' | 'resolved') => Promise<Thread | null>;
   setTrashed: (threadId: string, trashed: boolean) => Promise<Thread | null>;
+  setConnections: (threadId: string, input: { tagIds?: string[]; links?: ConnectionTarget[] }) => Promise<Thread | null>;
   merge: (ids: string[]) => Promise<Thread | null>;
   deleteForever: (threadId: string) => Promise<boolean>;
 }
@@ -80,12 +81,13 @@ export const useThreads = create<ThreadsState>((set, get) => {
       }
       if (!get().loaded) await get().refresh();
     },
-    create: (target, text) => apply((id) => api.createThread(id, { target, text }), { thinking: hasMuseMention(text) }),
+    create: (target, text, extra) => apply((id) => api.createThread(id, { target, text, ...extra }), { thinking: hasMuseMention(text) }),
     reply: (threadId, text) => apply((id) => api.replyThread(id, threadId, { text, expectedUpdatedAt: get().threads.find((t) => t.id === threadId)?.updatedAt }), { thinking: hasMuseMention(text) }),
     retry: (threadId, messageId) => apply((id) => api.retryThreadMessage(id, threadId, messageId), { thinking: true }),
     editMessage: (threadId, messageId, text) => apply((id) => api.editThreadMessage(id, threadId, messageId, { text })),
     setStatus: (threadId, status) => apply((id) => api.updateThread(id, threadId, { status })),
     setTrashed: (threadId, trashed) => apply((id) => api.updateThread(id, threadId, { trashed })),
+    setConnections: (threadId, input) => apply((id) => api.updateThreadConnections(id, threadId, { ...input, expectedUpdatedAt: get().threads.find((t) => t.id === threadId)?.updatedAt })),
     merge: (ids) => apply((id) => api.mergeThreads(id, ids), { refreshAfter: true }),
     async deleteForever(threadId) {
       const done = await run((id) => api.deleteThread(id, threadId), () => set((state) => ({ threads: state.threads.filter((t) => t.id !== threadId) })));

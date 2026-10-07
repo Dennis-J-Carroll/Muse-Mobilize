@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { THREAD_TEXT_MAX, splitMentions } from '../../../shared/threads';
 import type { Thread, ThreadMessage } from '../../../shared/threads';
-import { SESSION_START, useThreadPopover, useThreads } from '../threads';
+import { SESSION_START, useThreads } from '../threads';
 import { canCombine, cardLabel, filterThreads } from '../threadView';
 import type { BoardFilter } from '../threadView';
 import { relativeTime } from '../threadView';
-import { loadStoryRecords, sameTarget, storyRecords } from '../storyRecords';
+import { loadStoryRecords, storyRecords } from '../storyRecords';
+import { openNote } from '../openNote';
 import { useStore } from '../store';
 
 const FILTERS: { key: BoardFilter; label: string }[] = [
@@ -64,13 +65,7 @@ function NoteCard({ thread, card, selected, onSelect }: { thread: Thread; card: 
   const removed = card === null;
   const name = card?.label ?? (removed ? 'Card removed' : '…');
 
-  async function jump() {
-    await loadStoryRecords();
-    const record = storyRecords().find((item) => sameTarget(item.target, thread.target));
-    if (!record) return;
-    record.open();
-    requestAnimationFrame(() => useThreadPopover.getState().open(thread.target, thread.id));
-  }
+  const jump = () => openNote(thread);
 
   return <li className={`board-note ${thread.status === 'resolved' ? 'is-resolved' : ''} ${trashed ? 'is-trashed' : ''} ${selected ? 'is-selected' : ''}`}>
     <header>

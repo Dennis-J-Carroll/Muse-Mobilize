@@ -1,15 +1,23 @@
 import type { ConnectionTarget } from '../../shared/connections';
-import { sameTarget } from '../../shared/threads';
+import { samePassage, sameTarget } from '../../shared/threads';
 import type { Thread } from '../../shared/threads';
 
 export type BoardFilter = 'session' | 'open' | 'resolved' | 'all' | 'trash';
 
 const time = (iso: string) => Date.parse(iso);
 
-export function threadsForTarget(threads: Thread[], target: ConnectionTarget): Thread[] {
+export function threadsForTarget(threads: Thread[], target: ConnectionTarget, options: { anchored?: boolean } = {}): Thread[] {
   return threads
-    .filter((thread) => !thread.trashedAt && sameTarget(thread.target, target))
+    .filter((thread) => !thread.trashedAt && sameTarget(thread.target, target)
+      && (options.anchored === undefined || Boolean(thread.anchor) === options.anchored))
     .sort((a, b) => (a.status === b.status ? 0 : a.status === 'open' ? -1 : 1) || time(b.createdAt) - time(a.createdAt));
+}
+
+export const notesTaggedWith = (threads: Thread[], tagId: string) => threads.filter((thread) => !thread.trashedAt && thread.tagIds?.includes(tagId));
+export const notesLinkingTo = (threads: Thread[], target: ConnectionTarget) => threads.filter((thread) => !thread.trashedAt && thread.links?.some((link) => sameTarget(link, target)));
+export function noteSummary(thread: Thread, max = 80): string {
+  const text = (thread.messages[0]?.text ?? '').replace(/\s+/g, ' ').trim();
+  return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
 export const openCount = (threads: Thread[], target: ConnectionTarget) =>
@@ -28,6 +36,7 @@ export function canCombine(picked: Thread[]): { ok: boolean; reason?: string } {
   if (picked.length < 2) return { ok: false, reason: 'Select two or more notes' };
   if (picked.some((thread) => thread.trashedAt)) return { ok: false, reason: 'Restore trashed notes first' };
   if (!picked.every((thread) => sameTarget(thread.target, picked[0].target))) return { ok: false, reason: 'Combine works within one card' };
+  if (!picked.every((thread) => samePassage(thread.anchor, picked[0].anchor))) return { ok: false, reason: 'Combine works within one passage' };
   return { ok: true };
 }
 

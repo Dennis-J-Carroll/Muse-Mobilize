@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { canCombine, cardLabel, filterThreads, openCount, placePopover, relativeTime, threadsForTarget } from '../src/threadView.ts';
+import { canCombine, cardLabel, filterThreads, noteSummary, notesLinkingTo, notesTaggedWith, openCount, placePopover, relativeTime, threadsForTarget } from '../src/threadView.ts';
 import type { Thread } from '../../shared/threads.ts';
 
 const T0 = '2026-10-06T10:00:00.000Z';
@@ -62,4 +62,42 @@ test('cardLabel returns null for a card that no longer exists', () => {
   const records = [{ target: { kind: 'canon' as const, id: 'mara' }, label: 'Mara', group: 'Character' }];
   assert.deepEqual(cardLabel(records, { kind: 'canon', id: 'mara' }), { label: 'Mara', group: 'Character' });
   assert.equal(cardLabel(records, { kind: 'canon', id: 'gone' }), null);
+});
+
+test('join helpers ignore trash and read tags and links', () => {
+  const list = [
+    make('a', { tagIds: ['t1'], links: [{ kind: 'scene', id: 's9' }] }),
+    make('b', { tagIds: ['t1'], trashedAt: T0 }),
+    make('c', { links: [{ kind: 'scene', id: 's9' }, { kind: 'plot', id: 'p1' }] }),
+    make('d'),
+  ];
+  assert.deepEqual(notesTaggedWith(list, 't1').map((t) => t.id), ['a']);
+  assert.deepEqual(notesLinkingTo(list, { kind: 'scene', id: 's9' }).map((t) => t.id), ['a', 'c']);
+  assert.deepEqual(notesLinkingTo(list, { kind: 'scene', id: 'none' }), []);
+});
+
+test('noteSummary is the first words of the first note, trimmed', () => {
+  const long = make('x', { messages: [{ id: 'm', author: { kind: 'user' }, text: 'word '.repeat(40), createdAt: T0 }] });
+  assert.ok(noteSummary(long, 30).length <= 31);
+  assert.match(noteSummary(long, 30), /…$/);
+  assert.equal(noteSummary(make('y')), 'y');
+});
+
+test('threadsForTarget can split whole-document notes from passage notes', () => {
+  const anchor = { start: 0, end: 4, quote: 'text', prefix: '', suffix: '' };
+  const doc = { kind: 'document' as const, id: 'd1' };
+  const list = [make('whole', { target: doc }), make('passage', { target: doc, anchor })];
+  assert.deepEqual(threadsForTarget(list, doc).map((t) => t.id).sort(), ['passage', 'whole']);
+  assert.deepEqual(threadsForTarget(list, doc, { anchored: true }).map((t) => t.id), ['passage']);
+  assert.deepEqual(threadsForTarget(list, doc, { anchored: false }).map((t) => t.id), ['whole']);
+});
+
+test('canCombine refuses different passages of one document but allows the same passage', () => {
+  const doc = { kind: 'document' as const, id: 'd1' };
+  const a = { start: 0, end: 4, quote: 'Mara', prefix: '', suffix: ' lit' };
+  const b = { start: 13, end: 20, quote: 'lantern', prefix: 'lit the ', suffix: ' at' };
+  const different = canCombine([make('a', { target: doc, anchor: a }), make('b', { target: doc, anchor: b })]);
+  assert.deepEqual([different.ok, different.reason], [false, 'Combine works within one passage']);
+  assert.equal(canCombine([make('a', { target: doc, anchor: a }), make('b', { target: doc, anchor: { ...a, start: 99, end: 103 } })]).ok, true);
+  assert.equal(canCombine([make('a', { target: doc }), make('b', { target: doc })]).ok, true);
 });
