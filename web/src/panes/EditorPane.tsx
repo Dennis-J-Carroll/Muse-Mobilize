@@ -8,6 +8,7 @@ import * as Icon from '../components/icons';
 import { measureCss, stepZoom, useWritingView, WIDTH_PRESETS, WRITING_FONTS, ZOOM_DEFAULT, ZOOM_MAX, ZOOM_MIN, type WritingFont } from '../writingView';
 import { useWritingFullscreen } from '../useWritingFullscreen';
 import { openConnections } from '../connectionsView';
+import { useThreadPopover } from '../threads';
 import { PagePopover } from '../components/PagePopover';
 import { restorePlace } from '../focusPlace';
 import { LegendTrigger } from '../components/ShortcutLegend';
@@ -177,6 +178,17 @@ export function EditorPane({ pane }: { pane: Pane }) {
     openConnections({ target: { kind: 'document', id: docId },
       ...(end > start ? { range: { start, end, quote: el.value.slice(start, end) } } : {}) });
   };
+  /** A note on the selected passage, or this document's own notes when nothing is selected. Needs saved text, like Tag / link. */
+  const noteSelection = async () => {
+    const el = ref.current;
+    if (!el || doc?.recovery) return;
+    const start = el.selectionStart; const end = el.selectionEnd;
+    await useStore.getState().flushDoc(docId);
+    const saved = useStore.getState().docs[docId];
+    if (!saved || saved.dirty || saved.recovery) { useStore.setState({ error: 'Save or resolve the recovered document before adding a note.' }); return; }
+    const quote = saved.content.slice(start, end);
+    useThreadPopover.getState().open({ kind: 'document', id: docId }, undefined, end > start && quote.trim() ? { start, end, quote } : undefined);
+  };
   const typedCommand = (character: string): boolean => {
     const el = ref.current;
     if (!el || doc?.recovery) return false;
@@ -260,6 +272,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
             ref.current?.focus({ preventScroll: true });
           }}><span aria-hidden="true">🎲</span></button>
         <button type="button" aria-label="Tag or link selection" title="Connect selected text, or type !#" disabled={Boolean(doc.recovery)} onPointerDown={(event) => event.preventDefault()} onClick={connectSelection}>Tag / link</button>
+        <button type="button" aria-label="Note on selection" title="Add a note on the selected text, or open this document's notes" disabled={Boolean(doc.recovery)} onPointerDown={(event) => event.preventDefault()} onClick={() => void noteSelection()}>Note</button>
         {isManuscript && <div className="export-menu" data-testid="export-menu">
           <button type="button" aria-label="Export document" aria-haspopup="menu" aria-expanded={exportOpen}
             disabled={exporting} onPointerDown={(event) => event.preventDefault()}
