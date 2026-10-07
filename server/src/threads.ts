@@ -1,10 +1,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { ConnectionTarget } from '../../shared/connections.js';
+import { makePassageAnchor } from '../../shared/connections.js';
+import type { ConnectionTarget, PassageAnchor } from '../../shared/connections.js';
 import { THREAD_LINK_MAX, THREAD_TAG_MAX, THREAD_TEXT_MAX, mergeThreadMessages, samePassage, sameTarget } from '../../shared/threads.js';
 import type { Thread, ThreadAuthor, ThreadMessage, ThreadStore } from '../../shared/threads.js';
 import { connectionTarget, readConnections, requireTarget } from './connections.js';
+import { safeJoin } from './paths.js';
 import { persistJson, serialized } from './json-store.js';
 
 /** A write based on a stale `updatedAt`; the route maps this to HTTP 409. */
@@ -24,6 +26,7 @@ function validateStore(value: unknown): ThreadStore {
     connectionTarget(thread.target);
     if (thread.status !== 'open' && thread.status !== 'resolved') throw new Error('Malformed thread status');
     if (thread.trashedAt !== undefined && !isTimestamp(thread.trashedAt)) throw new Error('Malformed trashedAt');
+    if (thread.anchor !== undefined && (thread.target as { kind?: string }).kind !== 'document') throw new Error('Anchor on a non-document note');
     if (thread.tagIds !== undefined && (!Array.isArray(thread.tagIds) || thread.tagIds.some((id) => typeof id !== 'string'))) throw new Error('Malformed tagIds');
     if (thread.links !== undefined) { if (!Array.isArray(thread.links)) throw new Error('Malformed links'); thread.links.forEach(connectionTarget); }
     if (!Array.isArray(thread.messages)) throw new Error('Malformed messages');
@@ -144,12 +147,20 @@ export async function listThreads(dir: string, target?: ConnectionTarget): Promi
 export async function createThread(dir: string, input: { target: ConnectionTarget; text: string; tagIds?: unknown; links?: unknown; range?: unknown }): Promise<Thread> {
   const target = connectionTarget(input?.target);
   const text = noteText(input?.text);
-  await requireTarget(dir, target);
+  const meta = await requireTarget(dir, target);
+  let anchor: PassageAnchor | undefined;
+  if (input.range !== undefined) {
+    if (target.kind !== 'document') throw new Error('Passage notes are only supported on documents');
+    const range = input.range as { start: number; end: number; quote: string };
+    if (!meta || !range || typeof range.quote !== 'string') throw new Error('Passage note requires the selected quote');
+    const content = await fs.readFile(safeJoin(dir, meta.path), 'utf8');
+    anchor = makePassageAnchor(content, range.start, range.end, range.quote);
+  }
   const connections = await checkedConnections(dir, target, undefined, { tagIds: input.tagIds, links: input.links });
   return mutate(dir, (store) => {
     const now = new Date().toISOString();
     const thread: Thread = {
-      id: randomUUID(), target, status: 'open', createdAt: now, updatedAt: now, ...connections,
+      id: randomUUID(), target, status: 'open', createdAt: now, updatedAt: now, ...connections, ...(anchor ? { anchor } : {}),
       messages: [{ id: randomUUID(), author: { kind: 'user' }, text, createdAt: now }],
     };
     store.threads.push(thread);

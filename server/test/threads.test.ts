@@ -186,3 +186,33 @@ test('an old store file without the new fields still reads', async (t) => {
   assert.equal(stored.tagIds, undefined);
   assert.equal(stored.id, thread.id);
 });
+
+async function withDocument(dir: string) {
+  await fs.mkdir(path.join(dir, 'manuscript'), { recursive: true });
+  await fs.writeFile(path.join(dir, 'manuscript/one.md'), 'Mara lit the lantern at dusk.');
+  await fs.writeFile(path.join(dir, 'project.json'), JSON.stringify({ id: 'test-project', name: 'Test', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    documents: [{ id: 'one', title: 'One', kind: 'manuscript', path: 'manuscript/one.md', order: 0 }] }));
+  return { kind: 'document' as const, id: 'one' };
+}
+
+test('a passage note stores an anchor built from the saved text; stale, empty and non-document ranges are refused', async (t) => {
+  const { dir, canon } = await fixture(t);
+  const doc = await withDocument(dir);
+  const start = 'Mara lit the '.length;
+  const thread = await createThread(dir, { target: doc, text: 'why a lantern?', range: { start, end: start + 7, quote: 'lantern' } });
+  assert.equal(thread.anchor?.quote, 'lantern');
+  assert.equal(thread.anchor?.start, start);
+  await assert.rejects(createThread(dir, { target: doc, text: 'x', range: { start, end: start + 7, quote: 'lanterns' } }), /no longer matches/);
+  await assert.rejects(createThread(dir, { target: doc, text: 'x', range: { start: 3, end: 3, quote: '' } }), /nonempty/);
+  await assert.rejects(createThread(dir, { target: canon, text: 'x', range: { start: 0, end: 1, quote: 'a' } }), /document/);
+  const whole = await createThread(dir, { target: doc, text: 'whole document note' });
+  assert.equal(whole.anchor, undefined);
+});
+
+test('combine refuses different passages of one document', async (t) => {
+  const { dir } = await fixture(t);
+  const doc = await withDocument(dir);
+  const a = await createThread(dir, { target: doc, text: 'a', range: { start: 0, end: 4, quote: 'Mara' } });
+  const b = await createThread(dir, { target: doc, text: 'b', range: { start: 13, end: 20, quote: 'lantern' } });
+  await assert.rejects(mergeThreads(dir, [a.id, b.id]), /within one passage/);
+});
