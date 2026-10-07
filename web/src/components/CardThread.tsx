@@ -8,6 +8,7 @@ import { useThreadPopover, useThreads } from '../threads';
 import { cardLabel, placePopover, relativeTime, threadsForTarget } from '../threadView';
 import { loadStoryRecords, storyRecords } from '../storyRecords';
 import { targetForEditor } from '../connectionsView';
+import { ThreadChips } from './ThreadChips';
 
 export function CardThreadHost() {
   const target = useThreadPopover((state) => state.target);
@@ -103,6 +104,7 @@ function ThreadPopover({ target, initialThreadId }: { target: ConnectionTarget; 
       <button type="button" aria-label="Close notes" onClick={() => useThreadPopover.getState().close()}>×</button>
     </header>
     {thread?.status === 'resolved' && <p className="thread-resolved">Resolved</p>}
+    {thread && <ThreadChips thread={thread} />}
     <ul className="thread-messages" aria-live="polite">
       {thread ? thread.messages.map((message) => <Bubble key={message.id} message={message} thread={thread} />)
         : !thinking && <li className="thread-empty">{composingNew ? 'Start a new note below.' : 'No notes yet. Write one, or start with @Muse to ask.'}</li>}

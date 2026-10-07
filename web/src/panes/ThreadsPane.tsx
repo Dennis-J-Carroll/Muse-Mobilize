@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { THREAD_TEXT_MAX, splitMentions } from '../../../shared/threads';
 import type { Thread, ThreadMessage } from '../../../shared/threads';
+import type { ConnectionTarget } from '../../../shared/connections';
 import { SESSION_START, useThreads } from '../threads';
 import { canCombine, cardLabel, filterThreads } from '../threadView';
 import type { BoardFilter } from '../threadView';
@@ -8,6 +9,8 @@ import { relativeTime } from '../threadView';
 import { loadStoryRecords, storyRecords } from '../storyRecords';
 import { openNote } from '../openNote';
 import { useStore } from '../store';
+import { api } from '../api';
+import type { StoryTag } from '../../../shared/connections';
 
 const FILTERS: { key: BoardFilter; label: string }[] = [
   { key: 'session', label: 'This session' }, { key: 'open', label: 'Open' }, { key: 'resolved', label: 'Resolved' },
@@ -23,11 +26,14 @@ export function ThreadsPane() {
   const [filter, setFilter] = useState<BoardFilter>('session');
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [recordsReady, setRecordsReady] = useState(false);
+  const [tags, setTags] = useState<StoryTag[]>([]);
+  const [tagFilter, setTagFilter] = useState('');
 
   useEffect(() => { void useThreads.getState().ensureLoaded(); void loadStoryRecords().then(() => setRecordsReady(true)); }, [projectId]);
-  useEffect(() => { setPicked(new Set()); }, [filter, projectId]);
+  useEffect(() => { if (projectId) void api.connections(projectId).then((result) => setTags(result.connections.tags)).catch(() => setTags([])); }, [projectId, threads]);
+  useEffect(() => { setPicked(new Set()); }, [filter, tagFilter, projectId]);
 
-  const visible = useMemo(() => filterThreads(threads, filter, SESSION_START).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)), [threads, filter]);
+  const visible = useMemo(() => filterThreads(threads, filter, SESSION_START).filter((thread) => !tagFilter || thread.tagIds?.includes(tagFilter)).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)), [threads, filter, tagFilter]);
   const chosen = visible.filter((thread) => picked.has(thread.id));
   const combine = canCombine(chosen);
   const records = recordsReady ? storyRecords() : [];
@@ -40,6 +46,7 @@ export function ThreadsPane() {
       <nav className="board-filters" aria-label="Filter notes">
         {FILTERS.map((item) => <button key={item.key} type="button" aria-pressed={filter === item.key} className={filter === item.key ? 'is-on' : ''} onClick={() => setFilter(item.key)}>{item.label}</button>)}
       </nav>
+      {tags.length > 0 && <select aria-label="Filter by tag" value={tagFilter} onChange={(event) => setTagFilter(event.target.value)}><option value="">Any tag</option>{tags.map((tag) => <option key={tag.id} value={tag.id}>#{tag.label}</option>)}</select>}
       <button type="button" className="btn btn-primary" disabled={!combine.ok || busy}
         title={combine.ok ? 'Merge the selected notes into one thread' : combine.reason}
         onClick={() => void useThreads.getState().merge(chosen.map((thread) => thread.id)).then((merged) => { if (merged) setPicked(new Set()); })}>
@@ -52,13 +59,13 @@ export function ThreadsPane() {
       ? <div className="story-empty"><span>¶</span><h3>{filter === 'trash' ? 'Trash is empty.' : 'No notes here yet.'}</h3><p>Open any story card and use its notes button to leave a margin note, or ask @Muse.</p>
         {older > 0 && <p className="board-older">{older === 1 ? '1 older note' : `${older} older notes`} from before this session. <button type="button" className="linkish" onClick={() => setFilter('all')}>Show all notes</button></p>}</div>
       : <ul className="board-grid" aria-label="Notes">
-          {visible.map((thread) => <NoteCard key={thread.id} thread={thread} card={recordsReady ? cardLabel(records, thread.target) : undefined}
+          {visible.map((thread) => <NoteCard key={thread.id} thread={thread} tags={tags} records={records} card={recordsReady ? cardLabel(records, thread.target) : undefined}
             selected={picked.has(thread.id)} onSelect={(on) => setPicked((prev) => { const next = new Set(prev); if (on) next.add(thread.id); else next.delete(thread.id); return next; })} />)}
         </ul>}
   </div>;
 }
 
-function NoteCard({ thread, card, selected, onSelect }: { thread: Thread; card: { label: string; group: string } | null | undefined; selected: boolean; onSelect: (on: boolean) => void }) {
+function NoteCard({ thread, card, tags, records, selected, onSelect }: { thread: Thread; card: { label: string; group: string } | null | undefined; tags: StoryTag[]; records: { target: ConnectionTarget; label: string; group: string }[]; selected: boolean; onSelect: (on: boolean) => void }) {
   const busy = useThreads((state) => state.busy);
   const [confirming, setConfirming] = useState(false);
   const trashed = Boolean(thread.trashedAt);
@@ -72,6 +79,10 @@ function NoteCard({ thread, card, selected, onSelect }: { thread: Thread; card: 
       <label className="board-pick"><input type="checkbox" checked={selected} onChange={(event) => onSelect(event.target.checked)} aria-label={`Select note on ${name}`} /></label>
       <div><b>{name}</b><small>{card ? card.group : removed ? 'no longer in this project' : ''} · {relativeTime(thread.updatedAt)}{thread.status === 'resolved' ? ' · resolved' : ''}</small></div>
     </header>
+    {(thread.tagIds?.length || thread.links?.length) ? <div className="board-chips">
+      {(thread.tagIds ?? []).map((id) => <span key={id}>#{tags.find((tag) => tag.id === id)?.label ?? 'Missing tag'}</span>)}
+      {(thread.links ?? []).map((link) => <span key={`${link.kind}:${link.id}`}>↗ {cardLabel(records, link)?.label ?? 'Card removed'}</span>)}
+    </div> : null}
     <ul className="board-messages">{thread.messages.map((message) => <BoardMessage key={message.id} thread={thread} message={message} locked={trashed} />)}</ul>
     <footer>
       {!trashed && <button type="button" className="linkish" disabled={removed} onClick={() => void jump()}>Open card</button>}
