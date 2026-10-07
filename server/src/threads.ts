@@ -2,9 +2,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { ConnectionTarget } from '../../shared/connections.js';
-import { THREAD_TEXT_MAX, mergeThreadMessages, sameTarget } from '../../shared/threads.js';
+import { THREAD_LINK_MAX, THREAD_TAG_MAX, THREAD_TEXT_MAX, mergeThreadMessages, samePassage, sameTarget } from '../../shared/threads.js';
 import type { Thread, ThreadAuthor, ThreadMessage, ThreadStore } from '../../shared/threads.js';
-import { connectionTarget, requireTarget } from './connections.js';
+import { connectionTarget, readConnections, requireTarget } from './connections.js';
 import { persistJson, serialized } from './json-store.js';
 
 /** A write based on a stale `updatedAt`; the route maps this to HTTP 409. */
@@ -24,6 +24,8 @@ function validateStore(value: unknown): ThreadStore {
     connectionTarget(thread.target);
     if (thread.status !== 'open' && thread.status !== 'resolved') throw new Error('Malformed thread status');
     if (thread.trashedAt !== undefined && !isTimestamp(thread.trashedAt)) throw new Error('Malformed trashedAt');
+    if (thread.tagIds !== undefined && (!Array.isArray(thread.tagIds) || thread.tagIds.some((id) => typeof id !== 'string'))) throw new Error('Malformed tagIds');
+    if (thread.links !== undefined) { if (!Array.isArray(thread.links)) throw new Error('Malformed links'); thread.links.forEach(connectionTarget); }
     if (!Array.isArray(thread.messages)) throw new Error('Malformed messages');
     const messageIds = new Set<string>();
     for (const message of thread.messages) {
@@ -82,19 +84,72 @@ const touch = (thread: Thread) => {
   thread.updatedAt = new Date(Math.max(Date.now(), Date.parse(thread.updatedAt) + 1)).toISOString();
 };
 
+interface ConnectionInput { tagIds?: unknown; links?: unknown }
+
+/** Dedupe, cap, and check. Only ids/targets that are NEW on the note are validated, so a tag undone elsewhere
+ * or a card removed later never locks the note's own chips. */
+async function checkedConnections(dir: string, own: ConnectionTarget, existing: Thread | undefined, input: ConnectionInput): Promise<{ tagIds?: string[]; links?: ConnectionTarget[] }> {
+  const out: { tagIds?: string[]; links?: ConnectionTarget[] } = {};
+  if (input.tagIds !== undefined) {
+    if (!Array.isArray(input.tagIds) || input.tagIds.some((id) => typeof id !== 'string')) throw new Error('tagIds must be a list of tag ids');
+    const wanted = [...new Set(input.tagIds as string[])];
+    if (wanted.length > THREAD_TAG_MAX) throw new Error(`A note can have at most ${THREAD_TAG_MAX} tags`);
+    const known = new Set((await readConnections(dir).catch(() => ({ tags: [] as { id: string }[] }))).tags.map((tag) => tag.id));
+    const had = new Set(existing?.tagIds ?? []);
+    const kept: string[] = [];
+    for (const id of wanted) {
+      if (known.has(id)) kept.push(id);
+      else if (!had.has(id)) throw new Error(`No such tag: ${id}`); // new and unknown: refuse; held before and gone: drop
+    }
+    if (kept.length) out.tagIds = kept;
+  }
+  if (input.links !== undefined) {
+    if (!Array.isArray(input.links)) throw new Error('links must be a list of cards');
+    const seen = new Set<string>();
+    const wanted: ConnectionTarget[] = [];
+    for (const item of input.links) {
+      const target = connectionTarget(item);
+      const key = `${target.kind}:${target.id}`;
+      if (!seen.has(key)) { seen.add(key); wanted.push(target); }
+    }
+    if (wanted.length > THREAD_LINK_MAX) throw new Error(`A note can link at most ${THREAD_LINK_MAX} cards`);
+    const had = new Set((existing?.links ?? []).map((item) => `${item.kind}:${item.id}`));
+    for (const target of wanted) {
+      if (sameTarget(target, own)) throw new Error('A note cannot link to its own card');
+      if (!had.has(`${target.kind}:${target.id}`)) await requireTarget(dir, target);
+    }
+    if (wanted.length) out.links = wanted;
+  }
+  return out;
+}
+
+export function setConnections(dir: string, threadId: string, input: ConnectionInput & { expectedUpdatedAt?: string }): Promise<Thread> {
+  return mutate(dir, async (store) => {
+    const thread = findThread(store, threadId);
+    if (thread.trashedAt) throw new Error('Restore this note before editing it');
+    guard(thread, input.expectedUpdatedAt);
+    const next = await checkedConnections(dir, thread.target, thread, input);
+    if (input.tagIds !== undefined) { if (next.tagIds) thread.tagIds = next.tagIds; else delete thread.tagIds; }
+    if (input.links !== undefined) { if (next.links) thread.links = next.links; else delete thread.links; }
+    touch(thread);
+    return thread;
+  });
+}
+
 export async function listThreads(dir: string, target?: ConnectionTarget): Promise<Thread[]> {
   const { threads } = await readThreads(dir);
   return target ? threads.filter((thread) => sameTarget(thread.target, target)) : threads;
 }
 
-export async function createThread(dir: string, input: { target: ConnectionTarget; text: string }): Promise<Thread> {
+export async function createThread(dir: string, input: { target: ConnectionTarget; text: string; tagIds?: unknown; links?: unknown }): Promise<Thread> {
   const target = connectionTarget(input?.target);
   const text = noteText(input?.text);
   await requireTarget(dir, target);
+  const connections = await checkedConnections(dir, target, undefined, { tagIds: input.tagIds, links: input.links });
   return mutate(dir, (store) => {
     const now = new Date().toISOString();
     const thread: Thread = {
-      id: randomUUID(), target, status: 'open', createdAt: now, updatedAt: now,
+      id: randomUUID(), target, status: 'open', createdAt: now, updatedAt: now, ...connections,
       messages: [{ id: randomUUID(), author: { kind: 'user' }, text, createdAt: now }],
     };
     store.threads.push(thread);
@@ -181,10 +236,15 @@ export function mergeThreads(dir: string, ids: string[]): Promise<Thread> {
     const picked = unique.map((id) => findThread(store, id));
     if (picked.some((thread) => thread.trashedAt)) throw new Error('Restore trashed notes before combining');
     if (!picked.every((thread) => sameTarget(thread.target, picked[0].target))) throw new Error('Combine works within one card');
+    if (!picked.every((thread) => samePassage(thread.anchor, picked[0].anchor))) throw new Error('Combine works within one passage');
     picked.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
     const [primary, ...rest] = picked;
     primary.messages = mergeThreadMessages(picked);
     primary.status = picked.some((thread) => thread.status === 'open') ? 'open' : 'resolved';
+    const tagIds = [...new Set(picked.flatMap((thread) => thread.tagIds ?? []))];
+    const links = picked.flatMap((thread) => thread.links ?? []).filter((item, index, all) => all.findIndex((other) => sameTarget(other, item)) === index);
+    if (tagIds.length) primary.tagIds = tagIds.slice(0, THREAD_TAG_MAX); else delete primary.tagIds;
+    if (links.length) primary.links = links.slice(0, THREAD_LINK_MAX); else delete primary.links;
     primary.mergedFrom = [...(primary.mergedFrom ?? []), ...rest.flatMap((thread) => [thread.id, ...(thread.mergedFrom ?? [])])];
     touch(primary);
     const gone = new Set(rest.map((thread) => thread.id));

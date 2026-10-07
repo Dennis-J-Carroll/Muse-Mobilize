@@ -5,8 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   addMessage, addMuseMessage, createThread, deleteForever, editMessage, listThreads, mergeThreads,
-  readThreads, setStatus, setTrashed, ThreadConflictError,
+  readThreads, setConnections, setStatus, setTrashed, ThreadConflictError,
 } from '../src/threads.js';
+import { createTag } from '../src/connections.js';
 import { createCanonEntity } from '../src/canon.js';
 import { createPlotNode } from '../src/plot.js';
 
@@ -126,4 +127,62 @@ test('a malformed store fails loudly instead of being reset', async (t) => {
   await fs.writeFile(path.join(dir, 'threads/threads.json'), '{"version":2}');
   await assert.rejects(readThreads(dir), /Invalid threads store/);
   assert.equal(await fs.readFile(path.join(dir, 'threads/threads.json'), 'utf8'), '{"version":2}');
+});
+
+test('notes take tags and links; unknown or self links are refused; limits and duplicates are enforced', async (t) => {
+  const { dir, canon, plot } = await fixture(t);
+  const fear = await createTag(dir, { label: 'fear' });
+  const thread = await createThread(dir, { target: canon, text: 'note' });
+  const tagged = await setConnections(dir, thread.id, { tagIds: [fear.id, fear.id], links: [plot, plot] });
+  assert.deepEqual(tagged.tagIds, [fear.id]);
+  assert.deepEqual(tagged.links, [plot]);
+  await assert.rejects(setConnections(dir, thread.id, { tagIds: ['nope'] }), /No such tag/);
+  await assert.rejects(setConnections(dir, thread.id, { links: [canon] }), /its own card/);
+  await assert.rejects(setConnections(dir, thread.id, { links: [{ kind: 'plot', id: 'gone' }] }), /No such plot/);
+  await assert.rejects(setConnections(dir, thread.id, { tagIds: Array.from({ length: 13 }, (_, i) => `t${i}`) }), /at most 12/);
+  const cleared = await setConnections(dir, thread.id, { tagIds: [], links: [] });
+  assert.equal(cleared.tagIds, undefined);
+  assert.equal(cleared.links, undefined);
+});
+
+test('a tag that disappeared (created then undone) is dropped, not a lock on the note', async (t) => {
+  const { dir, canon } = await fixture(t);
+  const fear = await createTag(dir, { label: 'fear' });
+  const thread = await createThread(dir, { target: canon, text: 'note' });
+  await setConnections(dir, thread.id, { tagIds: [fear.id] });
+  await fs.rm(path.join(dir, 'connections'), { recursive: true });
+  const next = await createTag(dir, { label: 'pacing' });
+  const resaved = await setConnections(dir, thread.id, { tagIds: [fear.id, next.id] });
+  assert.deepEqual(resaved.tagIds, [next.id], 'the vanished tag is dropped; the new one is kept');
+});
+
+test('a link to a card that was removed stays on the note instead of blocking edits', async (t) => {
+  const { dir, canon, plot } = await fixture(t);
+  const thread = await createThread(dir, { target: canon, text: 'note' });
+  await setConnections(dir, thread.id, { links: [plot] });
+  await fs.rm(path.join(dir, 'plot'), { recursive: true });
+  const fear = await createTag(dir, { label: 'fear' });
+  const resaved = await setConnections(dir, thread.id, { tagIds: [fear.id], links: [plot] });
+  assert.deepEqual(resaved.links, [plot]);
+  assert.deepEqual(resaved.tagIds, [fear.id]);
+});
+
+test('create accepts tags and links; merge unions them', async (t) => {
+  const { dir, canon, plot } = await fixture(t);
+  const fear = await createTag(dir, { label: 'fear' });
+  const pace = await createTag(dir, { label: 'pacing' });
+  const a = await createThread(dir, { target: canon, text: 'a', tagIds: [fear.id] });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  const b = await createThread(dir, { target: canon, text: 'b', tagIds: [pace.id, fear.id], links: [plot] });
+  const merged = await mergeThreads(dir, [a.id, b.id]);
+  assert.deepEqual(merged.tagIds, [fear.id, pace.id]);
+  assert.deepEqual(merged.links, [plot]);
+});
+
+test('an old store file without the new fields still reads', async (t) => {
+  const { dir, canon } = await fixture(t);
+  const thread = await createThread(dir, { target: canon, text: 'note' });
+  const stored = (await readThreads(dir)).threads[0];
+  assert.equal(stored.tagIds, undefined);
+  assert.equal(stored.id, thread.id);
 });
