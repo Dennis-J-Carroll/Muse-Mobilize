@@ -40,6 +40,10 @@ export function canCombine(picked: Thread[]): { ok: boolean; reason?: string } {
   return { ok: true };
 }
 
+export function anchorStatusText(status: 'resolved' | 'moved' | 'missing' | 'ambiguous'): string {
+  return status === 'resolved' ? 'found' : status === 'moved' ? 'moved' : status === 'missing' ? "can't be found" : 'matches more than once';
+}
+
 export function placePopover(rect: { left: number; top: number; right: number; bottom: number }, vw: number, vh: number, width = 340, height = 420) {
   const left = vw - rect.right >= width + 16 ? rect.right + 8 : Math.max(8, rect.right - width - 8);
   const top = Math.min(Math.max(8, rect.top), Math.max(8, vh - height - 8));

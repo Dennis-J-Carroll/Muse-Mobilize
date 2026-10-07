@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { canCombine, cardLabel, filterThreads, noteSummary, notesLinkingTo, notesTaggedWith, openCount, placePopover, relativeTime, threadsForTarget } from '../src/threadView.ts';
+import { canCombine, cardLabel, filterThreads, anchorStatusText, noteSummary, notesLinkingTo, notesTaggedWith, openCount, placePopover, relativeTime, threadsForTarget } from '../src/threadView.ts';
 import type { Thread } from '../../shared/threads.ts';
 
 const T0 = '2026-10-06T10:00:00.000Z';
@@ -100,4 +100,11 @@ test('canCombine refuses different passages of one document but allows the same 
   assert.deepEqual([different.ok, different.reason], [false, 'Combine works within one passage']);
   assert.equal(canCombine([make('a', { target: doc, anchor: a }), make('b', { target: doc, anchor: { ...a, start: 99, end: 103 } })]).ok, true);
   assert.equal(canCombine([make('a', { target: doc }), make('b', { target: doc })]).ok, true);
+});
+
+test('anchorStatusText uses plain wording for each passage state', () => {
+  assert.equal(anchorStatusText('resolved'), 'found');
+  assert.equal(anchorStatusText('moved'), 'moved');
+  assert.equal(anchorStatusText('missing'), "can't be found");
+  assert.equal(anchorStatusText('ambiguous'), 'matches more than once');
 });

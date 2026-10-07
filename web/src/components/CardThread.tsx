@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ConnectionTarget } from '../../../shared/connections';
-import { THREAD_TEXT_MAX, sameTarget, splitMentions } from '../../../shared/threads';
+import { THREAD_TEXT_MAX, resolveThreadAnchors, sameTarget, splitMentions } from '../../../shared/threads';
 import type { Thread, ThreadMessage } from '../../../shared/threads';
 import { useStore } from '../store';
 import { useThreadPopover, useThreads } from '../threads';
-import { cardLabel, placePopover, relativeTime, threadsForTarget } from '../threadView';
+import { anchorStatusText, cardLabel, placePopover, relativeTime, threadsForTarget } from '../threadView';
+import { revealThreadPassage } from '../openNote';
 import { loadStoryRecords, storyRecords } from '../storyRecords';
 import { targetForEditor } from '../connectionsView';
 import { ThreadChips } from './ThreadChips';
@@ -13,9 +14,10 @@ import { ThreadChips } from './ThreadChips';
 export function CardThreadHost() {
   const target = useThreadPopover((state) => state.target);
   const threadId = useThreadPopover((state) => state.threadId);
+  const range = useThreadPopover((state) => state.range);
   const projectId = useStore((state) => state.project?.id);
   useEffect(() => { useThreadPopover.getState().close(); }, [projectId]);
-  return target ? createPortal(<ThreadPopover key={`${target.kind}:${target.id}`} target={target} initialThreadId={threadId} />, document.body) : null;
+  return target ? createPortal(<ThreadPopover key={`${target.kind}:${target.id}`} target={target} initialThreadId={threadId} range={range} />, document.body) : null;
 }
 
 function MessageText({ text }: { text: string }) {
@@ -35,15 +37,22 @@ function Bubble({ message, thread }: { message: ThreadMessage; thread: Thread })
   </li>;
 }
 
-function ThreadPopover({ target, initialThreadId }: { target: ConnectionTarget; initialThreadId: string | null }) {
+function ThreadPopover({ target, initialThreadId, range }: { target: ConnectionTarget; initialThreadId: string | null; range: { start: number; end: number; quote: string } | null }) {
   const all = useThreads((state) => state.threads);
   const busy = useThreads((state) => state.busy);
   const error = useThreads((state) => state.error);
   const thinking = useThreads((state) => state.thinking);
   const panels = useStore((state) => state.floatingPanels);
+  const isDoc = target.kind === 'document';
+  const doc = useStore((state) => state.docs[target.id]);
   const mine = useMemo(() => threadsForTarget(all, target), [all, target]);
+  const passageThreads = useMemo(() => (isDoc ? threadsForTarget(all, target, { anchored: true }) : []), [all, target, isDoc]);
+  const wholeThreads = useMemo(() => (isDoc ? threadsForTarget(all, target, { anchored: false }) : mine), [all, target, isDoc, mine]);
+  const anchorStates = useMemo(() => (isDoc && doc ? resolveThreadAnchors(doc.content, passageThreads) : []), [isDoc, doc?.content, passageThreads]);
+  const statusOf = (id: string) => anchorStates.find((state) => state.threadId === id)?.status;
   const [selected, setSelected] = useState<string | null>(initialThreadId);
-  const [composingNew, setComposingNew] = useState(false);
+  const [composingNew, setComposingNew] = useState(Boolean(range));
+  const [pendingRange, setPendingRange] = useState(range);
   const [text, setText] = useState('');
   const input = useRef<HTMLTextAreaElement>(null);
   const [label, setLabel] = useState('this card');
@@ -51,11 +60,15 @@ function ThreadPopover({ target, initialThreadId }: { target: ConnectionTarget; 
   useEffect(() => {
     void useThreads.getState().ensureLoaded();
     void loadStoryRecords().then(() => setLabel(cardLabel(storyRecords(), target)?.label ?? 'a removed card'));
+    if (isDoc) void useStore.getState().loadDoc(target.id);
     input.current?.focus();
-  }, [target]);
+  }, [target, isDoc]);
 
-  const thread = composingNew ? null : mine.find((item) => item.id === selected) ?? mine[0] ?? null;
-  const position = mine.findIndex((item) => item.id === thread?.id);
+  const thread = composingNew ? null : mine.find((item) => item.id === selected) ?? wholeThreads[0] ?? null;
+  const group = thread?.anchor ? [] : wholeThreads;
+  const position = group.findIndex((item) => item.id === thread?.id);
+  const quote = thread?.anchor?.quote ?? (composingNew ? pendingRange?.quote : undefined);
+  const threadStatus = thread?.anchor ? statusOf(thread.id) : undefined;
   const panel = panels.find((item) => !item.docked && sameTarget(target, targetForEditor(item.id) ?? undefined));
   useEffect(() => {
     const element = panel ? document.getElementById(`floating-${panel.id}`) : null;
@@ -84,8 +97,8 @@ function ThreadPopover({ target, initialThreadId }: { target: ConnectionTarget; 
   async function send() {
     const body = text.trim();
     if (!body || busy) return;
-    const result = thread ? await useThreads.getState().reply(thread.id, body) : await useThreads.getState().create(target, body);
-    if (result) { setText(''); setSelected(result.id); setComposingNew(false); }
+    const result = thread ? await useThreads.getState().reply(thread.id, body) : await useThreads.getState().create(target, body, pendingRange ? { range: pendingRange } : undefined);
+    if (result) { setText(''); setSelected(result.id); setComposingNew(false); setPendingRange(null); }
     // The composer is disabled while a request runs, which drops focus; put it back.
     requestAnimationFrame(() => input.current?.focus());
   }
@@ -93,17 +106,29 @@ function ThreadPopover({ target, initialThreadId }: { target: ConnectionTarget; 
   return <div className="thread-popover" role="dialog" aria-label={`Notes on ${label}`} style={place ? { left: place.left, top: place.top } : undefined}>
     <header className="thread-head">
       <b>Notes on {label}</b>
-      {mine.length > 1 && !composingNew && <span className="thread-switch">
-        <button type="button" aria-label="Previous note" disabled={position <= 0} onClick={() => setSelected(mine[position - 1].id)}>‹</button>
-        <span>{position + 1}/{mine.length}</span>
-        <button type="button" aria-label="Next note" disabled={position >= mine.length - 1} onClick={() => setSelected(mine[position + 1].id)}>›</button>
+      {group.length > 1 && !composingNew && <span className="thread-switch">
+        <button type="button" aria-label="Previous note" disabled={position <= 0} onClick={() => setSelected(group[position - 1].id)}>‹</button>
+        <span>{position + 1}/{group.length}</span>
+        <button type="button" aria-label="Next note" disabled={position >= group.length - 1} onClick={() => setSelected(group[position + 1].id)}>›</button>
       </span>}
       {thread && <button type="button" className="thread-resolve" disabled={busy} aria-label={thread.status === 'open' ? 'Resolve note' : 'Reopen note'} title={thread.status === 'open' ? 'Resolve' : 'Reopen'}
         onClick={() => void useThreads.getState().setStatus(thread.id, thread.status === 'open' ? 'resolved' : 'open')}>{thread.status === 'open' ? '✓' : '↺'}</button>}
-      {thread && <button type="button" aria-label="New note" title="New note" onClick={() => { setComposingNew(true); input.current?.focus(); }}>＋</button>}
+      {thread && <button type="button" aria-label="New note" title="New note" onClick={() => { setComposingNew(true); setPendingRange(null); input.current?.focus(); }}>＋</button>}
       <button type="button" aria-label="Close notes" onClick={() => useThreadPopover.getState().close()}>×</button>
     </header>
     {thread?.status === 'resolved' && <p className="thread-resolved">Resolved</p>}
+    {isDoc && passageThreads.length > 0 && <section className="thread-passages" aria-label="On passages"><h4>On passages</h4><ul>
+      {passageThreads.map((item) => { const status = statusOf(item.id); const text = item.anchor!.quote; return <li key={item.id}>
+        <button type="button" aria-label={`Passage note: ${text.slice(0, 40)}`} aria-current={thread?.id === item.id}
+          onClick={() => { setSelected(item.id); setComposingNew(false); void revealThreadPassage(item); }}>
+          <q>{text.length > 60 ? `${text.slice(0, 60)}…` : text}</q>
+          <small>{status ? anchorStatusText(status) : '…'} · {item.messages.length} message{item.messages.length === 1 ? '' : 's'}</small>
+        </button></li>; })}
+    </ul></section>}
+    {quote && <blockquote className="thread-quote">{quote}</blockquote>}
+    {threadStatus && threadStatus !== 'resolved' && <p className="thread-status" role="status">Passage {anchorStatusText(threadStatus)}.
+      {(threadStatus === 'missing' || threadStatus === 'ambiguous') && ' It can’t be located in the current text; the original quote is kept.'}</p>}
+    {isDoc && thread && !thread.anchor && <p className="thread-scope">Whole document</p>}
     {thread && <ThreadChips thread={thread} />}
     <ul className="thread-messages" aria-live="polite">
       {thread ? thread.messages.map((message) => <Bubble key={message.id} message={message} thread={thread} />)

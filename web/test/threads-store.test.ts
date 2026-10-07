@@ -60,3 +60,15 @@ test('only a request that mentions @Muse shows the thinking state', async () => 
   release2(); await asking;
   assert.equal(useThreads.getState().thinking, false);
 });
+
+test('a note created from a selection sends its range to the server', async () => {
+  reset(); asProject('D');
+  let sent = '';
+  globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+    if (init?.method === 'POST') sent = String(init.body);
+    return { ok: true, status: 200, text: async () => JSON.stringify(init?.method === 'POST' ? { thread: thread('t') } : { threads: [] }), headers: { get: () => null } };
+  }) as unknown as typeof fetch;
+  await useThreads.getState().create({ kind: 'document', id: 'd1' }, 'why a lantern?', { range: { start: 13, end: 20, quote: 'lantern' } });
+  assert.equal(JSON.parse(sent).range.quote, 'lantern');
+  assert.equal(JSON.parse(sent).text, 'why a lantern?');
+});

@@ -72,3 +72,14 @@
 .thread-picker form { display: flex; gap: 4px; }
 .board-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .board-chips span { border: 1px solid var(--line); border-radius: 12px; padding: 1px 8px; font-size: 11px; color: var(--ink-mid); }
+
+/* Passage notes and document mode */
+.thread-quote { margin: 0; padding: 6px 12px; border-left: 3px solid var(--accent); background: var(--line); font-style: italic; font-size: 12px; line-height: 1.4; max-height: 4.5em; overflow: hidden; overflow-wrap: anywhere; }
+.thread-status, .thread-scope { margin: 0; padding: 4px 12px; font-size: 11px; color: var(--ink-mid); }
+.thread-passages { padding: 6px 12px; border-bottom: 1px solid var(--line); max-height: 9.5em; overflow-y: auto; }
+.thread-passages h4 { margin: 0 0 4px; font-size: 11px; color: var(--ink-mid); font-weight: 600; }
+.thread-passages ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.thread-passages button { width: 100%; text-align: left; border: 0; background: none; padding: 3px 4px; border-radius: 4px; cursor: pointer; font: 12px var(--font-ui); color: var(--ink); display: flex; flex-direction: column; }
+.thread-passages button:hover, .thread-passages button[aria-current="true"] { background: var(--line); }
+.thread-passages q { quotes: "“" "”"; font-style: italic; }
+.thread-passages small { color: var(--ink-mid); font-size: 11px; }
