@@ -170,3 +170,69 @@ test('a note takes a tag and a link, and shows up in the # panel by tag and unde
   await panel.getByRole('button', { name: /^Inspect Scene: Return/ }).click();
   await expect(panel.getByText('Note on Arrival')).toBeVisible();
 });
+
+test('a passage note is created from a selection, answered by @Muse, tagged, and jumped back to after reload', async ({ page, projectId }) => {
+  const draft = page.locator('.pane-editor textarea.draft');
+  await draft.fill('Mara lit the lantern at dusk. The harbour held its breath.');
+  await draft.evaluate((el: HTMLTextAreaElement) => { el.focus(); el.setSelectionRange(13, 20); });
+  await page.getByRole('button', { name: 'Note on selection', exact: true }).click();
+  const thread = page.getByRole('dialog', { name: /^Notes on / });
+  await expect(thread.locator('.thread-quote')).toContainText('lantern');
+  await thread.getByLabel('Add a note or ask Muse').fill('@Muse why a lantern?');
+  await thread.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(thread.locator('.thread-messages').getByText(/Muse \(mock\) on "/)).toBeVisible();
+  await thread.getByRole('button', { name: '+ Tag' }).click();
+  await thread.getByLabel('New tag', { exact: true }).fill('imagery');
+  await thread.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(thread.getByRole('button', { name: 'Remove tag imagery' })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await page.reload();
+  const board = await openNotesBoard(page);
+  await board.getByRole('button', { name: 'Show all notes' }).click();
+  await expect(board.locator('.thread-quote')).toContainText('lantern');
+  await board.getByRole('button', { name: 'Open card' }).click();
+  await expect(page.getByRole('dialog', { name: /^Notes on / }).locator('.thread-quote')).toContainText('lantern');
+  const selected = await page.locator('.pane-editor textarea.draft').evaluate((el: HTMLTextAreaElement) => el.value.slice(el.selectionStart, el.selectionEnd));
+  expect(selected).toBe('lantern');
+});
+
+test('after the text around a passage is edited the note still finds it; after the quote is deleted it says so', async ({ page, projectId }) => {
+  const draft = page.locator('.pane-editor textarea.draft');
+  await draft.fill('Mara lit the lantern at dusk. The harbour held its breath.');
+  await draft.evaluate((el: HTMLTextAreaElement) => { el.focus(); el.setSelectionRange(13, 20); });
+  await page.getByRole('button', { name: 'Note on selection', exact: true }).click();
+  const thread = page.getByRole('dialog', { name: /^Notes on / });
+  await thread.getByLabel('Add a note or ask Muse').fill('keep an eye on this');
+  await thread.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(thread.locator('.thread-messages').getByText('keep an eye on this')).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await draft.fill('Intro added. Mara lit the lantern at dusk. The harbour held its breath.');
+  await draft.evaluate((el: HTMLTextAreaElement) => { el.focus(); el.setSelectionRange(0, 0); });
+  await page.getByRole('button', { name: 'Note on selection', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: /^Notes on / }).locator('.thread-passages')).toContainText(/found|moved/);
+  await page.keyboard.press('Escape');
+
+  await draft.fill('Completely rewritten.');
+  await draft.evaluate((el: HTMLTextAreaElement) => { el.focus(); el.setSelectionRange(0, 0); });
+  await page.getByRole('button', { name: 'Note on selection', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: /^Notes on / }).locator('.thread-passages')).toContainText("can't be found");
+});
+
+test('the document popover with a passage note and the chip row fit a phone viewport', async ({ page, projectId }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const draft = page.locator('.pane-editor textarea.draft');
+  await draft.fill('Mara lit the lantern at dusk. The harbour held its breath.');
+  await draft.evaluate((el: HTMLTextAreaElement) => { el.focus(); el.setSelectionRange(13, 20); });
+  await page.getByRole('button', { name: 'Note on selection', exact: true }).click();
+  const thread = page.getByRole('dialog', { name: /^Notes on / });
+  await thread.getByLabel('Add a note or ask Muse').fill('phone passage note');
+  await thread.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(thread.locator('.thread-messages').getByText('phone passage note')).toBeVisible();
+  await thread.getByRole('button', { name: '+ Tag' }).click();
+  const box = await thread.boundingBox();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+});

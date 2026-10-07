@@ -34,6 +34,18 @@ many and offers **Show all notes**.
 - `@Muse` also sees the note's own tags, the cards it links (title, plus a short excerpt of up to three),
   never anything the agent is not allowed to read.
 
+## Notes on a passage
+
+- In the manuscript editor, **Note** (beside Tag / link) adds a note on the selected text, or opens the
+  document's own notes when nothing is selected. The document must be saved first, like Tag / link.
+- The document's notes panel has **On passages** (each note's quote, whether it is *found*, *moved*,
+  *can't be found* or *matches more than once*, and its replies) and **Whole document** notes. Clicking a
+  passage selects it in the editor.
+- A passage note keeps pointing at its text as the text around it changes. If the text is deleted or becomes
+  ambiguous, the note keeps its original quote and still works. Notes on different passages cannot be combined.
+- `@Muse` sees the passage with about 1500 characters either side instead of the start of the document.
+- The editor is a plain text box, so passages are listed rather than highlighted in the text.
+
 ## Where notes live
 
 `<project>/threads/threads.json`. Notes are part of the project folder and are included in
@@ -41,5 +53,5 @@ portable project backups.
 
 ## Not built yet
 
-Muse proposing a field edit you accept from the thread, combining notes across cards, passage-level
-notes on manuscript text.
+Muse proposing a field edit you accept from the thread, and gutter markers or highlights for passage notes
+(the passage list already uses one function, `resolveThreadAnchors`, so markers can reuse it).
