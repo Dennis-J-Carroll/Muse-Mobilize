@@ -1,3 +1,4 @@
+import { resolvePassageAnchor } from './connections.js';
 import type { ConnectionTarget, PassageAnchor } from './connections.js';
 
 export const THREAD_TEXT_MAX = 4000;
@@ -42,6 +43,17 @@ export interface ThreadStore { version: 1; threads: Thread[] }
 export function samePassage(a?: PassageAnchor, b?: PassageAnchor): boolean {
   if (!a || !b) return !a && !b;
   return a.quote === b.quote && a.prefix === b.prefix && a.suffix === b.suffix;
+}
+
+export interface AnchorState { threadId: string; status: 'resolved' | 'moved' | 'missing' | 'ambiguous'; start?: number; end?: number }
+
+/** The one place passage notes are located. The passage list uses it; gutter markers would read the same positions. */
+export function resolveThreadAnchors(content: string, threads: Thread[]): AnchorState[] {
+  return threads.filter((thread) => thread.anchor).map((thread) => {
+    const found = resolvePassageAnchor(content, thread.anchor!);
+    if (found.status !== 'resolved') return { threadId: thread.id, status: found.status };
+    return { threadId: thread.id, status: found.start === thread.anchor!.start ? 'resolved' as const : 'moved' as const, start: found.start, end: found.end };
+  });
 }
 
 export const targetKey = (target: ConnectionTarget) => `${target.kind}:${target.id}`;

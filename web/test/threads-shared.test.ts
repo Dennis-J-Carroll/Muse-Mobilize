@@ -48,3 +48,21 @@ test('samePassage compares quote, prefix and suffix, never start offsets; two un
   assert.equal(THREAD_TAG_MAX, 12);
   assert.equal(THREAD_LINK_MAX, 12);
 });
+
+import { makePassageAnchor } from '../../shared/connections.ts';
+import { resolveThreadAnchors } from '../../shared/threads.ts';
+
+test('resolveThreadAnchors reports resolved, moved, missing and ambiguous passages', () => {
+  const text = 'Mara lit the lantern at dusk. The harbour held its breath.';
+  const start = text.indexOf('lantern');
+  const anchor = makePassageAnchor(text, start, start + 7, 'lantern');
+  const note = (id: string): Thread => ({ id, target: { kind: 'document', id: 'd' }, status: 'open', messages: [], createdAt: '2026-10-06T10:00:00.000Z', updatedAt: '2026-10-06T10:00:00.000Z', anchor });
+  assert.deepEqual(resolveThreadAnchors(text, [note('a')]).map((s) => s.status), ['resolved']);
+  const shifted = `Intro added here. ${text}`;
+  const moved = resolveThreadAnchors(shifted, [note('a')])[0];
+  assert.equal(moved.status, 'moved');
+  assert.equal(shifted.slice(moved.start, moved.end), 'lantern');
+  assert.equal(resolveThreadAnchors('Nothing alike.', [note('a')])[0].status, 'missing');
+  assert.equal(resolveThreadAnchors(`${text} ${text}`, [note('a')])[0].status, 'ambiguous');
+  assert.deepEqual(resolveThreadAnchors(text, [{ ...note('b'), anchor: undefined }]), []);
+});
