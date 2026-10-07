@@ -189,6 +189,7 @@ const titleFor = (type: PaneType, s: State, bindingId?: string): string => {
   if (type === 'goals') return 'Writing Goals';
   if (type === 'premise') return 'Premise';
   if (type === 'constraints') return 'Constraints';
+  if (type === 'threads') return 'Notes Board';
   if (type === 'progress') return 'Manuscript Progress';
   if (type === 'sources') return 'Sources';
   return s.docs[bindingId ?? '']?.title ?? s.project?.documents.find((d) => d.id === bindingId)?.title ?? 'Document';
@@ -384,6 +385,11 @@ export const useStore = create<State>((set, get) => ({
         const { premise } = await api.premise(project.id);
         if (current()) set({ premise });
       }
+      if (result.files.includes('threads/threads.json')) {
+        // Loaded lazily: threads.ts imports this store, so a static import here would be circular.
+        const { useThreads } = await import('./threads');
+        await useThreads.getState().refresh();
+      }
       await get().refreshEvents();
     } catch (error: any) { if (current()) set({ error: error.message }); }
     finally { useEditHistory.setState({ restoring: false }); }
@@ -446,7 +452,7 @@ export const useStore = create<State>((set, get) => ({
       set({ panes: s.panes.map((p) => (p.id === existing.id ? { ...p, sizeMode: opts.focus ? 'maximized' : 'normal' } : opts.focus && p.sizeMode === 'maximized' ? { ...p, sizeMode: 'normal' } : p)) });
       return;
     }
-    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' || type === 'world' || type === 'plot' || type === 'scenes' || type === 'dialogue' || type === 'themes' || type === 'references' || type === 'goals' || type === 'progress' || type === 'sources' || type === 'premise' || type === 'constraints' ? 'main' : 'bottom');
+    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' || type === 'world' || type === 'plot' || type === 'scenes' || type === 'dialogue' || type === 'themes' || type === 'references' || type === 'goals' || type === 'progress' || type === 'sources' || type === 'premise' || type === 'constraints' || type === 'threads' ? 'main' : 'bottom');
     const pane: Pane = {
       id: `pane-${++paneSeq}-${type}-${bindingId ?? ''}`,
       type,

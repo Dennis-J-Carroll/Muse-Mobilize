@@ -51,6 +51,7 @@ test('saved stores and binary files restore under a fresh identity without chang
       edges: [],
     },
     'connections/connections.json': { version: 1, tags: [{ id: 'red', name: 'Red' }], connections: [] },
+    'threads/threads.json': { version: 1, threads: [{ id: 'thread-one', target: { kind: 'scene', id: 'scene-one' }, status: 'open', createdAt: '2026-10-06T10:00:00.000Z', updatedAt: '2026-10-06T10:00:00.000Z', messages: [{ id: 'note-one', author: { kind: 'user' }, text: 'Keep me in backups', createdAt: '2026-10-06T10:00:00.000Z' }] }] },
     'agents/editor.yaml': 'id: editor\nname: Editor\n',
     'workspaces/writing.json': { id: 'writing', name: 'Writing' },
     '.muse/events.jsonl': '{"id":"event-one","type":"document.saved"}\n',

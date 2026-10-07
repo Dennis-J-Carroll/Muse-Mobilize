@@ -73,6 +73,12 @@ export const mockProvider: ModelProvider = {
       const twists = ['but the ally is the obstacle?', 'but winning costs the thing they wanted?', 'but the stakes were a lie?'];
       return { text: twists.map((twist) => `<what-if>What if ${lead}… ${twist}</what-if>`).join('\n'), model: 'mock-writer-1' };
     }
+    if (section(req.system, 'task') === 'card-thread') {
+      // Card threads: a deterministic margin note that quotes the writer's latest note.
+      const label = /<card [^>]*label="([^"]*)"/.exec(user)?.[1]?.replace(/&quot;/g, '"') ?? 'this card';
+      const note = firstSentence(section(user, 'latest-note').replace(/@muse\b/gi, '').trim()).slice(0, 120);
+      return { text: `Muse (mock) on "${label}": ${note} — worth pinning down before you build on it.`, model: 'mock-writer-1' };
+    }
     const agentName = section(req.system, 'agent-name') || 'Agent';
     const isConsulted = /<consultation-request\b/i.test(user);
     const isFollowUp = /<consultation-response\b/i.test(user);

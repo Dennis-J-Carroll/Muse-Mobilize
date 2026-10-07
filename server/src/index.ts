@@ -1,5 +1,5 @@
 import express from 'express';
-import { historyStatus, recordEdit, restoreEdit, withProjectEdit } from './history.js';
+import { historyStatus, recordEdit, recordRejectable, restoreEdit, withProjectEdit } from './history.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -32,6 +32,9 @@ import {
 import { managedMediaFileName, saveMediaAsset, mediaAssetPath } from './mediaAssets.js';
 import { deleteOrphanedMedia } from './mediaGc.js';
 import { readConnections, createTag, renameTag, attachConnection, removeConnection } from './connections.js';
+import { hasMuseMention } from '../../shared/threads.js';
+import { addMessage, createThread, deleteForever, editMessage, listThreads, mergeThreads, readThreads, setConnections, setStatus, setTrashed, ThreadConflictError } from './threads.js';
+import { museReply } from './thread-reply.js';
 import { exportProjectBackup, restoreProjectBackup, BackupError } from './backups.js';
 import {
   readSources, importSource, updateSourceMetadata, deleteSource, readSourceText, readSourceOriginal,
@@ -89,7 +92,7 @@ const wrap = (fn: express.RequestHandler): express.RequestHandler => async (req,
     } finally { res.json = sendJson; }
     res.json(payload);
   } catch (err: any) {
-    res.status(err instanceof BackupError ? err.status : 400).json({ error: String(err?.message ?? err) });
+    res.status(err instanceof BackupError || err instanceof ThreadConflictError ? err.status : 400).json({ error: String(err?.message ?? err) });
   }
 };
 
@@ -205,6 +208,99 @@ app.delete('/api/projects/:id/connections/attachments/:attachmentId', wrap(async
   const dir = await projectDir(req.params.id);
   await removeConnection(dir, req.params.attachmentId);
   await emit(dir, 'connection.removed', { attachmentId: req.params.attachmentId });
+  res.json({ ok: true });
+}));
+
+/* ------------------------------------------------------------------ threads */
+
+function parseTargetKey(value: string) {
+  const split = value.indexOf(':');
+  if (split < 1) throw new Error('target must look like kind:id');
+  return { kind: value.slice(0, split) as 'canon', id: value.slice(split + 1) };
+}
+
+app.get('/api/projects/:id/threads', wrap(async (req, res) => {
+  const target = typeof req.query.target === 'string' ? parseTargetKey(req.query.target) : undefined;
+  res.json({ threads: await listThreads(await projectDir(req.params.id), target) });
+}));
+
+/**
+ * Thread writes validate first and write atomically, so each is its own short undoable edit (a rejected one does
+ * not clear undo history). They deliberately bypass `wrap`'s edit scope: a Muse reply's model call must never run
+ * inside the project-wide edit lock, or every manuscript save would queue behind it.
+ */
+async function threadWrite<T>(req: express.Request, res: express.Response, dir: string, label: string, write: () => Promise<T>): Promise<T> {
+  const session = historySession(req);
+  const value = await recordRejectable(dir, session, label, ['threads/threads.json'], write);
+  if (session) res.set('x-muse-history', encodeURIComponent(JSON.stringify(historyStatus(dir, session))));
+  return value;
+}
+
+app.post('/api/projects/:id/threads/merge', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : [];
+  const thread = await threadWrite(req, res, dir, 'Combine notes', () => mergeThreads(dir, ids));
+  await emit(dir, 'thread.merged', { threadId: thread.id, merged: ids.length });
+  res.json({ thread });
+}));
+
+app.post('/api/projects/:id/threads', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  let thread = await threadWrite(req, res, dir, 'Add note', () => createThread(dir, { target: req.body?.target, text: req.body?.text, tagIds: req.body?.tagIds, links: req.body?.links, range: req.body?.range }));
+  await emit(dir, 'thread.created', { threadId: thread.id, target: thread.target });
+  if (hasMuseMention(thread.messages[0].text)) {
+    thread = await museReply(req.params.id, dir, thread.id, req.body?.agentId, { record: (label, write) => threadWrite(req, res, dir, label, write) });
+  }
+  res.json({ thread });
+}));
+
+app.post('/api/projects/:id/threads/:tid/messages', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { thread: saved } = await threadWrite(req, res, dir, 'Add note', () => addMessage(dir, req.params.tid, { author: { kind: 'user' }, text: req.body?.text, expectedUpdatedAt: req.body?.expectedUpdatedAt }));
+  const thread = hasMuseMention(String(req.body?.text ?? ''))
+    ? await museReply(req.params.id, dir, saved.id, req.body?.agentId, { record: (label, write) => threadWrite(req, res, dir, label, write) })
+    : saved;
+  res.json({ thread });
+}));
+
+app.post('/api/projects/:id/threads/:tid/messages/:mid/retry', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const thread = await museReply(req.params.id, dir, req.params.tid, req.body?.agentId, {
+    replacingMessageId: req.params.mid, record: (label, write) => threadWrite(req, res, dir, label, write),
+  });
+  res.json({ thread });
+}));
+
+app.put('/api/projects/:id/threads/:tid/connections', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { tagIds, links, expectedUpdatedAt } = req.body ?? {};
+  const thread = await threadWrite(req, res, dir, 'Tag note', () => setConnections(dir, req.params.tid, { tagIds, links, expectedUpdatedAt }));
+  res.json({ thread });
+}));
+
+app.put('/api/projects/:id/threads/:tid', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const { status, trashed, expectedUpdatedAt } = req.body ?? {};
+  const label = trashed !== undefined ? (trashed === true ? 'Trash note' : 'Restore note') : status === 'resolved' ? 'Resolve note' : 'Reopen note';
+  const thread = await threadWrite(req, res, dir, label, async () => {
+    let current = (await readThreads(dir)).threads.find((item) => item.id === req.params.tid);
+    if (!current) throw new Error(`No such thread: ${req.params.tid}`);
+    if (status !== undefined) current = await setStatus(dir, current.id, status, expectedUpdatedAt);
+    if (trashed !== undefined) current = await setTrashed(dir, current.id, trashed === true, status === undefined ? expectedUpdatedAt : undefined);
+    return current;
+  });
+  res.json({ thread });
+}));
+
+app.put('/api/projects/:id/threads/:tid/messages/:mid', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const thread = await threadWrite(req, res, dir, 'Edit note', () => editMessage(dir, req.params.tid, req.params.mid, { text: req.body?.text, expectedUpdatedAt: req.body?.expectedUpdatedAt }));
+  res.json({ thread });
+}));
+
+app.delete('/api/projects/:id/threads/:tid', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  await threadWrite(req, res, dir, 'Delete note', () => deleteForever(dir, req.params.tid));
   res.json({ ok: true });
 }));
 

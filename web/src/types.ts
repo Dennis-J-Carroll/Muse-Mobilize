@@ -391,7 +391,7 @@ export type PremiseVariantSource = 'manual' | 'muse';
 export interface PremiseVariant { id: string; text: string; source: PremiseVariantSource; createdAt: string }
 export interface PremiseStore { version: 1; working: string; slots: PremiseSlots; variants: PremiseVariant[] }
 
-export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline' | 'canon' | 'characters' | 'world' | 'plot' | 'scenes' | 'dialogue' | 'themes' | 'references' | 'goals' | 'progress' | 'sources' | 'premise' | 'constraints';
+export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline' | 'canon' | 'characters' | 'world' | 'plot' | 'scenes' | 'dialogue' | 'themes' | 'references' | 'goals' | 'progress' | 'sources' | 'premise' | 'constraints' | 'threads';
 export type Region = 'main' | 'right' | 'bottom';
 
 export interface Pane {
