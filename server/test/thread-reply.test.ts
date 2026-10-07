@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { cardSnapshot, pickAgent, respondAsMuse } from '../src/thread-reply.js';
-import { createThread, readThreads, addMessage, addMuseMessage } from '../src/threads.js';
+import { createThread, readThreads, addMessage, addMuseMessage, setConnections } from '../src/threads.js';
 import { createCanonEntity } from '../src/canon.js';
 import { createPlotNode } from '../src/plot.js';
 import { attachConnection, createTag } from '../src/connections.js';
@@ -149,4 +149,21 @@ test('a malformed connections file does not stop Muse from replying', async (t) 
   const result = await respondAsMuse(dir, thread.id, agent('muse', 'muse'), mockProvider);
   assert.equal(result.messages.at(-1)!.state, undefined);
   assert.match(result.messages.at(-1)!.text, /^Muse \(mock\)/);
+});
+
+test("Muse sees a note's own tags and a short excerpt of the cards it links, and nothing the agent may not read", async (t) => {
+  const { dir, target } = await fixture(t);
+  const gate = await createPlotNode(dir, { title: 'Burning Gate', summary: 'The gate burns at dawn.' });
+  const pace = await createTag(dir, { label: 'pacing' });
+  const thread = await createThread(dir, { target, text: '@Muse how does this tie in?' });
+  await setConnections(dir, thread.id, { tagIds: [pace.id], links: [{ kind: 'plot', id: gate.id }] });
+  let seen = '';
+  const spy: ModelProvider = { id: 'spy', complete: async (req: { messages: { content: string }[] }) => { seen = req.messages.map((m) => m.content).join('\n'); return { text: 'ok', model: 'spy' }; } } as unknown as ModelProvider;
+  await respondAsMuse(dir, thread.id, agent('muse', 'muse'), spy);
+  assert.match(seen, /<note-context>[\s\S]*note tags: #pacing[\s\S]*<\/note-context>/);
+  assert.match(seen, /<linked-card [^>]*label="Burning Gate"[\s\S]*The gate burns at dawn/);
+  const noPlot = { ...agent('muse', 'muse'), access: { version: 1, revision: 'r1', allow: [{ kind: 'character', selection: { mode: 'all' } }], deny: [], selection: false, proposeEdits: false } } as unknown as AgentDef;
+  await respondAsMuse(dir, thread.id, noPlot, spy);
+  assert.match(seen, /#pacing/);
+  assert.doesNotMatch(seen, /Burning Gate|burns at dawn/);
 });
