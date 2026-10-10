@@ -376,12 +376,12 @@ regressions fixed, and remaining coverage limits.
 
 Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup, PR
 expectations, and testing. Participation is governed by the
-[Code of Conduct](CODE_OF_CONDUCT.md). External contributors sign the
-[CLA](CLA.md) once, via a bot comment on their first pull request.
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
-AGPL-3.0. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). Your manuscripts, notes and project files are
+yours; the code is too: fork it, embed it, build on it.
 
 ## What is not built yet
 
