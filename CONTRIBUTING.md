@@ -12,16 +12,11 @@ changes that don't fit the project's direction — especially around agent
 scope/permission semantics, the project file format on disk, and provider
 adapters.
 
-## Contributor License Agreement (CLA)
+## License
 
-This project is licensed under **AGPL-3.0** (see [LICENSE](LICENSE)). Because
-AGPL's copyleft terms mean contributions can't later be relicensed without
-each contributor's consent, every external contributor needs to sign a CLA
-before a pull request can be merged.
-
-A CLA-bot will comment on your first PR with a link to sign. Signing takes a
-minute and only needs to happen once per GitHub account. PRs cannot be merged
-until the CLA check passes.
+Muse · Mobilize is licensed under the [MIT License](LICENSE). By submitting a
+pull request, you agree that your contribution is licensed under the same
+terms.
 
 ## Development setup
 
