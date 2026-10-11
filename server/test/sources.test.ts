@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { readSources, importSource, updateSourceMetadata, deleteSource, readSourceText, readSourceOriginal, searchSources, rebuildSourceIndexes, readSource, resolveChunk } from '../src/sources.js';
 import { buildContext, renderContext, sceneAround } from '../src/context.js';
 import type { AgentDef, Selection } from '../src/types.js';
@@ -312,18 +313,19 @@ async function contextFixture(t: TestContext) {
 /** Run a snippet against a fixture root via child process (isolated settings). */
 async function runInFixture<T>(root: string, id: string, snippet: string): Promise<{ json: string; code: number; stderr: string }> {
   const configDir = path.join(root, 'config');
+  const serverRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   await fs.mkdir(configDir, { recursive: true });
   // Throwaway settings: workspace root points at the fixture, nothing else.
   await fs.writeFile(path.join(configDir, 'settings.json'), JSON.stringify({ workspaceRoot: root, defaultProvider: 'mock' }));
   const script = `
-    const { buildContext, renderContext } = await import('${path.resolve('src/context.ts')}');
+    const { buildContext, renderContext } = await import('${path.join(serverRoot, 'src/context.ts')}');
     ${snippet}
   `;
   const proc = await import('node:child_process').then((cp) => new Promise<any>((resolve) => {
     cp.execFile(
       process.execPath,
       ['--import', 'tsx', '-e', script],
-      { env: { ...process.env, MUSE_CONFIG_DIR: configDir }, cwd: path.resolve('..'), timeout: 20_000 },
+      { env: { ...process.env, MUSE_CONFIG_DIR: configDir }, cwd: serverRoot, timeout: 20_000 },
       (err, stdout, stderr) => resolve({ json: String(stdout), code: err?.code ?? 0, stderr: String(stderr) }),
     );
   }));
@@ -358,6 +360,7 @@ test('buildContext includes retrieved source passages only for scoped agents', a
     }));
   `);
   assert.equal(run.code, 0, run.stderr);
+  assert.ok(run.json.trim(), run.stderr || 'Context probe produced no JSON.');
   const out = JSON.parse(run.json.trim().split('\n').pop() ?? '{}');
   assert.ok(out.scopedHasSources);
   assert.match(out.scopedSummary ?? '', /sources — \d+ passage/);
@@ -389,6 +392,7 @@ test('citation-less questions produce no fabricated sources section', async (t) 
     }));
   `);
   assert.equal(run.code, 0, run.stderr);
+  assert.ok(run.json.trim(), run.stderr || 'Context probe produced no JSON.');
   const out = JSON.parse(run.json.trim().split('\n').pop() ?? '{}');
   assert.ok(!out.hasSources);
   assert.equal(out.citations, null);

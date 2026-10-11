@@ -29,13 +29,25 @@ The whole point of MM is to get the idea moving, and to let the story grow.
 
 ## Screenshots
 
-| Workspace + Muse consult | Writing focus |
+| Manuscript drafting | Notes beside the draft |
 |---|---|
-| ![Workspace with drafting pane and Muse agent consult](docs/images/workspace-drafting.png) | ![Distraction-free writing focus mode](docs/images/writing-focus.png) |
+| ![Chapter draft with page, font, typewriter, and focus controls](docs/images/Main-Draft_Artifact.png) | ![Notes Board open beside a manuscript page](docs/images/Notes_with_writing.png) |
 
-| World Atlas | Characters |
+| Scene Board | Plot Through-line |
 |---|---|
-| ![Living Atlas world map with placed landmarks](docs/images/world-atlas.png) | ![Cast workspace with character dossier](docs/images/characters-cast.png) |
+| ![Scene Board with story material and a planned scene](docs/images/Scene_Board.png) | ![Plot Through-line with beat cards and a focused beat folio](docs/images/Plot_Map.png) |
+
+| Living Atlas | Character profiles |
+|---|---|
+| ![World map with placed landmarks and a lore panel](docs/images/Map.png) | ![Cast in motion and a selected character dossier](docs/images/Character_profiles.png) |
+
+| Agent Studio | Saved Desks |
+|---|---|
+| ![Agent Studio roster and settings with a legacy scope notice](docs/images/Agent_Studio.png) | ![Saved desk layouts with numbered previews and reordering controls](docs/images/Custom_desk_formatting.png) |
+
+| Story Connections | Notes on a scene |
+|---|---|
+| ![Shared tags, linked records, and notes in Story Connections](docs/images/Connections_links_tags.png) | ![Scene note thread open beside its scene folio](docs/images/Notes_all_throughout.png) |
 
 ## Run it
 
@@ -64,6 +76,17 @@ consultation with another agent, and proposes a real patch anchored to your text
 
 ## Writing surface
 
+**Premise Builder**, under Story Idea, keeps one working premise, five logline
+slots, and saved variants per project. Ask Muse for what-if ideas, then keep or
+promote one; the previous working premise becomes a variant. Agents receive the
+saved working premise as shared project context.
+
+**Constraint Generator** rolls five writing prompts: three draw from character,
+place, and object or rule canon when available; two come from a built-in craft
+deck. Lock or reroll slots, pin the set above manuscript pages, and tick off
+constraints as you meet them. Rolls work offline; pinned sets survive reload
+and travel with project backups.
+
 **Agent Studio** creates and duplicates agents, assigns individual records or
 whole categories, previews model context, and saves groups as reusable
 arrangements. Managed agents use enforced assignments and writer-mediated
@@ -80,6 +103,14 @@ Variable. Headings are light; manuscript text keeps a readable regular weight.
 At 700px and below, tools form a horizontal rail. Drafting panes stack when the
 workspace is narrow without changing the saved desktop arrangement.
 Reduced-motion and transparency preferences have explicit CSS fallbacks.
+
+**Drafting, Planning, and Review** have workspace tabs. The manuscript editor
+adds page-width presets and a width slider, text zoom, typewriter scrolling,
+and a Focus button. An optional guard catches Space or Enter replacing a long
+selection. **Saved Desks** remember pane arrangements, can include writing
+focus, and can be reordered or recalled by number. `Alt+Shift+D` finds a desk;
+`Alt+Shift+0` restores the previous arrangement. Desk layouts stay in this
+browser for this project, outside portable project backups.
 
 See [design and responsive verification](docs/design-2026-09-05.md).
 
@@ -108,6 +139,18 @@ See [quiet focus and story cards](docs/quiet-focus-and-story-cards-2026-09-06.md
 Select text and type **`!#`**, or use **Tag / link**, to open the picker without
 leaving command tokens in prose. Tags survive renames; backlinks navigate only
 when their quote and context still match. Record cards remain editable in focus.
+
+**Notes** attach to story cards, whole documents, or saved manuscript passages.
+Use **Notes** on a card or **Note** beside the manuscript editor. Type `@Muse`
+in a thread for a reply grounded in the saved card or passage and the agent's
+allowed context. Failed replies keep your note and offer Retry. The **Notes
+Board** gathers threads for editing, resolving, trashing, restoring, and
+filtering by tag. Notes can carry shared tags and links to other story records;
+**Connections** shows notes on a selected record and notes linked from elsewhere.
+Combining notes is limited to the same card and, for passage notes, the same
+passage. Passage notes retain their saved quote if edited text can no longer be
+matched unambiguously. Notes live in `threads/threads.json` and are included in
+project backups. See [card threads and passage notes](docs/card-threads-2026-10-06.md).
 
 Unfinished documents and the seven card forms have browser-local recovery.
 **Backups** downloads saved project files and restores them as a separate project,
@@ -197,6 +240,11 @@ Adding another provider should stay small. See [Provider adapter guide](docs/pro
 │   └── characters/
 ├── plot/plot.json                ← branching through-line, folios, and typed edges
 ├── scenes/scenes.json            ← scene lanes, story references, beats, and dialogue
+├── premise/premise.json          ← working premise, logline slots, and variants
+├── constraints/constraints.json  ← pinned writing constraints
+├── threads/threads.json          ← card, document, and passage notes
+├── connections/connections.json  ← shared tags, links, and passage anchors
+├── media/canvases/default.json   ← media canvas storage and API; no Media Desk UI yet
 ├── agents/*.yml                  ← edit these to change an agent
 ├── workspaces/*.json
 └── .muse/
@@ -352,7 +400,8 @@ profiles and canvas coordinates, branching plot persistence, scene/theme
 occurrences, reference and goal stores, derived progress, managed image
 validation, sparse World anchors, stable relationship edges, fact promotion,
 evidence-aware context, provider request/redaction contracts, agent output
-parsing, patch anchoring, and stale-patch refusal.
+parsing, patch anchoring, stale-patch refusal, media canvas writes and assets,
+premise and constraint stores, and note threads and passage anchors.
 
 Browser acceptance tests use real Chromium, the frontend, and the API against a
 fresh temporary project store. They do not use your projects or provider settings.
@@ -364,9 +413,9 @@ npm run test:browser
 
 The runner owns ports 5277/5278 and removes its temporary project directory when
 it exits. Keep those ports free; normal development remains on 5177/5178. Tests
-cover uploads, Themes, References, Goals, and Progress, including save/reload,
-failed-save retry, overlapping uploads, milestone ordering, revision recovery,
-and phone-sized upload/drafting layouts. Failure traces
+cover uploads, Themes, References, Goals, Progress, Premise Builder, Constraint
+Generator, saved desk shortcuts, card and passage notes, and phone-sized writing
+layouts, including save/reload, failed-save retry, and revision recovery. Failure traces
 and screenshots appear in `test-results/`; HTML report is in `playwright-report/`.
 
 See [acceptance results](docs/acceptance-2026-09-04.md) for tested behavior,
@@ -386,7 +435,9 @@ yours; the code is too: fork it, embed it, build on it.
 ## What is not built yet
 
 Semantic retrieval, watchers, Writers' Room orchestration, frozen readers,
-version-control branches, plugins, and desktop packaging. The seams are in
-place for all of them; see `muse-mobilize-handoff/MUSE_MOBILIZE_HANDOFF.md` §32.
+version-control branches, plugins, desktop packaging, and the Media Desk UI.
+Media canvas storage, asset delivery, undo, and backup support already exist.
+Inline passage-note highlights and gutter markers are also pending. See
+`muse-mobilize-handoff/MUSE_MOBILIZE_HANDOFF.md` §32 for longer-term plans.
 
 Mobile atlas gestures and Undo/Redo: [usage and history limits](docs/mobile-editing-and-undo.md).

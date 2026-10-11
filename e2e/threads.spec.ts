@@ -160,7 +160,8 @@ test('a note takes a tag and a link, and shows up in the # panel by tag and unde
   await thread.getByLabel('Find a card to link').fill('Return');
   await thread.getByRole('button', { name: /^Link Scene: Return/ }).click();
   await expect(thread.getByRole('button', { name: 'Remove link Return' })).toBeVisible();
-  await page.keyboard.press('Escape');
+  await thread.getByRole('button', { name: 'Close notes' }).click();
+  await expect(thread).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Open connections', exact: true }).press('Enter');
   const panel = page.getByRole('dialog', { name: 'Tags and connections', exact: true });
