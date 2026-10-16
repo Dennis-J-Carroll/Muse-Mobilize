@@ -68,3 +68,16 @@ Logs: /tmp/muse-release-a-server.log, /tmp/muse-jobs-capacity.log, /tmp/muse-job
 Studio source checkpoint created before changes at /home/dennisjcarroll/Desktop/Interactive_FV/.recovery-checkpoints/studio-before-slots-2026-10-16.tar.gz. SHA-256 b0914501a1f3b49f1b7a998e03798d97ead413d71b71d2fbb72d3d292d0bbb2a. Contains author HTML, studio modules, and served studio/index.html. Studio root still not Git-tracked.
 
 Next: Studio IndexedDB slots and migration, then schema 1.4 formatting and Muse edition bridge. Real writing sessions remain user work; do not invent observations.
+
+## Checkpoint 3 — Studio slots verified (2026-10-16)
+Release A is committed and pushed as a48ec40 on Muse main. Studio remains a separate, untracked source tree; no Studio remote exists.
+
+Studio B1/B2 implemented locally: project-library.js provides IndexedDB v2 slots, composite slot/asset keys, transaction-complete saves, CAS revisions, atomic migration, and legacy storage retention. project-slots.js connects project switcher, import/create/copy/reload, slot-scoped preferences/runtime/undo, asynchronous dirty-version saves, conflict recovery, and switching guards during media work. Existing imports and reset create new slots. Embedded builders open separate slots. Main author HTML and build.py embed modules; generated served copy rebuilt.
+
+Verified isolated browser tests: studio/slots-check.cjs passes failed-save switch blocking, repeated import/media isolation, reload, stale-tab conflict/copy, legacy JSON and v1 IndexedDB migration, malformed migration recovery, and injected quota rollback. Existing studio/browser-check.cjs passes all 17 logged checks including offline editable builder/player, portable round trip, mobile upload, and offline reload. The builder test now scrolls its lazy-loaded image into view before checking decoded dimensions; probe confirmed valid stored media before this test correction. Earlier linear-reader-check.cjs and narration-check.cjs also passed. Logs /tmp/muse-studio-slots-check.log, /tmp/muse-studio-regression.log, /tmp/muse-studio-reader.log, /tmp/muse-studio-narration.log. No real browser storage touched.
+
+Verified Studio source archive: /home/dennisjcarroll/Desktop/Interactive_FV/.recovery-checkpoints/studio-slots-verified-2026-10-16.tar.gz; SHA-256 6e07170aa3a95cf5f3fc35f741273ee03d84b9d72985a49fcfdb53b30ad04b84. Earlier pre-slots checkpoint retained. Documentation studio/PROJECT_LIBRARY.md explains local-origin scope and rollback limits.
+
+Next: schema 1.4 structured emphasis and heading levels in editable source, both readers and portable projection; tests including Unicode, edit rebasing and undo. Then Muse edition recipe/export bridge. Five real writing sessions remain unperformed; never infer observations from automated tests.
+
+Usage refreshed on continuation: 88% five-hour and 59% weekly remaining. No reset consumed. Previous approval-review rejection was caused by exhausted usage; authorized Studio writes succeeded after continuation.
