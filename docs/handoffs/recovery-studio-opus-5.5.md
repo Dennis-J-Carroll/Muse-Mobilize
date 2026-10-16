@@ -1,6 +1,6 @@
 # Recovery / Studio implementation handoff for Opus 5.5
 
-Status: implementation started; no release gate complete yet.
+Current status (2026-10-16): Release A recovery gate complete and pushed. Studio slots and schema 1.4 formatting verified locally. Muse edition persistence/conversion implemented; full Studio transfer remains incomplete. Read newest checkpoints first; earlier pending-work notes are historical.
 Baseline: Muse main 2fe54db, tracked clean before task. User authorized implementation and checkpoint commits/push. Unrelated untracked notes/Pics_MM/ and notes/Screenshot from 2026-10-07 13-46-33.png must remain untouched.
 
 Muse: /home/dennisjcarroll/Desktop/creative/Muse-Mobilize
@@ -81,3 +81,26 @@ Verified Studio source archive: /home/dennisjcarroll/Desktop/Interactive_FV/.rec
 Next: schema 1.4 structured emphasis and heading levels in editable source, both readers and portable projection; tests including Unicode, edit rebasing and undo. Then Muse edition recipe/export bridge. Five real writing sessions remain unperformed; never infer observations from automated tests.
 
 Usage refreshed on continuation: 88% five-hour and 59% weekly remaining. No reset consumed. Previous approval-review rejection was caused by exhausted usage; authorized Studio writes succeeded after continuation.
+
+
+## Checkpoint 4 — Studio formatting verified (2026-10-16)
+Studio accepts schemas 1.0–1.4, normalizes to 1.4.0, preserves heading levels, nested bold/italic ranges, and plain text. New studio/inline-format.js is shared by editor preview, Studio reader, standalone reader, and MCP validator. studio/inline-editor.js adds selection/caret formatting and preview. Edits rebase grapheme-aligned UTF-16 ranges, boundary insertion stays plain unless explicitly styled, and undo restores marks/text together. Raw HTML stays inert. Reader projection strips museOrigin. Narration remains based on unchanged plain text. MCP validates nextSceneId routes and matching formatting ranges.
+
+Found and fixed existing undo reentrancy: replacing a focused textarea during history restore emitted a stale change event that reapplied undone text. handleEdit now rejects events during history restoration/slot switch or from detached fields. Browser acceptance reproduces text/mark undo and now passes.
+
+Evidence: 7 inline unit tests (including 2,000 deterministic overlapping-toggle cases); 4 MCP tests; formatting browser acceptance covers nested marks, heading levels, editing/undo/reload, both readers, Scroll/Page/next/Back/Contents, literal HTML, private receipt exclusion, 390/320 widths. Inspected final 320px screenshot after reveal animation. Full Studio browser regression passed all 17 logged checks; slot checks and narration checks passed again. Existing migration assertion now expects schema 1.4.0. Lazy-image tests explicitly scroll thumbnails into view before decode checks; no media assertions removed.
+
+Logs: /tmp/muse-studio-inline-unit.log, /tmp/muse-studio-mcp.log, /tmp/muse-studio-formatting.log, /tmp/muse-studio-format-regression.log, /tmp/muse-studio-format-slots.log, /tmp/muse-studio-format-narration.log. Screenshots /tmp/story-studio-formatting/reader-320.png and reader-390.png. Studio docs: studio/FORMATTING.md and PROJECT_LIBRARY.md.
+
+Source checkpoint /home/dennisjcarroll/Desktop/Interactive_FV/.recovery-checkpoints/studio-formatting-verified-2026-10-16.tar.gz SHA-256 4823eb623079c29782a8f941f6a3548325e11a2cc1dae7e424ddd287ea03057e. Includes main HTML, editable modules, generated served HTML, MCP source/package/tsconfig. Studio still has no Git repository or remote; no publication claimed.
+
+## Checkpoint 5 — Muse edition foundation (2026-10-16)
+New shared/story-edition.ts defines strict version-1 recipe/store and schema-1.4 block types. New server/src/editions.ts persists recipes, verifies selected IDs are manuscript documents, and exposes GET editions / PUT editions/:editionId through existing edit lock/history wrapper. Backup allowlist and both legacy/v2 restore validators include editions/recipes.json. New server/src/studio-conversion.ts converts Markdown tokens to plain text/marks and document warnings, preserves heading levels, generates deterministic block IDs, and never renders HTML. Dependency markdown-it pinned 15.0.3 with bundled TypeScript types.
+
+Focused tests: 14 passed, 1 opt-in archive capacity test skipped. Edition save/undo/redo, archive restore round trip, malformed recipe rejection, unsupported Markdown warnings, nested/Unicode marks, and exact 120,000 words across 40 converted documents pass. Server TypeScript passes. Full server suite result recorded below when complete. The 120,000-word result proves conversion only, not end-to-end novel editing/import.
+
+Exact next action: implement selected edition capture/preview and portable scene/image builder per docs/story-studio-editions-contract.md. Then extend archive worker/job download for edition artifacts and add selection UI beside Binder. Current edition routes save recipes only; preview/export is NOT exposed. Preserve all Release A behavior; edition jobs must not update full-backup status. Studio side is ready for schema 1.4 imports. Finish real three-chapter transfer gate and novel workflow before claiming Release B. Do not invent five human writing sessions.
+
+Latest usage at checkpoint preparation: 18% five-hour / 48% weekly remaining, account-wide. No reset used. Stopping at agreed 15% handoff threshold after verification/commit. Refresh usage on continuation. Test server may still run on localhost:8947 with separate fresh Playwright contexts; real browser storage untouched.
+
+Final foundation verification: complete server suite 227 passed, 2 opt-in capacity tests skipped (229 total), 16.96 seconds; log /tmp/muse-edition-full-server.log. Server TypeScript log /tmp/muse-edition-types.log is empty/success. git diff --check passes. Existing full capacity gate was completed in Release A and was not rerun for recipe-only policy changes.

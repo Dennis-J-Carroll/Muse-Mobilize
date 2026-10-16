@@ -1,3 +1,4 @@
+import { readEditions, saveEdition } from './editions.js';
 import express from 'express';
 import { ArchiveJobs } from './archive-jobs.js';
 import { registerArchiveRoutes } from './archive-routes.js';
@@ -77,6 +78,7 @@ async function editScope(req: express.Request): Promise<{ label: string; paths: 
   if (route === 'sources' || route === 'sources/:sourceId') return { label: `${verb} Source`, paths: [req.method === 'PUT' ? 'sources/index.json' : 'sources'] };
   if (route === 'agents/save' || route === 'agents/:agentId/state') return { label: 'Save agent', paths: ['agents'] };
   if (route === 'agent-arrangements' || route === 'agent-arrangements/:arrangementId/load') return { label: route.endsWith('/load') ? 'Load agent arrangement' : 'Save agent arrangement', paths: ['agents', 'studio'] };
+  if (route === 'editions/:editionId' && req.method === 'PUT') return { label: 'Save Story Studio edition', paths: ['editions'] };
   if (route === 'binder' && req.method === 'PUT') return { label: 'Save binder recipe', paths: ['binder'] };
   if (route === 'workspaces') return { label: 'Save workspace', paths: ['workspaces'] };
   return null;
@@ -660,6 +662,9 @@ app.post('/api/projects/:id/agents/preview', wrap(async (req, res) => {
 app.get('/api/projects/:id/agent-arrangements', wrap(async (req, res) => res.json({ arrangements: await readArrangements(req.params.id) })));
 app.post('/api/projects/:id/agent-arrangements', wrap(async (req, res) => res.json({ arrangement: await saveArrangement(req.params.id, req.body?.name, req.body?.agentIds) })));
 app.post('/api/projects/:id/agent-arrangements/:arrangementId/load', wrap(async (req, res) => res.json({ agents: await loadArrangement(req.params.id, req.params.arrangementId) })));
+
+app.get('/api/projects/:id/editions', wrap(async (req, res) => res.json(await readEditions(req.params.id))));
+app.put('/api/projects/:id/editions/:editionId', wrap(async (req, res) => res.json({ recipe: await saveEdition(req.params.id, req.params.editionId, req.body?.recipe) })));
 
 app.get('/api/projects/:id/binder', wrap(async (req, res) => res.json({ recipe: await readBinder(req.params.id) })));
 app.put('/api/projects/:id/binder', wrap(async (req, res) => res.json({ recipe: await saveBinder(req.params.id, req.body?.recipe) })));

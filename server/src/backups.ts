@@ -1,3 +1,4 @@
+import { parseEditionStore } from '../../shared/story-edition.js';
 import fs from 'node:fs/promises';
 import { constants, type BigIntStats } from 'node:fs';
 import path from 'node:path';
@@ -36,10 +37,10 @@ interface BackupOptions { workspaceRoot?: string }
 const stores = new Set([
   'canon/canon.json', 'plot/plot.json', 'scenes/scenes.json', 'references/references.json',
   'goals/goals.json', 'world/map.json', 'connections/connections.json', 'sources/index.json',
-  'studio/arrangements.json', 'binder/recipe.json', 'media/canvases/default.json', 'premise/premise.json', 'constraints/constraints.json', 'threads/threads.json',
+  'studio/arrangements.json', 'binder/recipe.json', 'editions/recipes.json', 'media/canvases/default.json', 'premise/premise.json', 'constraints/constraints.json', 'threads/threads.json',
 ]);
 const broadDirectories = new Set(['manuscript', 'outline', 'notes', 'canon', 'assets', 'agents', 'workspaces', 'sources', 'media']);
-const rootDirectories = new Set([...broadDirectories, 'plot', 'scenes', 'references', 'goals', 'world', 'connections', 'studio', 'binder', 'premise', 'constraints', 'threads', '.muse']);
+const rootDirectories = new Set([...broadDirectories, 'plot', 'scenes', 'references', 'goals', 'world', 'connections', 'studio', 'binder', 'editions', 'premise', 'constraints', 'threads', '.muse']);
 function invalid(message: string): never { throw new BackupError(400, 'INVALID_BACKUP', message); }
 function tooLarge(kind: 'encoded' | 'saved' | 'files' | 'directories', actual: number, detail = ''): never {
   const limit = kind === 'encoded' ? MAX_BACKUP_BYTES : kind === 'saved' ? MAX_PROJECT_BYTES : MAX_BACKUP_FILES;
@@ -237,6 +238,7 @@ function readStores(files: Map<string, Buffer>): Map<string, Record<string, unkn
     if (!bytes) continue;
     const value = parseJson(bytes, file);
     if (!record(value) || value.version !== 1) invalid(`Malformed or unsupported saved store: ${file}.`);
+    if (file === 'editions/recipes.json') parseEditionStore(value);
     parsed.set(file, value);
   }
   return parsed;

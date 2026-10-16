@@ -1,3 +1,4 @@
+import { parseEditionStore } from '../../shared/story-edition.js';
 import fs from 'node:fs/promises';
 import { constants, createWriteStream } from 'node:fs';
 import path from 'node:path';
@@ -99,6 +100,7 @@ export async function validateSavedProject(root: string, manifest: ArchiveManife
     if (!files.has(file)) continue;
     const value = await readJson(file);
     if (!p.record(value) || value.version !== 1) invalid(`Malformed or unsupported saved store: ${file}.`);
+    if (file === 'editions/recipes.json') parseEditionStore(value);
     if (file !== 'sources/index.json') continue;
     if (!Array.isArray(value.sources)) invalid('Malformed sources index.');
     const seen = new Set<string>();
