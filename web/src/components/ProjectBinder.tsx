@@ -54,12 +54,12 @@ export function ProjectBinder({ projectId, projectName, resources, onDirty, onPe
     if (useStore.getState().project?.id !== projectId) throw new Error('Project changed. Reopen the binder.');
     if (Object.values(useStore.getState().docs).some((doc) => doc.dirty || doc.recovery || doc.applyingPatch)) throw new Error('Save writing and resolve recovered drafts before previewing.');
   };
-  const verify = async () => { if (!preview) throw new Error('Preview the binder first.'); await flush(); await api.verifyBinder(projectId, preview.receipt.snapshotHash); };
+  const verify = async () => { if (!preview) throw new Error('Preview the binder first.'); await flush(); await api.verifyBinder(projectId, preview.receipt.snapshotHash, recipe); };
   return <div className="binder-columns">
     <div className="binder-editor" onKeyDown={busy || loading ? undefined : edits.onKeyDown}>
       <div className="undo-controls" role="group" aria-label="Recipe form history"><button aria-label="Undo recipe edit" disabled={busy || !edits.canUndo} onPointerDown={(event) => event.preventDefault()} onClick={edits.undo}>↶ Undo</button><button aria-label="Redo recipe edit" disabled={busy || !edits.canRedo} onPointerDown={(event) => event.preventDefault()} onClick={edits.redo}>↷ Redo</button></div>
       {error && <p role="alert" className="tool-warning">{error}</p>}{message && <p role="status">{message}</p>}
-      <p>Arrange saved story material into a readable project binder. Save unfinished card forms before previewing. Browser drafts and Saved Desks are outside this export.</p>
+      <p>Arrange saved story material into a readable project binder. Save unfinished card forms before previewing. Browser drafts and Saved Desks are outside this export. Preview and HTML/PDF use selected content; full-project backup limits apply only to backups and project ZIPs.</p>
       <fieldset disabled={busy || loading}>
         <div className="tool-actions"><button onClick={() => change(preset(projectName, resources))}>Whole-project content</button><button onClick={() => change(preset(projectName, resources, true))}>Reader manuscript</button></div>
         <small>Whole-project content includes story records and Sources. Add agent definitions or activity explicitly below. Private backup includes more than the readable binder.</small>

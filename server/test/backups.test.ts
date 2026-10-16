@@ -247,14 +247,14 @@ test('restore rejects unsupported versions, invalid base64, hash/size mismatches
 test('backup enforces raw size, decoded size, and file-count limits before restore writes or large file reads', async (t) => {
   // Catches parsing/allocating oversized input before applying the public limits.
   const { workspaceRoot, projectDir } = await fixture(t);
-  await assert.rejects(restoreProjectBackup(Buffer.alloc(80 * 1024 * 1024 + 1, 32), { workspaceRoot }), { status: 413 });
+  await assert.rejects(restoreProjectBackup(Buffer.alloc(80 * 1024 * 1024 + 1, 32), { workspaceRoot }), { status: 413, message: /Encoded backup:.*83,886,081 bytes.*limit 80\.00 MiB/ });
   await assert.rejects(restoreProjectBackup(' '.repeat(80 * 1024 * 1024 + 1), { workspaceRoot }), { status: 413 });
   const oversized = minimalBackup();
   oversized.files[1].size = 50 * 1024 * 1024 + 1;
-  await assert.rejects(restoreProjectBackup(oversized, { workspaceRoot }), { status: 413 });
+  await assert.rejects(restoreProjectBackup(oversized, { workspaceRoot }), { status: 413, message: /Saved project files:.*limit 50\.00 MiB/ });
   const tooMany = minimalBackup();
   tooMany.files = Array(10_001).fill(tooMany.files[1]);
-  await assert.rejects(restoreProjectBackup(tooMany, { workspaceRoot }), { status: 413 });
+  await assert.rejects(restoreProjectBackup(tooMany, { workspaceRoot }), { status: 413, message: /Backup file count: at least 10,001; limit 10,000/ });
   const largeFile = await fs.open(path.join(projectDir, 'manuscript/one.md'), 'r+');
   await largeFile.truncate(50 * 1024 * 1024 + 1);
   await largeFile.close();

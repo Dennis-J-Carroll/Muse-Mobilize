@@ -39,7 +39,7 @@ Agent definitions remain editable YAML under the project's `agents/` directory. 
 5. Choose **Save binder recipe**, then **Preview binder**. Review the included/omitted counts and export notes.
 6. Download **HTML** for a portable reading copy, or use **Print / Save PDF**. Choose the browser's PDF destination if available. HTML contains a contents list, responsive typography, print styles, and embedded local card images.
 
-Preview captures saved project state. HTML download uses that captured rendering. If saved files change, refresh the preview before downloading or packaging. Unsaved browser drafts, browser Saved Desks, and provider settings are not included. Remote images are not fetched; missing or unsupported images produce export notes. Source sections show extracted text and provenance; original source files travel inside the private project backup.
+Preview captures selected saved content and, when enabled, its local images. HTML download and printing use that captured rendering. A recipe or selected-content change requires a fresh preview before downloading or packaging. Changes to omitted document bodies, unrelated asset bytes, and unselected history do not invalidate the preview. Catalog membership changes can invalidate it because the included/omitted counts are part of the receipt. Unsaved browser drafts, browser Saved Desks, and provider settings are not included. Remote images are not fetched; missing or unsupported images produce export notes. Source sections show extracted text and provenance; original source files travel inside the private project backup.
 
 This first renderer supports structured story cards and basic manuscript Markdown. It does not provide EPUB, whole-binder DOCX, exact publication typesetting, or automatic rendering of every possible embedded document format. Current-document Markdown/text/DOCX export remains available separately.
 
@@ -63,7 +63,11 @@ Expand **Portable project package** and select the checkbox acknowledging privat
 
 The private backup includes saved material even when excluded from the readable binder. To restore, extract `project-backup.json` and choose **Backups → Restore as new project**. Muse currently restores that JSON file, not the ZIP directly. The original project remains intact. Any newer unsaved recipe changes are still available in the ZIP's separate `binder-recipe.json`.
 
-Existing backup limits still apply: 50 MiB saved files, 80 MiB JSON. Binder rendering is capped at 65 MiB and combined ZIP inputs at 120 MiB. Large projects can export selected sections and download their backup separately.
+Readable binder preview, HTML download, and printing do not build a full project backup. A project can exceed the backup limits and still export its selected manuscript, cards, and images. Selected file reads, captured text/encoded images, catalog metadata, and final rendered HTML each have a 65 MiB bound; repeated content in the rendered binder also counts. Select fewer sections or omit images if the selected binder is too large. This is a byte limit, not a word or chapter limit. Regression coverage includes a 120,000-word novel across 40 chapters with oversized unrelated assets and history, plus browser HTML download and PDF generation.
+
+Full backups and project ZIPs still require at most 50 MiB of saved files, 80 MiB of encoded backup JSON, and 10,000 saved files. Backup traversal also permits at most 10,000 directories. Combined ZIP inputs remain capped at 120 MiB. A failed full backup reports the specific limit and measured usage; saved-file size errors also identify the largest storage category. A failed ZIP does not discard the readable preview. Downloading the backup separately only helps with the combined ZIP-input limit; it does not bypass the full-backup limits.
+
+For projects with large media collections, a streaming full-project archive remains future work. Readable HTML/PDF exports are not substitutes for complete restorable backups.
 
 ## Phone use
 

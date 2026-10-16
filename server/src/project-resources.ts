@@ -13,6 +13,7 @@ import type { StoryImage } from './types.js';
 
 export interface ProjectResource extends ResourceInfo { data?: any; required?: ResourceRef[] }
 export interface ResourceContent { text: string; images: StoryImage[]; warnings: string[] }
+export type ResourceTextReader = (relative: string) => Promise<string>;
 
 /** Metadata and structured stores stay local. Documents and source text load only after selection. */
 export async function projectResources(projectId: string): Promise<ProjectResource[]> {
@@ -48,20 +49,38 @@ export async function projectResources(projectId: string): Promise<ProjectResour
 export const resourceInfo = ({ kind, id, title, detail }: ProjectResource): ResourceInfo => ({ kind, id, title, detail });
 
 /** Resolve references without expanding the selected set or exposing omitted endpoint metadata. */
-export async function resourceContent(projectId: string, record: ProjectResource, allowed: Set<string>, catalog: ProjectResource[]): Promise<ResourceContent> {
+export async function resourceContent(projectId: string, record: ProjectResource, allowed: Set<string>, catalog: ProjectResource[], readText?: ResourceTextReader): Promise<ResourceContent> {
   const has = (kind: ResourceKind, id?: string) => !!id && allowed.has(resourceKey({ kind, id }));
   const canonKind = (id: string) => catalog.find((r) => r.id === id && (r.kind === 'character' || r.kind === 'world'))?.kind ?? 'world';
   const hasCanon = (id: string) => has(canonKind(id), id);
   if (!has(record.kind, record.id) || record.required?.some((ref) => !has(ref.kind, ref.id))) return { text: '', images: [], warnings: ['Record omitted because a required linked record is not selected.'] };
-  if (record.kind === 'document') return { text: (await readDocument(projectId, record.id)).content, images: [], warnings: [] };
+  if (record.kind === 'document') {
+    if (readText && (typeof record.data.path !== 'string' || !/^(manuscript|outline|notes|canon)\/.+\.(md|markdown|txt)$/i.test(record.data.path))) {
+      throw new Error('Selected document has an unsupported saved path.');
+    }
+    return { text: readText ? await readText(record.data.path) : (await readDocument(projectId, record.id)).content, images: [], warnings: [] };
+  }
   if (record.kind === 'source') {
     const meta = record.data;
     let text = '';
-    try { text = await readSourceText(await projectDir(projectId), record.id); }
-    catch { return { text: `Original: ${meta.originalName}\nExtraction: ${meta.extractionStatus}`, images: [], warnings: ['Source text unavailable; original remains in the saved-project backup.'] }; }
+    try { text = readText ? await readText(`sources/extracted/${record.id}.txt`) : await readSourceText(await projectDir(projectId), record.id); }
+    catch (error) {
+      // Binder limits and unsafe paths must not become a successful partial export.
+      if (readText && (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      return { text: `Original: ${meta.originalName}\nExtraction: ${meta.extractionStatus}`, images: [], warnings: ['Source text unavailable; original remains in the saved-project backup.'] };
+    }
     return { text: `Original: ${meta.originalName}\nAuthority: ${meta.authority}\nSHA-256: ${meta.sourceHash}\n\n${text}`, images: [], warnings: meta.extractionWarning ? [meta.extractionWarning] : [] };
   }
   if (record.kind === 'activity') {
+    if (readText) {
+      let raw = '';
+      try { raw = await readText('.muse/events.jsonl'); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+      const events = raw.split('\n').filter(Boolean).flatMap((line) => {
+        try { return [JSON.parse(line)]; } catch { return []; }
+      });
+      return { text: events.map((e) => `${e.ts} · ${e.type}\n${JSON.stringify(e.payload ?? {})}`).join('\n\n'), images: [], warnings: [] };
+    }
     const events = await readEvents(await projectDir(projectId), Number.MAX_SAFE_INTEGER);
     return { text: events.reverse().map((e) => `${e.ts} · ${e.type}\n${JSON.stringify(e.payload ?? {})}`).join('\n\n'), images: [], warnings: [] };
   }

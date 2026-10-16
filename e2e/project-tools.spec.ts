@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures';
-import { readFile } from 'node:fs/promises';
+import { readFile, open } from 'node:fs/promises';
+import path from 'node:path';
 test.use({ hasTouch: true });
 
 test('Agent Studio saves one-character access, previews withheld material, reloads, and saves an arrangement', async ({ page, request, projectId }, testInfo) => {
@@ -89,6 +90,54 @@ test('binder recipe saves, previews selected story, downloads HTML and ZIP, and 
   const zip = await zipPromise;
   expect((await readFile((await zip.path())!)).readUInt32LE(0)).toBe(0x04034b50);
   await request.put(`/api/projects/${projectId}/documents/chapter-01`, { data: { content: 'Changed after preview.' } });
+  await dialog.getByRole('button', { name: 'Download HTML', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText('changed');
+});
+
+test('novel manuscript previews, downloads, and prints while oversized project ZIP reports its actual limit', async ({ page, request, projectId }, testInfo) => {
+  test.setTimeout(120_000);
+  const { settings } = await (await request.get('/api/settings')).json();
+  expect(settings.workspaceRoot).toMatch(/muse-browser-[^/]+\/projects$/);
+  const asset = await open(path.join(settings.workspaceRoot, `${projectId}.muse/assets/unselected.bin`), 'w');
+  await asset.truncate(80 * 1024 * 1024);
+  await asset.close();
+  const prose = Array.from({ length: 40 }, (_, i) => `## Chapter ${i + 1}\n\nSTART_${i} ${'novel '.repeat(2998)}END_${i}`).join('\n\n');
+  expect((await request.put(`/api/projects/${projectId}/documents/chapter-01`, { data: { content: prose } })).ok()).toBe(true);
+  await page.getByRole('button', { name: /^Project Binder Arrange/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Project Binder' });
+  await dialog.getByRole('button', { name: 'Reader manuscript', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Preview binder', exact: true }).click();
+  const frame = page.frameLocator('iframe[title="Binder presentation"]');
+  await expect(frame.getByRole('heading', { name: 'Chapter 40', exact: true })).toBeAttached();
+  expect(await frame.locator('article').textContent()).toContain('END_39');
+  const downloadPromise = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: 'Download HTML', exact: true }).click();
+  const html = await readFile((await (await downloadPromise).path())!, 'utf8');
+  expect((html.match(/\bnovel\b/g) ?? []).length).toBe(119920);
+  expect(html).toContain('END_39');
+  await page.evaluate(() => {
+    const child = (document.querySelector('iframe[title="Binder presentation"]') as HTMLIFrameElement).contentWindow!;
+    child.addEventListener('beforeprint', () => { document.body.dataset.binderPrinted = 'yes'; });
+  });
+  await dialog.getByRole('button', { name: 'Print / Save PDF' }).click();
+  await expect(page.locator('body')).toHaveAttribute('data-binder-printed', 'yes');
+  const printable = await page.context().newPage();
+  await printable.setContent(html);
+  const pdf = await printable.pdf({ path: testInfo.outputPath('novel-120000-words.pdf'), preferCSSPageSize: true });
+  expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+  await printable.close();
+  await dialog.getByText('Portable project package', { exact: true }).click();
+  await dialog.getByLabel('Include private saved-project data, even material omitted from this binder').check();
+  await dialog.getByRole('button', { name: 'Download project ZIP' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('Saved project files:');
+  await expect(dialog.getByRole('alert')).toContainText('limit 50.00 MiB');
+  await expect(dialog.getByRole('alert')).toContainText('Largest category: assets/unselected.bin');
+  await page.screenshot({ path: testInfo.outputPath('novel-binder-backup-limit.png') });
+  // Failed full backup must leave the successful readable preview usable.
+  const retryDownload = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: 'Download HTML', exact: true }).click();
+  await retryDownload;
+  await request.put(`/api/projects/${projectId}/documents/chapter-01`, { data: { content: 'Revised ending.' } });
   await dialog.getByRole('button', { name: 'Download HTML', exact: true }).click();
   await expect(dialog.getByRole('alert')).toContainText('changed');
 });

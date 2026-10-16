@@ -8,7 +8,7 @@ const root = await fs.mkdtemp(path.join(os.tmpdir(), 'muse-binder-'));
 process.env.MUSE_CONFIG_DIR = path.join(root, 'config');
 await fs.mkdir(process.env.MUSE_CONFIG_DIR);
 await fs.writeFile(path.join(process.env.MUSE_CONFIG_DIR, 'settings.json'), JSON.stringify({ workspaceRoot: root, defaultProvider: 'mock' }));
-const { createProject, writeDocument, readDocument, readAgent, projectDir } = await import('../src/projects.js');
+const { createProject, createDocument, writeDocument, readDocument, readAgent, projectDir } = await import('../src/projects.js');
 const { previewBinder, saveBinder, readBinder, verifyBinderSnapshot, packageBinder } = await import('../src/binder.js');
 const { importSource } = await import('../src/sources.js');
 const { saveAgent, saveArrangement, readArrangements } = await import('../src/agent-config.js');
@@ -37,7 +37,7 @@ test('binder renders only selected content, escapes executable HTML, and preserv
   assert.ok(!preview.html.includes('PRIVATE_SOURCE_ORIGINAL'));
   assert.equal(preview.included, 1);
   assert.deepEqual(await readDocument(project.id, 'chapter-01'), original);
-  await verifyBinderSnapshot(project.id, preview.receipt.snapshotHash);
+  await verifyBinderSnapshot(project.id, preview.receipt.snapshotHash, recipe);
 });
 
 test('selected IDs define reading order, missing IDs warn, and empty selection remains empty', async () => {
@@ -56,7 +56,7 @@ test('changed project invalidates preview before download or packaging', async (
   const { project, recipe } = await fixture();
   const preview = await previewBinder(project.id, recipe);
   await writeDocument(project.id, 'chapter-01', 'Revised story.');
-  await assert.rejects(verifyBinderSnapshot(project.id, preview.receipt.snapshotHash), /changed/);
+  await assert.rejects(verifyBinderSnapshot(project.id, preview.receipt.snapshotHash, recipe), /changed/);
   await assert.rejects(packageBinder(project.id, recipe, preview.receipt.snapshotHash), /changed/);
 });
 
@@ -107,6 +107,9 @@ test('binder embeds selected local images, preserves captions, and omits remote 
   const { createCanonEntity } = await import('../src/canon.js');
   const dir = await projectDir(project.id);
   const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+  const unrelated = await fs.open(path.join(dir, 'assets/unrelated.bin'), 'w');
+  await unrelated.truncate(80 * 1024 * 1024);
+  await unrelated.close();
   const asset = await saveImageAsset(dir, { name: 'portrait.png', mimeType: 'image/png', data: png });
   const local = { id: 'portrait', src: `/api/projects/${project.id}/assets/images/${asset.fileName}`, caption: 'Portrait — 狐', tags: [] };
   const external = { ...local, id: 'remote', src: 'https://example.invalid/private-tracker.png', caption: 'Remote portrait' };
@@ -119,4 +122,140 @@ test('binder embeds selected local images, preserves captions, and omits remote 
   assert.match(preview.warnings.join(' '), /external or unsupported image omitted/);
   const textOnly = await previewBinder(project.id, { ...recipe, includeImages: false });
   assert.ok(!textOnly.html.includes('data:image/png;base64,'));
+  await fs.writeFile(path.join(dir, 'assets/images', asset.fileName), Buffer.from('changed image bytes'));
+  await assert.rejects(verifyBinderSnapshot(project.id, preview.receipt.snapshotHash, recipe), /changed/);
+  await verifyBinderSnapshot(project.id, textOnly.receipt.snapshotHash, { ...recipe, includeImages: false });
+  await fs.unlink(path.join(dir, 'assets/images', asset.fileName));
+  const missing = await previewBinder(project.id, recipe);
+  assert.match(missing.warnings.join(' '), /missing local image/);
+  await fs.writeFile(path.join(dir, 'assets/images', asset.fileName), Buffer.from(png, 'base64'));
+  await assert.rejects(verifyBinderSnapshot(project.id, missing.receipt.snapshotHash, recipe), /changed/);
+  await fs.truncate(path.join(dir, 'assets/images', asset.fileName), 65 * 1024 * 1024 + 1);
+  await assert.rejects(previewBinder(project.id, recipe), /exceeds 65 MiB/);
+  await previewBinder(project.id, { ...recipe, includeImages: false });
+});
+
+test('repeating a selected chapter still respects final rendered-size limit', async () => {
+  const { project, recipe } = await fixture();
+  await writeDocument(project.id, 'chapter-01', 'x'.repeat(2 * 1024 * 1024));
+  recipe.sections = Array.from({ length: 34 }, (_, i) => ({ ...recipe.sections[0], id: `repeat-${i}` }));
+  await assert.rejects(previewBinder(project.id, recipe), /exceeds 65 MiB/);
+});
+
+test('120,000-word novel exports in chapter order despite unrelated oversized assets and history', async () => {
+  const { project, recipe } = await fixture();
+  const dir = await projectDir(project.id);
+  const ids: string[] = [];
+  // Forty chapters, 3,000 words each. Check both boundaries of every chapter.
+  for (let i = 0; i < 40; i++) {
+    const doc = await createDocument(project.id, `Novel chapter ${i + 1}`, 'manuscript');
+    ids.push(doc.id);
+    await writeDocument(project.id, doc.id, `START_${i} ${'novel '.repeat(2998)}END_${i}`);
+  }
+  const asset = await fs.open(path.join(dir, 'assets/unselected.bin'), 'w');
+  await asset.truncate(80 * 1024 * 1024);
+  await asset.close();
+  const history = await fs.open(path.join(dir, '.muse/snapshots/unselected.md'), 'w');
+  await history.truncate(80 * 1024 * 1024);
+  await history.close();
+  recipe.sections[0].selection = { mode: 'selected', ids };
+  const originalOpen = fs.open.bind(fs);
+  const opened: string[] = [];
+  fs.open = (async (...args: Parameters<typeof fs.open>) => { opened.push(String(args[0])); return originalOpen(...args); }) as typeof fs.open;
+  try {
+    const preview = await previewBinder(project.id, recipe);
+    assert.equal(preview.included, 40);
+    assert.equal((preview.html.match(/\bnovel\b/g) ?? []).length, 119920);
+    let last = -1;
+    for (let i = 0; i < 40; i++) {
+      const start = preview.html.indexOf(`START_${i} `);
+      const end = preview.html.indexOf(`END_${i}<`);
+      assert.ok(start > last && end > start, `Chapter ${i + 1} complete and ordered`);
+      last = end;
+    }
+    await verifyBinderSnapshot(project.id, preview.receipt.snapshotHash, recipe);
+    assert.ok(!opened.some((name) => name.includes('unselected')));
+    await assert.rejects(packageBinder(project.id, recipe, preview.receipt.snapshotHash), /Saved project files:.*limit 50\.00 MiB/);
+    await assert.rejects(exportProjectBackup(project.id), /Largest category:/);
+  } finally { fs.open = originalOpen; }
+});
+
+test('omitted content changes do not invalidate preview; recipe and selected metadata do', async () => {
+  const { project, recipe } = await fixture();
+  const preview = await previewBinder(project.id, recipe);
+  await writeDocument(project.id, 'notes', 'Revised private note.');
+  await verifyBinderSnapshot(project.id, preview.receipt.snapshotHash, recipe);
+  await assert.rejects(verifyBinderSnapshot(project.id, preview.receipt.snapshotHash, { ...recipe, title: 'New title' }), /changed/);
+  const manifestFile = path.join(await projectDir(project.id), 'project.json');
+  const manifest = JSON.parse(await fs.readFile(manifestFile, 'utf8'));
+  manifest.documents.find((d: any) => d.id === 'chapter-01').title = 'Renamed chapter';
+  await fs.writeFile(manifestFile, JSON.stringify(manifest));
+  await assert.rejects(verifyBinderSnapshot(project.id, preview.receipt.snapshotHash, recipe), /changed/);
+});
+
+test('all selection detects added documents and missing selected IDs detect their return', async () => {
+  const { project, recipe } = await fixture();
+  recipe.sections[0].selection = { mode: 'all' };
+  const preview = await previewBinder(project.id, recipe);
+  await createDocument(project.id, 'New chapter', 'manuscript');
+  await assert.rejects(verifyBinderSnapshot(project.id, preview.receipt.snapshotHash, recipe), /changed/);
+  recipe.sections[0].selection = { mode: 'selected', ids: ['future'] };
+  const missing = await previewBinder(project.id, recipe);
+  await createDocument(project.id, 'Future', 'manuscript');
+  await assert.rejects(verifyBinderSnapshot(project.id, missing.receipt.snapshotHash, recipe), /changed/);
+});
+
+test('selected text exceeding binder limit is rejected before reading its body', async () => {
+  const { project, recipe } = await fixture();
+  const chapter = path.join(await projectDir(project.id), 'manuscript/chapter-01.md');
+  await fs.truncate(chapter, 65 * 1024 * 1024 + 1);
+  const originalOpen = fs.open.bind(fs);
+  let opened = false;
+  fs.open = (async (...args: Parameters<typeof fs.open>) => {
+    if (String(args[0]) === chapter) opened = true;
+    return originalOpen(...args);
+  }) as typeof fs.open;
+  try {
+    await assert.rejects(previewBinder(project.id, recipe), /Selected binder content exceeds 65 MiB/);
+    assert.equal(opened, false);
+  } finally { fs.open = originalOpen; }
+});
+
+test('selected source size failures are not swallowed as missing text warnings', async () => {
+  const { project, recipe, source } = await fixture();
+  await fs.truncate(path.join(await projectDir(project.id), `sources/extracted/${source.id}.txt`), 65 * 1024 * 1024 + 1);
+  recipe.sections = [{ id: 'sources', title: 'Sources', kind: 'source', selection: { mode: 'selected', ids: [source.id] } }];
+  await assert.rejects(previewBinder(project.id, recipe), /exceeds 65 MiB/);
+});
+
+test('capture detects a selected document changed while other selected files are being read', async () => {
+  const { project, recipe } = await fixture();
+  recipe.sections[0].selection = { mode: 'selected', ids: ['chapter-01', 'notes'] };
+  const dir = await projectDir(project.id);
+  const originalOpen = fs.open.bind(fs);
+  let changed = false;
+  fs.open = (async (...args: Parameters<typeof fs.open>) => {
+    if (!changed && String(args[0]).endsWith('notes/scratchpad.md')) {
+      changed = true;
+      await fs.writeFile(path.join(dir, 'manuscript/chapter-01.md'), 'Concurrent revision');
+    }
+    return originalOpen(...args);
+  }) as typeof fs.open;
+  try { await assert.rejects(previewBinder(project.id, recipe), /changed/); }
+  finally { fs.open = originalOpen; }
+});
+
+test('binder rejects symlinks in selected files and their parent directories', async () => {
+  const { project, recipe } = await fixture();
+  const dir = await projectDir(project.id);
+  const chapter = path.join(dir, 'manuscript/chapter-01.md');
+  const outside = path.join(root, 'private.md');
+  await fs.writeFile(outside, 'PRIVATE OUTSIDE CONTENT');
+  await fs.unlink(chapter);
+  await fs.symlink(outside, chapter);
+  await assert.rejects(previewBinder(project.id, recipe), /symlinks/);
+  await fs.unlink(chapter);
+  await fs.rmdir(path.join(dir, 'manuscript'));
+  await fs.symlink(root, path.join(dir, 'manuscript'));
+  await assert.rejects(previewBinder(project.id, recipe), /symlinks/);
 });

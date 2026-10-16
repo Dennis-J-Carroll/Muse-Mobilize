@@ -659,7 +659,7 @@ app.post('/api/projects/:id/agent-arrangements/:arrangementId/load', wrap(async 
 app.get('/api/projects/:id/binder', wrap(async (req, res) => res.json({ recipe: await readBinder(req.params.id) })));
 app.put('/api/projects/:id/binder', wrap(async (req, res) => res.json({ recipe: await saveBinder(req.params.id, req.body?.recipe) })));
 app.post('/api/projects/:id/binder/preview', wrap(async (req, res) => res.json({ preview: await previewBinder(req.params.id, req.body?.recipe) })));
-app.post('/api/projects/:id/binder/verify', wrap(async (req, res) => { await verifyBinderSnapshot(req.params.id, req.body?.snapshotHash); res.json({ ok: true }); }));
+app.post('/api/projects/:id/binder/verify', wrap(async (req, res) => { await verifyBinderSnapshot(req.params.id, req.body?.snapshotHash, req.body?.recipe); res.json({ ok: true }); }));
 app.post('/api/projects/:id/binder/package', wrap(async (req, res) => {
   if (typeof req.body?.snapshotHash !== 'string') throw new Error('Preview the project before packaging.');
   const zip = await packageBinder(req.params.id, req.body?.recipe, req.body.snapshotHash);

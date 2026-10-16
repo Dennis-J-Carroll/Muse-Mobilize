@@ -41,7 +41,13 @@ const stores = new Set([
 const broadDirectories = new Set(['manuscript', 'outline', 'notes', 'canon', 'assets', 'agents', 'workspaces', 'sources', 'media']);
 const rootDirectories = new Set([...broadDirectories, 'plot', 'scenes', 'references', 'goals', 'world', 'connections', 'studio', 'binder', 'premise', 'constraints', 'threads', '.muse']);
 function invalid(message: string): never { throw new BackupError(400, 'INVALID_BACKUP', message); }
-function tooLarge(): never { throw new BackupError(413, 'BACKUP_TOO_LARGE', 'Backup exceeds 80 MiB encoded, 50 MiB saved files, or 10,000 files.'); }
+function tooLarge(kind: 'encoded' | 'saved' | 'files' | 'directories', actual: number, detail = ''): never {
+  const limit = kind === 'encoded' ? MAX_BACKUP_BYTES : kind === 'saved' ? MAX_PROJECT_BYTES : MAX_BACKUP_FILES;
+  const bytes = kind === 'encoded' || kind === 'saved';
+  const label = kind === 'encoded' ? 'Encoded backup' : kind === 'saved' ? 'Saved project files' : kind === 'files' ? 'Backup file count' : 'Backup directory count';
+  const amount = (value: number) => bytes ? `${(value / 1024 / 1024).toFixed(2)} MiB (${value.toLocaleString('en-US')} bytes)` : value.toLocaleString('en-US');
+  throw new BackupError(413, 'BACKUP_TOO_LARGE', `${label}: at least ${amount(actual)}; limit ${amount(limit)}.${detail ? ` ${detail}` : ''} Readable binder exports can still use selected content.`);
+}
 function changed(): never { throw new BackupError(409, 'PROJECT_CHANGED', 'Project changed during backup. Save your work and retry.'); }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -127,7 +133,7 @@ async function inventory(dir: string): Promise<Inventory> {
     const stat = await fs.lstat(absolute, { bigint: true });
     if (!stat.isDirectory() || stat.isSymbolicLink()) invalid('Backup project directories must not be symlinks.');
     directories.set(relative, signature(stat));
-    if (directories.size > MAX_BACKUP_FILES) tooLarge();
+    if (directories.size > MAX_BACKUP_FILES) tooLarge('directories', directories.size);
     const entries = await fs.opendir(absolute);
     for await (const entry of entries) {
       const file = relative ? `${relative}/${entry.name}` : entry.name;
@@ -139,12 +145,21 @@ async function inventory(dir: string): Promise<Inventory> {
         if (allowedDirectory(file)) await walk(file);
       } else if (entryStat.isFile() && allowedFile(file)) {
         total += Number(entryStat.size);
-        if (files.size >= MAX_BACKUP_FILES || total > MAX_PROJECT_BYTES) tooLarge();
+        if (files.size >= MAX_BACKUP_FILES) tooLarge('files', files.size + 1);
         files.set(file, entryStat);
       } else if (allowedFile(file)) invalid('Backup entries must be regular files.');
     }
   }
   await walk('');
+  if (total > MAX_PROJECT_BYTES) {
+    const categories = new Map<string, number>();
+    for (const [file, stat] of files) {
+      const category = file.startsWith('assets/') || file.startsWith('sources/') ? file.split('/').slice(0, 2).join('/') : file.split('/')[0];
+      categories.set(category, (categories.get(category) ?? 0) + Number(stat.size));
+    }
+    const [category, bytes] = [...categories].sort((a, b) => b[1] - a[1])[0];
+    tooLarge('saved', total, `Largest category: ${category}, ${(bytes / 1024 / 1024).toFixed(2)} MiB.`);
+  }
   checkCollisions([...files.keys()]);
   return { files, directories };
 }
@@ -221,7 +236,7 @@ function readStores(files: Map<string, Buffer>): Map<string, Record<string, unkn
 
 function base64Size(data: unknown): number {
   if (typeof data !== 'string') invalid('File data must be base64.');
-  if (data.length > MAX_BACKUP_BYTES) tooLarge();
+  if (data.length > MAX_BACKUP_BYTES) tooLarge('encoded', data.length);
   if (data.length % 4 !== 0 || /[^A-Za-z0-9+/=]/.test(data)) invalid('Invalid base64 file data.');
   const padding = data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0;
   const firstPad = data.indexOf('=');
@@ -233,7 +248,8 @@ function base64Size(data: unknown): number {
 
 function validateBackup(input: unknown): { backup: ProjectBackup; files: Map<string, Buffer>; manifest: ProjectManifest; parsedStores: Map<string, Record<string, unknown>> } {
   if (Buffer.isBuffer(input) || typeof input === 'string') {
-    if ((typeof input === 'string' ? Buffer.byteLength(input) : input.length) > MAX_BACKUP_BYTES) tooLarge();
+    const bytes = typeof input === 'string' ? Buffer.byteLength(input) : input.length;
+    if (bytes > MAX_BACKUP_BYTES) tooLarge('encoded', bytes);
     input = parseJson(input, 'backup');
   }
   if (!record(input)) invalid('Expected a project backup object.');
@@ -241,7 +257,7 @@ function validateBackup(input: unknown): { backup: ProjectBackup; files: Map<str
   if (input.format !== 'muse-project-backup' || input.version !== 1) invalid('Unsupported project backup format or version.');
   validProjectId(input.sourceProjectId);
   if (!dateString(input.capturedAt) || !Array.isArray(input.files) || !input.files.length) invalid('Missing backup files or capture time.');
-  if (input.files.length > MAX_BACKUP_FILES) tooLarge();
+  if (input.files.length > MAX_BACKUP_FILES) tooLarge('files', input.files.length);
   const metadata: ProjectBackupFile[] = [];
   let decodedBytes = 0;
   let wireBytes = Buffer.byteLength(JSON.stringify({ format: input.format, version: input.version, sourceProjectId: input.sourceProjectId, capturedAt: input.capturedAt, files: [] }));
@@ -252,11 +268,11 @@ function validateBackup(input: unknown): { backup: ProjectBackup; files: Map<str
     if (!allowedFile(file.path)) invalid(`File is outside the saved-project backup: ${file.path}.`);
     if (typeof file.size !== 'number' || !Number.isSafeInteger(file.size) || file.size < 0) invalid('Invalid file size.');
     decodedBytes += file.size;
-    if (decodedBytes > MAX_PROJECT_BYTES) tooLarge();
+    if (decodedBytes > MAX_PROJECT_BYTES) tooLarge('saved', decodedBytes);
     if (typeof file.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(file.sha256)) invalid('Invalid SHA-256 digest.');
     if (base64Size(file.data) !== file.size) invalid('File size does not match base64 data.');
     wireBytes += Buffer.byteLength(JSON.stringify({ path: file.path, size: file.size, sha256: file.sha256, data: '' })) + (file.data as string).length + (metadata.length ? 1 : 0);
-    if (wireBytes > MAX_BACKUP_BYTES) tooLarge();
+    if (wireBytes > MAX_BACKUP_BYTES) tooLarge('encoded', wireBytes);
     metadata.push({ path: file.path, size: file.size, sha256: file.sha256, data: file.data as string });
   }
   checkCollisions(metadata.map((file) => file.path));
@@ -367,7 +383,8 @@ export async function restoreProjectBackup(input: unknown, options: BackupOption
   const restored: ProjectManifest = { ...manifest, id, name: `${manifest.name} (restored)`, createdAt: now, updatedAt: now };
   files.set('project.json', Buffer.from(JSON.stringify(restored, null, 2)));
   remapImageStores(parsedStores, files, backup.sourceProjectId, id);
-  if ([...files.values()].reduce((total, bytes) => total + bytes.length, 0) > MAX_PROJECT_BYTES) tooLarge();
+  const restoredBytes = [...files.values()].reduce((total, bytes) => total + bytes.length, 0);
+  if (restoredBytes > MAX_PROJECT_BYTES) tooLarge('saved', restoredBytes);
 
   // No settings reads, directory creation, or writes happen until the archive is fully validated.
   const root = path.resolve(options.workspaceRoot ?? await configuredWorkspaceRoot());

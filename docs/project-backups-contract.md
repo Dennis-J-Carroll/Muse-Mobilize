@@ -57,6 +57,7 @@ This is an allowlist. Account configuration, dotfiles, Git files, arbitrary root
 - Maximum JSON input/output: 80 MiB.
 - Maximum total decoded saved files: 50 MiB, including metadata. Restore also checks the resulting file total after identity/link changes.
 - Maximum files: 10,000. Export also bounds directory traversal at 10,000 directories.
+- Limit errors retain `413 / BACKUP_TOO_LARGE` and identify the exceeded dimension and observed usage (including exact byte counts). Export inventories bounded file metadata before rejecting a saved-byte total, so it can report the total and largest storage category without reading file bodies. Counts stop at the first over-limit entry; validation totals may be partial and are labeled “at least.”
 - Paths: relative slash-separated paths, at most 1,024 UTF-8 bytes, 32 components, and 255 bytes per component. Reject absolute paths, traversal, backslashes, NUL/control characters, Windows device names, trailing dots/spaces, and hidden components other than the allowed `.muse` root.
 - Reject duplicate paths, case/Unicode-normalization collisions, conflicting directory spellings, and file/directory collisions.
 - Export rejects symbolic links and nonregular entries within the selected saved paths. Restore accepts only regular-file records; archive fields describing links, modes, or targets are rejected.
@@ -89,6 +90,8 @@ The route integration should provide:
 - `POST /api/projects/restore`: JSON backup body; register `express.raw({ type: 'application/json', limit: '80mb' })` before the general 8 MB JSON parser, then pass the Buffer to `restoreProjectBackup`.
 
 `BackupError` exposes `status` and `code`: malformed/unsupported input is `400 / INVALID_BACKUP`; limits are `413 / BACKUP_TOO_LARGE`; detected capture changes are `409 / PROJECT_CHANGED`; destination conflicts are `409 / RESTORE_COLLISION`; a missing fixture project is `404 / PROJECT_NOT_FOUND`. Unexpected filesystem errors propagate to the application's normal error handler.
+
+Readable Project Binder preview, HTML, and printing use a separate selected-content capture and are not subject to full-backup limits. The binder verify endpoint requires both the recipe and its preview snapshot hash. Renderer `muse-binder-2` fingerprints recipe/order, selected render content, linked titles, missing selections, catalog count, and included local image bytes. Preview renders captured inputs and checks another capture before returning. Download verification checks those inputs again. These checks detect observed concurrent changes; they are not an operating-system transaction. The ZIP path still builds and validates the complete backup and rechecks selected binder inputs after capture.
 
 ## Verification
 
