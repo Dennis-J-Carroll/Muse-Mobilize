@@ -48,7 +48,7 @@ export default function App() {
   const [projectTool, setProjectTool] = useState<{ tool: ProjectTool; agentId?: string } | null>(null);
   useEffect(() => { setProjectTool(null); }, [project?.id]);
   useEffect(() => {
-    const open = (event: Event) => { const detail = (event as CustomEvent).detail; if (detail?.tool === 'agents' || detail?.tool === 'binder') setProjectTool(detail); };
+    const open = (event: Event) => { const detail = (event as CustomEvent).detail; if (detail?.tool === 'agents' || detail?.tool === 'binder' || detail?.tool === 'story-studio') setProjectTool(detail); };
     window.addEventListener('muse:project-tool', open);
     return () => window.removeEventListener('muse:project-tool', open);
   }, []);

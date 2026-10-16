@@ -1,3 +1,4 @@
+import { EDITION_MAX_BYTES, parseEditionRecipe } from '../../shared/story-edition.js';
 import fs from 'node:fs/promises';
 import { createWriteStream } from 'node:fs';
 import path from 'node:path';
@@ -17,6 +18,7 @@ export interface ArchiveJob {
   createdAt: number; expiresAt: number; reserved: number; declaredSize?: number;
   sourceId?: string; package?: boolean; workspace?: string; targetId?: string; manifest?: ArchiveManifest;
   project?: ProjectManifest; artifactBytes?: number;
+  editionMode?: 'preview' | 'export'; edition?: { snapshotHash: string; encodedBytes: number; scenes: number; warnings: number };
   error?: { code: string; message: string }; bytes: number; total: number;
 }
 interface Runtime { worker?: Worker; abort?: AbortController; done?: Promise<void>; timer?: NodeJS.Timeout; cancelReason?: string }
@@ -156,7 +158,9 @@ export class ArchiveJobs {
         capturedAt: job.manifest.capturedAt, files: job.manifest.files.length,
         savedBytes: job.manifest.files.reduce((sum, f) => sum + f.size, 0), snapshotHash: job.manifest.snapshotHash } : undefined,
       project: job.state === 'restored' ? job.project : undefined,
-      downloadUrl: job.state === 'ready' && job.kind === 'export' ? `/api/archive-jobs/${job.id}/download` : undefined,
+      edition: job.edition, editionMode: job.editionMode,
+      editionPreviewUrl: job.state === 'ready' && job.editionMode === 'preview' ? `/api/archive-jobs/${job.id}/edition-preview` : undefined,
+      downloadUrl: job.state === 'ready' && job.kind === 'export' && job.editionMode !== 'preview' ? `/api/archive-jobs/${job.id}/download` : undefined,
     };
   }
   async get(id: string) {
@@ -182,6 +186,27 @@ export class ArchiveJobs {
       this.launch(job, { operation: 'export', source, sourceId, binder: selection, jobId: id, work: this.work(id) });
       return this.view(job);
     } catch (error) { this.active = null; this.jobs.delete(id); await fs.rm(this.dir(id), { recursive: true, force: true }); throw error; }
+  }
+  async createEdition(sourceId: string, source: string, input: unknown, mode: 'preview' | 'export', expectedHash?: unknown, acknowledgeWarnings?: unknown) {
+    validateBackupProjectId(sourceId);
+    const recipe = parseEditionRecipe(input);
+    if (mode === 'export' && (typeof expectedHash !== 'string' || !/^[a-f0-9]{64}$/.test(expectedHash))) fail(400, 'INVALID_SNAPSHOT', 'Preview the edition before exporting.');
+    const id = randomUUID(); await this.lock(id);
+    const job = this.newJob('export', id); job.sourceId = sourceId; job.editionMode = mode;
+    try {
+      await this.reserve(job, EDITION_MAX_BYTES * 2);
+      await fs.mkdir(this.work(id), { recursive: true, mode: 0o700 });
+      job.state = 'capturing'; this.jobs.set(id, job); await this.persist(job);
+      this.launch(job, { operation: 'edition', source, sourceId, jobId: id, work: this.work(id), edition: {
+        mode, recipe, snapshotHash: mode === 'export' ? expectedHash as string : undefined, acknowledgeWarnings: acknowledgeWarnings === true,
+      } });
+      return this.view(job);
+    } catch (error) { this.active = null; this.jobs.delete(id); await fs.rm(this.dir(id), { recursive: true, force: true }); throw error; }
+  }
+  async editionPreview(id: string) {
+    await this.ready; const job = this.find(id);
+    if (job.state !== 'ready' || job.editionMode !== 'preview') fail(409, 'EDITION_NOT_READY', 'Edition preview is not ready.');
+    return path.join(this.work(id), 'edition-preview.json');
   }
   async createImport(filename: unknown, size: unknown) {
     if (typeof filename !== 'string' || filename.length > 255 || !filename.toLowerCase().endsWith('.zip') || typeof size !== 'number' || size < 1) fail(400, 'INVALID_UPLOAD', 'Choose a .muse-backup.zip file. Legacy JSON uses the separate legacy restore option.');
@@ -272,6 +297,7 @@ export class ArchiveJobs {
         job.project = result.project;
         job.state = task.operation === 'restore' ? 'restored' : 'ready';
         job.artifactBytes = result.artifactBytes;
+        if (result.edition) job.edition = result.edition;
         job.reserved = job.kind === 'export' ? result.artifactBytes : job.manifest!.files.reduce((sum, f) => sum + f.size, 0);
         job.expiresAt = Date.now() + this.lifetime;
         if (job.state === 'restored') await this.clean(job);
@@ -318,7 +344,9 @@ export class ArchiveJobs {
   async download(id: string) {
     await this.ready; const job = this.find(id);
     if (job.kind !== 'export' || job.state !== 'ready') fail(409, 'ARCHIVE_NOT_READY', 'Verified archive is not ready.');
-    return { path: path.join(this.work(id), job.package ? 'project-package.zip' : 'backup.muse-backup.zip'), name: job.package ? `${job.sourceId}-project-package.zip` : `${job.sourceId}.muse-backup.zip` };
+    if (job.editionMode === 'preview') fail(409, 'EDITION_PREVIEW_ONLY', 'Preview the selection, then create its export.');
+    if (job.editionMode === 'export') return { path: path.join(this.work(id), 'edition.storyweaver.json'), name: `${job.sourceId}.storyweaver.json`, type: 'application/json' };
+    return { type: 'application/zip', path: path.join(this.work(id), job.package ? 'project-package.zip' : 'backup.muse-backup.zip'), name: job.package ? `${job.sourceId}-project-package.zip` : `${job.sourceId}.muse-backup.zip` };
   }
   private async recordStatus(job: ArchiveJob) {
     if (!job.manifest || !['ready', 'restored'].includes(job.state)) return;

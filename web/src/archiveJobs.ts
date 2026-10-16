@@ -4,6 +4,7 @@ export interface ArchiveJob {
   id: string; kind: 'export' | 'import'; state: string; bytes: number; total: number; expiresAt: number;
   error?: { code: string; message: string };
   preview?: { sourceProjectId: string; name: string; capturedAt: string; files: number; savedBytes: number; snapshotHash: string };
+  editionPreviewUrl?: string;
   downloadUrl?: string; project?: ProjectManifest;
 }
 export async function archiveRequest(url: string, body?: unknown, method = 'POST'): Promise<ArchiveJob> {

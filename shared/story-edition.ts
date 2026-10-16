@@ -64,3 +64,17 @@ export function parseEditionStore(input: unknown): EditionStore {
   if (new Set(recipes.map(recipe => recipe.id)).size !== recipes.length) throw new Error('Duplicate edition recipe ID.');
   return { version: 1, recipes };
 }
+
+export interface EditionWarning { documentId: string; title: string; message: string }
+export interface EditionPreview {
+  snapshotHash: string;
+  recipeHash: string;
+  capturedAt: string;
+  encodedBytes: number;
+  warnings: EditionWarning[];
+  scenes: { id: string; documentId: string; title: string; blocks: StudioBlock[]; images: (EditionImage & { src: string; size: number })[] }[];
+}
+export interface EditionCatalog {
+  documents: { id: string; title: string }[];
+  images: { filename: string; src: string; size: number }[];
+}

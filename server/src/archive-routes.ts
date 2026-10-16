@@ -1,3 +1,4 @@
+import { editionCatalog } from './edition-export.js';
 import express from 'express';
 import { ArchiveJobs } from './archive-jobs.js';
 import { BackupError } from './backups.js';
@@ -21,6 +22,15 @@ export function registerArchiveRoutes(app: express.Express, jobs: ArchiveJobs, r
   app.post('/api/projects/:id/binder/package-jobs', express.json({ limit: '1mb' }), run(async (req, res) => {
     res.status(202).json(await jobs.createExport(req.params.id, await resolve.projectDir(req.params.id), { recipe: req.body?.recipe, snapshotHash: req.body?.snapshotHash }));
   }));
+  app.get('/api/projects/:id/editions/catalog', run(async (req, res) => {
+    res.json(await editionCatalog(await resolve.projectDir(req.params.id), req.params.id));
+  }));
+  for (const mode of ['preview', 'export'] as const) app.post(`/api/projects/:id/editions/${mode}-jobs`, express.json({ limit: '16mb' }), run(async (req, res) => {
+    res.status(202).json(await jobs.createEdition(req.params.id, await resolve.projectDir(req.params.id), req.body?.recipe, mode, req.body?.snapshotHash, req.body?.acknowledgeWarnings));
+  }));
+  app.get('/api/archive-jobs/:jobId/edition-preview', run(async (req, res) => {
+    res.type('application/json').sendFile(await jobs.editionPreview(req.params.jobId));
+  }));
   app.post('/api/backup-imports', json, run(async (req, res) => {
     res.status(202).json(await jobs.createImport(req.body?.filename, req.body?.size));
   }));
@@ -30,7 +40,7 @@ export function registerArchiveRoutes(app: express.Express, jobs: ArchiveJobs, r
   app.get('/api/archive-jobs/:jobId', run(async (req, res) => { res.json(await jobs.get(req.params.jobId)); }));
   app.get('/api/archive-jobs/:jobId/download', run(async (req, res) => {
     const artifact = await jobs.download(req.params.jobId);
-    res.type('application/zip');
+    res.type(artifact.type);
     res.download(artifact.path, artifact.name, error => { if (error && !res.headersSent) res.status(410).end(); });
   }));
   app.post('/api/archive-jobs/:jobId/restore', json, run(async (req, res) => {

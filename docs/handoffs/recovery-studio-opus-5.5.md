@@ -1,6 +1,6 @@
 # Recovery / Studio implementation handoff for Opus 5.5
 
-Current status (2026-10-16): Release A recovery gate complete and pushed. Studio slots and schema 1.4 formatting verified locally. Muse edition persistence/conversion implemented; full Studio transfer remains incomplete. Read newest checkpoints first; earlier pending-work notes are historical.
+Current status (2026-10-16): Release A recovery and Release B Studio transfer acceptance gates passed. Studio slots/schema 1.4 are verified local sources; Muse bridge implementation and scoped verification are complete. This checkpoint accompanies its release commit. Novel fixture passed end to end. Five real writing sessions remain unperformed. Read checkpoint 6 first; earlier pending-work notes are historical.
 Baseline: Muse main 2fe54db, tracked clean before task. User authorized implementation and checkpoint commits/push. Unrelated untracked notes/Pics_MM/ and notes/Screenshot from 2026-10-07 13-46-33.png must remain untouched.
 
 Muse: /home/dennisjcarroll/Desktop/creative/Muse-Mobilize
@@ -106,3 +106,31 @@ Latest usage at checkpoint preparation: 18% five-hour / 48% weekly remaining, ac
 Final foundation verification: complete server suite 227 passed, 2 opt-in capacity tests skipped (229 total), 16.96 seconds; log /tmp/muse-edition-full-server.log. Server TypeScript log /tmp/muse-edition-types.log is empty/success. git diff --check passes. Existing full capacity gate was completed in Release A and was not rerun for recipe-only policy changes.
 
 Handoff timestamp: 2026-10-16T16:35:04Z. Final usage refresh: 11% five-hour / 47% weekly remaining. Checkpoint preparation consumed the remaining margin below 15%; no further feature work started. Muse foundation committed and pushed as 0e888d2; earlier slots handoff 5a24a0a. Tracked checkout clean after push; only pre-existing untracked notes remain. Next agent should inspect current HEAD and refresh limits before continuing.
+
+
+## Checkpoint 6 — Studio bridge and novel acceptance verified (2026-10-16)
+
+Implemented selected-content capture, catalog, hash-checked preview/export jobs, embedded images, author provenance and Muse Story Studio UI. The UI supports saved edition selection, chapter order, explicit image selection/caption/alternative text, warnings with acknowledgement, local recipe undo and cancellation. Switching editions resets local undo history. New routes and format are documented in docs/story-studio-editions-contract.md. README now links the flow.
+
+Core files: server/src/edition-export.ts, archive-worker.ts, archive-jobs.ts and archive-routes.ts; shared/story-edition.ts; web/src/components/StoryStudioExport.tsx; Sidebar/ProjectTools/App integration, api/archiveJobs and project-tools.css. Existing backup status is not updated by edition jobs. Only selected content is captured; unselected multi-gigabyte private assets do not block publication. Source changes invalidate preview. Final file and preview are capped at 64 MiB; this path is bounded in-memory adaptation conversion in a worker, separate from streamed 2 GiB backup support. No direct writes into Studio or bidirectional sync.
+
+### Verification
+
+- Full server suite: 234 passed, 2 opt-in capacity tests skipped, 236 total, 24.52 seconds. Log /tmp/muse-bridge-full-server.log. Previous 2 GiB capacity gate remains valid; not rerun for edition-only changes.
+- Final focused edition suite: 8/8 passed, including an added 16 MiB metadata-budget diagnostic case. Log /tmp/muse-bridge-final-core.log. The final additional test was run in this focused suite after the full run.
+- Browser: 10/10 passed (edition and project-tools suites), including three-chapter transfer, 120,000 words across 40 documents, Binder/combined package regression and mobile Muse views at 320/390. Log /tmp/muse-bridge-final-browser.log.
+- Backup browser regression: 2/2 passed. Log /tmp/muse-bridge-backups-regression.log.
+- Three-chapter acceptance uses disposable generated prose/images and real updated Studio HTML: repeated import creates separate slots; original project/media remain; reload/edit/save succeed; structured formatting and selected image render in both readers; standalone output excludes museOrigin. Final reader screenshot waits for completed transitions. Log /tmp/muse-bridge-reader-settled.log.
+- Novel acceptance saves 40 generated 3,000-word documents through Muse APIs, reads each back, reverses chapter order, persists edition, exports through jobs, imports Studio and reloads; exact prose and 120,000-word total match. This is not a claim of five human writing sessions or exhaustive long-form editor performance.
+- Web production build and server TypeScript pass. Existing 529 kB chunk warning remains. Logs /tmp/muse-bridge-final-web.log and /tmp/muse-bridge-final-types.log.
+- Desktop preview, 320px Muse preview and settled 320px standalone reader inspected visually. Screenshots retained under /tmp/muse-bridge-final-screenshots; final settled reader image under test-results/story-studio-select-order--8903c-udio-slots-and-both-readers-chromium/studio-reader-320.png until next browser run.
+
+No Studio source changes were needed for this bridge checkpoint. The verified formatting checkpoint SHA and source locations in checkpoint 4 remain applicable. Studio still has no Git repository/remote. Tests used fresh browser contexts and disposable Muse projects; live KB/browser storage were not cleared or overwritten. No live server restart or remote Studio publication claimed.
+
+### Exact next action
+
+Use the new Story Studio export with normal writing material, then conduct the five sessions in docs/writing-reliability-sessions.md (each at least 30 minutes). The log is deliberately empty. Collect real task/expected/actual/recurrence/time-lost/severity/workaround evidence. Derive up to three bounded fix specifications only after observations exist; investigate reproducible data loss or false-save first. Implementation cannot substitute synthetic logs for the user's sessions.
+
+Before further code work, check current Git/upstream, local Studio sources and account limits. Scope future changes to observed problems. Current work does not add backup scheduling/retention, cloud sync, direct Studio filesystem export, merge updates, scene splitting or paragraph image anchoring.
+
+Usage at checkpoint preparation: 34% five-hour / 36% weekly remaining, account-wide; no reset used. Timestamp: 2026-10-16T17:37:42.880097+00:00

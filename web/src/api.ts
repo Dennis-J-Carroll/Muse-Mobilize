@@ -1,3 +1,4 @@
+import type { EditionRecipe, EditionStore, EditionCatalog } from '../../shared/story-edition';
 import { historySession, updateHistory, useEditHistory, type HistoryStatus } from './editHistory';
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
@@ -71,6 +72,9 @@ export const api = {
   arrangements: (id: string) => req<{ arrangements: AgentArrangement[] }>(`/api/projects/${id}/agent-arrangements`),
   saveArrangement: (id: string, name: string, agentIds: string[]) => req<{ arrangement: AgentArrangement }>(`/api/projects/${id}/agent-arrangements`, { method: 'POST', body: JSON.stringify({ name, agentIds }) }),
   loadArrangement: (id: string, arrangementId: string) => req<{ agents: AgentDef[] }>(`/api/projects/${id}/agent-arrangements/${arrangementId}/load`, { method: 'POST' }),
+  editions: (id: string) => req<EditionStore>(`/api/projects/${id}/editions`),
+  editionCatalog: (id: string) => req<EditionCatalog>(`/api/projects/${id}/editions/catalog`),
+  saveEdition: (id: string, recipe: EditionRecipe) => req<{ recipe: EditionRecipe }>(`/api/projects/${id}/editions/${recipe.id}`, { method: 'PUT', body: JSON.stringify({ recipe }) }),
   binder: (id: string) => req<{ recipe: BinderRecipe | null }>(`/api/projects/${id}/binder`),
   saveBinder: (id: string, recipe: BinderRecipe) => req<{ recipe: BinderRecipe }>(`/api/projects/${id}/binder`, { method: 'PUT', body: JSON.stringify({ recipe }) }),
   previewBinder: (id: string, recipe: BinderRecipe) => req<{ preview: BinderPreview }>(`/api/projects/${id}/binder/preview`, { method: 'POST', body: JSON.stringify({ recipe }) }),

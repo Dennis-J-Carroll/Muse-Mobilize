@@ -61,6 +61,7 @@ const newDoc = (title: string, kind: 'manuscript' | 'notes' | 'canon' | 'outline
 const CARDS: Card[] = [
   { key: 'agent-studio', title: 'Agent Studio', blurb: 'Assign knowledge and arrange your agents.', tone: 'sage', icon: <Icon.Users />, launch: () => openProjectTool('agents'), items: () => [] },
   { key: 'project-binder', title: 'Project Binder', blurb: 'Arrange and export your whole project.', tone: 'sand', icon: <Icon.Bookmark />, launch: () => openProjectTool('binder'), items: () => [] },
+  { key: 'story-studio', title: 'Story Studio', blurb: 'Transfer selected chapters and images to Story Studio.', tone: 'sand', icon: <Icon.Bookmark />, launch: () => openProjectTool('story-studio'), items: () => [] },
   {
     key: 'idea', title: 'Story Idea', blurb: 'Capture and develop your ideas.', tone: 'deep', wide: true,
     icon: <Icon.Feather size={22} />,

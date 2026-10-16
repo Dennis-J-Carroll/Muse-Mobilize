@@ -97,6 +97,14 @@ HTML presentation with PDF print styles. Save or edit its JSON recipe, or
 download a ZIP containing the presentation and a restorable saved-project
 backup. See [Agent Studio and Project Binder](docs/using-agent-studio-and-project-binder.md).
 
+**Story Studio** transfers selected saved manuscript documents and chosen images
+into an independent Studio adaptation. Arrange chapters, review formatting, then
+import the downloaded `.storyweaver.json` into the updated local Studio. Each
+chapter becomes one scene; paragraphs, headings, dividers, bold and italics
+survive. Repeated imports create separate Studio project slots. The portable
+edition limit is 64 MiB, separate from full-project recovery capacity.
+See [Story Studio editions](docs/story-studio-editions-contract.md).
+
 The original blue, mist, sage, and sand palette now has an etched-glass treatment:
 subtle inset edges, frosted drawers, recessed fields, and locally bundled Inter
 Variable. Headings are light; manuscript text keeps a readable regular weight.

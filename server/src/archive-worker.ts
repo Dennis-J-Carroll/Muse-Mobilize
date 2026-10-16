@@ -1,3 +1,5 @@
+import { buildEdition } from './edition-export.js';
+import { EDITION_MAX_BYTES, type EditionRecipe } from '../../shared/story-edition.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { previewBinder } from './binder.js';
@@ -7,9 +9,10 @@ import { parentPort, workerData } from 'node:worker_threads';
 import { captureSavedProject, writeBackupArchive, readBackupArchive, installSavedProject, validateSavedProject, type ArchiveManifest } from './backup-archive.js';
 
 export interface ArchiveTask {
-  operation: 'export' | 'validate' | 'restore';
+  operation: 'export' | 'validate' | 'restore' | 'edition';
   work: string; source?: string; sourceId?: string;
   workspace?: string; targetId?: string; jobId: string;
+  edition?: { mode: 'preview' | 'export'; recipe: EditionRecipe; snapshotHash?: string; acknowledgeWarnings?: boolean };
   manifest?: ArchiveManifest; binder?: { recipe: BinderRecipe; snapshotHash: string };
 }
 const task = workerData as ArchiveTask;
@@ -24,7 +27,17 @@ try {
   let result: unknown;
   const snapshot = path.join(task.work, 'snapshot');
   const archive = path.join(task.work, 'backup.muse-backup.zip');
-  if (task.operation === 'export') {
+  if (task.operation === 'edition') {
+    const edition = task.edition!;
+    const built = await buildEdition(task.source!, task.sourceId!, edition.recipe, { signal: controller.signal,
+      expectedHash: edition.snapshotHash, exporting: edition.mode === 'export', acknowledgeWarnings: edition.acknowledgeWarnings });
+    const data = edition.mode === 'preview' ? JSON.stringify(built.preview) : built.json;
+    if (Buffer.byteLength(data) > EDITION_MAX_BYTES) throw new Error('Story Studio preview exceeds 64 MiB. Select fewer documents.');
+    const artifact = path.join(task.work, edition.mode === 'preview' ? 'edition-preview.json' : 'edition.storyweaver.json');
+    await fs.writeFile(artifact + '.partial', data, { flag: 'wx', mode: 0o600, signal: controller.signal });
+    controller.signal.throwIfAborted(); await fs.rename(artifact + '.partial', artifact);
+    result = { artifactBytes: Buffer.byteLength(data), edition: { snapshotHash: built.preview.snapshotHash, encodedBytes: built.preview.encodedBytes, scenes: built.preview.scenes.length, warnings: built.preview.warnings.length } };
+  } else if (task.operation === 'export') {
     const manifest = await captureSavedProject(task.source!, task.sourceId!, snapshot, options);
     parentPort!.postMessage({ type: 'progress', phase: 'building', bytes: 0, total: 0 });
     const partial = archive + '.partial';
