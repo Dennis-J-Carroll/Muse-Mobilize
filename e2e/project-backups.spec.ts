@@ -18,10 +18,16 @@ test('download and restore keeps saved text, connections, and image bytes in a s
   const file = await artifact.path();
   expect(file).toBeTruthy();
   const backup = await fs.readFile(file!);
+  expect(artifact.suggestedFilename()).toMatch(/\.muse-backup\.zip$/);
+  expect(backup.subarray(0, 2).toString()).toBe('PK');
   await request.put(`/api/projects/${projectId}/documents/${docId}`, { data: { content: 'New work in original project.' } });
-  await dialog.getByLabel('Choose project backup').setInputFiles({ name: 'saved-story.json', mimeType: 'application/json', buffer: backup });
+  await dialog.getByLabel('Choose project backup').setInputFiles({ name: 'saved-story.muse-backup.zip', mimeType: 'application/zip', buffer: backup });
   await expect(dialog.getByText('Original project will not be overwritten.', { exact: true })).toBeVisible();
-  const restoredResponse = page.waitForResponse((response) => response.url().endsWith('/api/projects/restore') && response.request().method() === 'POST');
+  await expect(dialog.getByText(/Archive verified ·/)).toBeVisible();
+  const restoredResponse = page.waitForResponse(async response => {
+    if (!response.url().includes('/api/archive-jobs/') || response.request().method() !== 'GET' || !response.ok()) return false;
+    return (await response.json()).state === 'restored';
+  });
   await dialog.getByRole('button', { name: 'Restore as new project', exact: true }).click();
   const { project: restored } = await (await restoredResponse).json();
   expect(restored.id).not.toBe(projectId);

@@ -1,11 +1,14 @@
 import express from 'express';
+import { ArchiveJobs } from './archive-jobs.js';
+import { registerArchiveRoutes } from './archive-routes.js';
+import { CONFIG_DIR } from './paths.js';
 import { historyStatus, recordEdit, recordRejectable, restoreEdit, withProjectEdit } from './history.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import {
   listProjects, createProject, readManifest, readDocument, writeDocument, createDocument,
-  readAgents, setAgentState, readWorkspaces, saveWorkspace, projectDir, snapshot,
+  readAgents, setAgentState, readWorkspaces, saveWorkspace, projectDir, workspaceRoot, snapshot,
 } from './projects.js';
 import { readEvents, emit } from './events.js';
 import { runAgent } from './agents.js';
@@ -47,6 +50,8 @@ import { buildContext } from './context.js';
 import { readBinder, saveBinder, previewBinder, verifyBinderSnapshot, packageBinder } from './binder.js';
 
 const app = express();
+const archiveJobs = new ArchiveJobs(path.join(CONFIG_DIR, 'archive-jobs'));
+registerArchiveRoutes(app, archiveJobs, { projectDir, workspaceRoot });
 
 function historySession(req: express.Request): string | null {
   const value = req.get('x-muse-history-session');

@@ -2,7 +2,30 @@
 
 The backup service captures saved files in one Muse project directory. Restore creates a separate project with a new ID and a name ending in ` (restored)`. It preserves the source project and any existing destination. It does not capture unsaved browser drafts, local storage, account settings, provider keys, or files outside the selected project.
 
-## Service boundary
+## Version 2 ZIP jobs (default UI)
+
+The Backups dialog now prepares `.muse-backup.zip` through worker jobs. A native download starts only after every archived file has been read back and SHA-256 verified. Upload sends the raw File, not JSON/Base64 or an in-memory download Blob. Legacy JSON import remains available when selecting a `.json` file.
+
+Limits: 2 GiB saved files, 2 GiB + 64 MiB container, 10,000 files/directories, 16 MiB manifest, 50 MiB aggregate structured JSON. One heavy operation at a time; at most four retained active/ready jobs; 8 GiB reserved temporary storage; 512 MiB free disk reserve. Active and ready lifetimes are 30 minutes; idle upload timeout is 60 seconds. Jobs and status ledger live under `CONFIG_DIR/archive-jobs`, outside project capture.
+
+`muse-backup.json` is the first ZIP entry. Its version-2 manifest contains sourceProjectId, capturedAt, snapshotHash, and ordered file records `{path,size,sha256}`. Every remaining entry is exactly `project/<path>`. Snapshot hash covers JSON tuples `[path,size,sha256]` in code-point path order. Explicit directory entries, encrypted/special entries, unlisted files, duplicates, path collisions, mismatched sizes/hashes, and invalid saved stores are rejected.
+
+Routes:
+
+- `POST /api/projects/:id/backup-jobs` prepares an archive.
+- `POST /api/projects/:id/binder/package-jobs` accepts recipe and preview snapshotHash, capturing Binder and private backup from the same staged project.
+- `POST /api/backup-imports` reserves filename/size; `PUT /api/archive-jobs/:jobId/upload` streams raw bytes.
+- `GET /api/archive-jobs/:jobId` returns public state/progress/preview; `GET .../download` returns a verified attachment.
+- `POST .../restore` accepts expected snapshotHash and installs a fresh project. Repeated requests return the same identity.
+- `DELETE /api/archive-jobs/:jobId` cancels/discards temporary work. `GET /api/projects/:id/backup-status` returns last verification/restore records.
+
+A durable journal records restore identity before installation. A private `.muse/restore-receipt.json` inside the installed project proves completion if server stops before updating its journal. This receipt is excluded from future project backups. Restart cancels unfinished operations and removes only job-owned work; verified ready jobs survive until expiry. Cancellation waits for worker writers to close. An empty exclusive destination reservation left by an abrupt crash is never recursively removed without ownership evidence.
+
+Combined package contains binder.html, binder-recipe.json, receipt.json, README.txt, and backup.muse-backup.zip. Extract the inner backup for restore. The legacy package route remains compatible but retains its old size limits.
+
+“Archive verified” and “download requested” do not attest that a browser saved a durable/off-device copy.
+
+## Legacy version 1 service boundary
 
 ```ts
 exportProjectBackup(projectId, { workspaceRoot? } = {}): Promise<ProjectBackup>

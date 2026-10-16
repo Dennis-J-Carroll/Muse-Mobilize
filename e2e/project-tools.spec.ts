@@ -94,7 +94,7 @@ test('binder recipe saves, previews selected story, downloads HTML and ZIP, and 
   await expect(dialog.getByRole('alert')).toContainText('changed');
 });
 
-test('novel manuscript previews, downloads, and prints while oversized project ZIP reports its actual limit', async ({ page, request, projectId }, testInfo) => {
+test('novel manuscript previews, downloads, prints, and packages assets above legacy backup limit', async ({ page, request, projectId }, testInfo) => {
   test.setTimeout(120_000);
   const { settings } = await (await request.get('/api/settings')).json();
   expect(settings.workspaceRoot).toMatch(/muse-browser-[^/]+\/projects$/);
@@ -128,12 +128,13 @@ test('novel manuscript previews, downloads, and prints while oversized project Z
   await printable.close();
   await dialog.getByText('Portable project package', { exact: true }).click();
   await dialog.getByLabel('Include private saved-project data, even material omitted from this binder').check();
+  const packageDownload = page.waitForEvent('download');
   await dialog.getByRole('button', { name: 'Download project ZIP' }).click();
-  await expect(dialog.getByRole('alert')).toContainText('Saved project files:');
-  await expect(dialog.getByRole('alert')).toContainText('limit 50.00 MiB');
-  await expect(dialog.getByRole('alert')).toContainText('Largest category: assets/unselected.bin');
-  await page.screenshot({ path: testInfo.outputPath('novel-binder-backup-limit.png') });
-  // Failed full backup must leave the successful readable preview usable.
+  const packageArtifact = await packageDownload;
+  expect(packageArtifact.suggestedFilename()).toMatch(/project-package\.zip$/);
+  await expect(dialog.getByRole('status')).toContainText('Package verified');
+  await page.screenshot({ path: testInfo.outputPath('novel-binder-verified-package.png') });
+  // Full backup must leave the readable preview usable.
   const retryDownload = page.waitForEvent('download');
   await dialog.getByRole('button', { name: 'Download HTML', exact: true }).click();
   await retryDownload;

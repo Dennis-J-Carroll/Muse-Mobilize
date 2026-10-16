@@ -22,6 +22,7 @@ export interface ArchiveManifest {
 }
 export interface ArchiveOptions {
   signal?: AbortSignal;
+  installation?: { jobId: string; staging: string };
   progress?: (phase: string, bytes: number, total: number) => void;
 }
 function invalid(message: string): never { throw new BackupError(400, 'INVALID_BACKUP', message); }
@@ -248,11 +249,23 @@ export async function installSavedProject(root: string, archive: ArchiveManifest
   const now = new Date().toISOString();
   const restored = { ...project, id, name: `${project.name} (restored)`, createdAt: now, updatedAt: now };
   await fs.mkdir(workspace, { recursive: true });
-  const staging = await fs.mkdtemp(path.join(workspace, '.muse-restore-'));
+  const staging = options.installation?.staging ?? await fs.mkdtemp(path.join(workspace, '.muse-restore-'));
+  if (options.installation) {
+    if (!/^[a-f0-9-]{36}$/.test(options.installation.jobId) || staging !== path.join(workspace, `.muse-restore-${options.installation.jobId}`)) invalid('Invalid installation staging.');
+    await fs.mkdir(staging, { mode: 0o700 });
+  }
   const destination = path.join(workspace, `${id}.muse`);
   let reservation: Awaited<ReturnType<typeof fs.stat>> | undefined;
   let installed = false;
   try {
+    if (options.installation) {
+      await fs.mkdir(path.join(staging, '.muse'), { recursive: true, mode: 0o700 });
+      const marker = await fs.open(path.join(staging, '.muse/restore-receipt.json'), 'wx', 0o600);
+      try {
+        await marker.writeFile(JSON.stringify({ jobId: options.installation.jobId, snapshotHash: archive.snapshotHash, targetId: id }));
+        await marker.sync();
+      } finally { await marker.close(); }
+    }
     for (const file of archive.files) {
       options.signal?.throwIfAborted();
       const target = path.join(staging, file.path);
@@ -272,6 +285,7 @@ export async function installSavedProject(root: string, archive: ArchiveManifest
       }
     }
     await fs.writeFile(path.join(staging, 'project.json'), JSON.stringify(restored, null, 2));
+    options.signal?.throwIfAborted();
     await fs.mkdir(destination, { mode: 0o700 });
     reservation = await fs.stat(destination);
     await fs.rename(staging, destination);

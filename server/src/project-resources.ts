@@ -1,4 +1,7 @@
-import { readManifest, projectDir, readAgents, readDocument } from './projects.js';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import type { ProjectManifest } from './types.js';
+import { readManifest, projectDir, readAgents, readAgentsFromDirectory, readDocument } from './projects.js';
 import { readCanon } from './canon.js';
 import { readPlot } from './plot.js';
 import { readScenes } from './scenes.js';
@@ -16,11 +19,11 @@ export interface ResourceContent { text: string; images: StoryImage[]; warnings:
 export type ResourceTextReader = (relative: string) => Promise<string>;
 
 /** Metadata and structured stores stay local. Documents and source text load only after selection. */
-export async function projectResources(projectId: string): Promise<ProjectResource[]> {
-  const dir = await projectDir(projectId);
+export async function projectResources(projectId: string, snapshotDir?: string): Promise<ProjectResource[]> {
+  const dir = snapshotDir ?? await projectDir(projectId);
   const [manifest, canon, plot, board, refs, goals, map, links, sources, agents] = await Promise.all([
-    readManifest(projectId), readCanon(dir), readPlot(dir), readScenes(dir), readReferences(dir),
-    readGoals(dir), readWorldMap(dir), readConnections(dir), readSources(dir), readAgents(projectId),
+    snapshotDir ? fs.readFile(path.join(dir, 'project.json'), 'utf8').then(value => JSON.parse(value) as ProjectManifest) : readManifest(projectId), readCanon(dir), readPlot(dir), readScenes(dir), readReferences(dir),
+    readGoals(dir), readWorldMap(dir), readConnections(dir), readSources(dir), snapshotDir ? readAgentsFromDirectory(dir) : readAgents(projectId),
   ]);
   const out: ProjectResource[] = [];
   const add = (kind: ResourceKind, id: string, title: string, data?: any, detail?: string, required?: ResourceRef[]) => out.push({ kind, id, title, data, detail, required });

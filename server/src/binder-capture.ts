@@ -78,10 +78,10 @@ export class BinderFiles {
 }
 
 /** Fingerprint render inputs, including recipe/order, missing records, and image bytes. */
-export async function captureBinder(projectId: string, recipe: BinderRecipe) {
-  const files = new BinderFiles(await projectDir(projectId));
+export async function captureBinder(projectId: string, recipe: BinderRecipe, snapshotDir?: string) {
+  const files = new BinderFiles(snapshotDir ?? await projectDir(projectId));
   await files.guardCatalog();
-  const catalog = await projectResources(projectId);
+  const catalog = await projectResources(projectId, snapshotDir);
   const warnings = new Set<string>();
   const selected = recipe.sections.map((section) => section.selection.mode === 'all'
     ? catalog.filter((r) => r.kind === section.kind)

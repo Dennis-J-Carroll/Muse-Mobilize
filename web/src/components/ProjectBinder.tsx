@@ -4,6 +4,7 @@ import { api, type BinderPreview } from '../api';
 import { useStore } from '../store';
 import { RESOURCE_LABELS, parseRecipe, type BinderRecipe, type ResourceInfo, type ResourceKind } from '../../../shared/project-tools';
 import { ResourcePicker } from './ResourcePicker';
+import { archiveRequest, waitArchive } from '../archiveJobs';
 
 export function downloadFile(body: string | Blob, name: string, type = 'application/json') {
   const url = URL.createObjectURL(typeof body === 'string' ? new Blob([body], { type }) : body);
@@ -31,8 +32,9 @@ export function ProjectBinder({ projectId, projectName, resources, onDirty, onPe
   const [addKind, setAddKind] = useState<ResourceKind>('document');
   const [privateArchive, setPrivateArchive] = useState(false);
   const frame = useRef<HTMLIFrameElement>(null);
+  const packageJob = useRef<string | null>(null);
   const alive = useRef(true);
-  useEffect(() => { let current = true; alive.current = true; api.binder(projectId).then((r) => { if (current && r.recipe) setRecipe(r.recipe); }).catch((e) => { if (current) setError(e.message); }).finally(() => { if (current) setLoading(false); }); return () => { current = false; alive.current = false; }; }, [projectId]);
+  useEffect(() => { let current = true; alive.current = true; api.binder(projectId).then((r) => { if (current && r.recipe) setRecipe(r.recipe); }).catch((e) => { if (current) setError(e.message); }).finally(() => { if (current) setLoading(false); }); return () => { current = false; alive.current = false; if (packageJob.current) void fetch(`/api/archive-jobs/${packageJob.current}`, { method: 'DELETE' }).catch(() => {}); }; }, [projectId]);
   useEffect(() => onDirty(dirty), [dirty, onDirty]);
   useEffect(() => onPending(busy || loading), [busy, loading, onPending]);
   useEffect(() => {
@@ -84,12 +86,16 @@ export function ProjectBinder({ projectId, projectName, resources, onDirty, onPe
         {preview.warnings.length > 0 && <details open><summary>Export notes ({preview.warnings.length})</summary><ul>{preview.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul></details>}
         <div className="tool-actions"><button disabled={busy} onClick={() => void run(async () => { await verify(); downloadFile(preview.html, `${projectId}-binder.html`, 'text/html'); })}>Download HTML</button><button disabled={busy || !previewReady} onClick={() => void run(async () => { await verify(); if (!frame.current?.contentWindow) throw new Error('Preview is not ready. Refresh it before printing.'); frame.current.contentWindow.print(); })}>Print / Save PDF</button></div>
         {previewUrl && <iframe key={previewUrl} ref={frame} title="Binder presentation" sandbox="allow-same-origin allow-modals" src={previewUrl} onLoad={() => setPreviewReady(true)} />}
-        <details><summary>Portable project package</summary><p>ZIP includes readable binder, recipe, original Sources and assets inside the saved-project backup, and export receipt. Extract project-backup.json and restore it through Backups.</p><label className="check-row"><input type="checkbox" checked={privateArchive} onChange={(e) => setPrivateArchive(e.target.checked)} />Include private saved-project data, even material omitted from this binder</label><button disabled={busy || !privateArchive} onClick={() => void run(async () => {
+        <details><summary>Portable project package</summary><p>ZIP includes readable binder, recipe, original Sources and assets inside the saved-project backup, and export receipt. Extract backup.muse-backup.zip and restore it through Backups. Both exports use the same captured saved project.</p><label className="check-row"><input type="checkbox" checked={privateArchive} onChange={(e) => setPrivateArchive(e.target.checked)} />Include private saved-project data, even material omitted from this binder</label><button disabled={busy || !privateArchive} onClick={() => void run(async () => {
           await verify();
-          const response = await fetch(`/api/projects/${projectId}/binder/package`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ recipe, snapshotHash: preview.receipt.snapshotHash }) });
-          if (!response.ok) throw new Error((await response.json()).error ?? 'Could not package project.');
-          downloadFile(await response.blob(), `${projectId}-muse-project.zip`);
-        })}>Download project ZIP</button></details>
+          const job = await archiveRequest(`/api/projects/${projectId}/binder/package-jobs`, { recipe, snapshotHash: preview.receipt.snapshotHash });
+          packageJob.current = job.id;
+          const ready = await waitArchive(job, () => alive.current && useStore.getState().project?.id === projectId, status => { if (alive.current) setMessage(`Preparing project package: ${status.state}${status.total ? ` · ${Math.round(status.bytes / status.total * 100)}%` : ''}`); });
+          packageJob.current = null;
+          const link = document.createElement('a'); link.href = ready.downloadUrl!; link.download = `${projectId}-project-package.zip`;
+          document.body.append(link); link.click(); link.remove();
+          setMessage('Package verified. Download requested. Extract backup.muse-backup.zip to restore.');
+        })}>Download project ZIP</button>{busy && packageJob.current && <button onClick={() => { if (packageJob.current) void archiveRequest(`/api/archive-jobs/${packageJob.current}`, undefined, 'DELETE').catch(error => setError(error.message)); }}>Cancel package</button>}</details>
       </> : <p className="preview-placeholder">Preview your section order, story cards, and source appendix here.</p>}
     </div>
   </div>;

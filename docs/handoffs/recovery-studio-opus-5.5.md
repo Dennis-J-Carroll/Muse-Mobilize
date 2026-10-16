@@ -55,3 +55,16 @@ All nine archive tests passed. Binary-heavy files generated from random 256 KiB 
 - 512 MiB: 11.75 MiB incremental process RSS, 8.736 seconds.
 - 2 GiB: 25.16 MiB incremental process RSS, 27.923 seconds.
 Total test duration 54.1 seconds including fixture writes. These are core-process measurements; repeat worker/HTTP/browser gates after integration. 2 GiB install was not exercised; KB and fixture install were. Final server TypeScript check and git diff --check passed.
+
+## Checkpoint 2 — Release A integrated (2026-10-16)
+Supersedes checkpoint-1 pending recovery items. Implemented worker bootstrap, archive-jobs lifecycle, raw HTTP upload/native download routes, disk reservation, one active heavy job/four retained slots, deadlines/TTL, cancellation, durable journal, restore receipt and restart recovery, status ledger, and Backups UI. Combined Binder package now renders from explicit snapshot-directory readers and includes verified inner backup.muse-backup.zip; both ZIP layers verified. Legacy routes and JSON import preserved.
+
+New files: archive-jobs.ts, archive-routes.ts, archive-worker.mjs/.ts, archive-package.ts; web/src/archiveJobs.ts; archive-jobs.test.ts and archive-routes.test.ts. Existing projects.ts exposes readAgentsFromDirectory; project-resources/captureBinder/previewBinder accept optional explicit snapshot directory. Live readers unchanged by default.
+
+Evidence: full server suite 221 passed / 2 opt-in capacity tests skipped; explicit worker suite all 9 passed including 2 GiB export, raw stream upload, validation and installation: 91.287 seconds, 71.62 MiB incremental process RSS. Eight browser tests passed: backups, selected Binder/package, 120,000-word manuscript with 80 MiB asset, three touch sizes. Server TypeScript + web build pass, existing chunk warnings remain. Real KB job drill: 92 files, 55,477,417 saved bytes, 3 documents, restored into temporary workspace only. Worker execArgv now [] because inheriting parent --input-type breaks file-based workers; bootstrap registers tsx itself.
+
+Logs: /tmp/muse-release-a-server.log, /tmp/muse-jobs-capacity.log, /tmp/muse-jobs-browser.log, /tmp/muse-release-a-web.log, /tmp/muse-release-a-types.log, /tmp/muse-release-a-kb.log. Updated contract: docs/project-backups-contract.md. No live server restart or browser profile edits performed.
+
+Studio source checkpoint created before changes at /home/dennisjcarroll/Desktop/Interactive_FV/.recovery-checkpoints/studio-before-slots-2026-10-16.tar.gz. SHA-256 b0914501a1f3b49f1b7a998e03798d97ead413d71b71d2fbb72d3d292d0bbb2a. Contains author HTML, studio modules, and served studio/index.html. Studio root still not Git-tracked.
+
+Next: Studio IndexedDB slots and migration, then schema 1.4 formatting and Muse edition bridge. Real writing sessions remain user work; do not invent observations.

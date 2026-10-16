@@ -133,7 +133,10 @@ export async function createDocument(
 }
 
 export async function readAgents(projectId: string): Promise<AgentDef[]> {
-  const dir = await projectDir(projectId);
+  return readAgentsFromDirectory(await projectDir(projectId));
+}
+
+export async function readAgentsFromDirectory(dir: string): Promise<AgentDef[]> {
   const agentsDir = safeJoin(dir, 'agents');
   if (!(await exists(agentsDir))) return [];
   const files = (await fs.readdir(agentsDir)).filter((f) => f.endsWith('.yml') || f.endsWith('.yaml'));

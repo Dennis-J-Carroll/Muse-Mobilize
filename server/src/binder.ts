@@ -22,16 +22,16 @@ export async function saveBinder(projectId: string, value: unknown): Promise<Bin
   await atomicJson(safeJoin(await projectDir(projectId), 'binder/recipe.json'), recipe);
   return recipe;
 }
-export async function verifyBinderSnapshot(projectId: string, expected: unknown, input: unknown): Promise<void> {
+export async function verifyBinderSnapshot(projectId: string, expected: unknown, input: unknown, snapshotDir?: string): Promise<void> {
   const recipe = parseRecipe(input);
-  if (typeof expected !== 'string' || (await captureBinder(projectId, recipe)).fingerprint !== expected) {
+  if (typeof expected !== 'string' || (await captureBinder(projectId, recipe, snapshotDir)).fingerprint !== expected) {
     throw new Error('Selected binder content or recipe changed. Refresh the preview before downloading.');
   }
 }
 
-export async function previewBinder(projectId: string, input: unknown, expected?: string): Promise<BinderPreview> {
+export async function previewBinder(projectId: string, input: unknown, expected?: string, snapshotDir?: string): Promise<BinderPreview> {
   const recipe = parseRecipe(input);
-  const captured = await captureBinder(projectId, recipe);
+  const captured = await captureBinder(projectId, recipe, snapshotDir);
   const { catalog, selected, keys, warnings, fingerprint: snapshot, capturedAt } = captured;
   if (expected !== undefined && expected !== snapshot) throw new Error('Selected binder content or recipe changed. Refresh the preview.');
   const records: BinderPreview['receipt']['records'] = [];
@@ -75,7 +75,7 @@ export async function previewBinder(projectId: string, input: unknown, expected?
     }
     sectionHtml.push(`<section id="section-${index}"><h2>${escape(section.title)}</h2>${body.length ? body.join('\n') : '<p class="empty">No selected material in this section.</p>'}</section>`);
   }
-  await verifyBinderSnapshot(projectId, snapshot, recipe);
+  await verifyBinderSnapshot(projectId, snapshot, recipe, snapshotDir);
   const receipt: BinderPreview['receipt'] = { renderer: 'muse-binder-2', capturedAt, snapshotHash: snapshot, recipeHash: createHash('sha256').update(JSON.stringify(recipe)).digest('hex'), records };
   const omitted = catalog.filter((r) => !seen.has(resourceKey(r))).length;
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><title>${escape(recipe.title)}</title><style>

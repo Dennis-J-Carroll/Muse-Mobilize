@@ -36,9 +36,9 @@ Extra temporary disk and two-pass archive I/O buy verified downloads and safe re
 
 ## Release gates / action items
 - [x] Shared file-backed validation, ZIP capture/extraction, core safety tests (2026-10-15)
-- [ ] Worker jobs, streaming HTTP/browser flow, cleanup and retry tests
-- [ ] Combined Binder package from same staged snapshot
-- [ ] Real KB restore into isolated test workspace; 2 GiB memory/capacity gate
+- [x] Worker jobs, streaming HTTP/browser flow, cleanup and retry tests (2026-10-16)
+- [x] Combined Binder package from same staged snapshot (2026-10-16)
+- [x] Real KB restore into isolated test workspace; 2 GiB memory/capacity gate (core and full worker round trip)
 - [ ] Studio source checkpoint, slot migration, revision conflicts
 - [ ] Formatting schema and editor/dual-reader parity
 - [ ] Three-chapter edition round trip and 120,000-word regression
@@ -48,3 +48,5 @@ Existing unrelated notes/screenshots must remain unstaged. Two context-probe tes
 
 ## Checkpoint evidence (2026-10-15)
 Core archive tests: 9 passed, including 2 GiB capture/build/verification at 25.16 MiB incremental process RSS. Real KB restored in isolated temporary workspace. Full server suite: 210 passed before last two additional boundary cases; those passed in final core run. Source child-probe failures were sandbox restrictions; no test changes needed. Worker/HTTP/UI and Studio gates remain open. Detailed continuation: ../handoffs/recovery-studio-opus-5.5.md.
+
+Release A integration: 221 server tests passed, 2 opt-in capacity tests skipped in ordinary suite. Explicit worker capacity run passed all 9 tests: 2 GiB full export/upload/restore in 91.287 seconds with 71.62 MiB incremental process RSS. Eight Chromium browser checks passed, including 120,000-word manuscript and 80 MiB asset package. TypeScript and web build pass; existing Vite chunk warnings remain. Studio work begins after this checkpoint.
