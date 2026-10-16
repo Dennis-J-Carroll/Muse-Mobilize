@@ -124,7 +124,7 @@ function signature(stat: BigIntStats): string {
 
 interface Inventory { files: Map<string, BigIntStats>; directories: Map<string, string> }
 
-async function inventory(dir: string): Promise<Inventory> {
+async function inventory(dir: string, maxBytes = MAX_PROJECT_BYTES): Promise<Inventory> {
   const files = new Map<string, BigIntStats>();
   const directories = new Map<string, string>();
   let total = 0;
@@ -151,7 +151,8 @@ async function inventory(dir: string): Promise<Inventory> {
     }
   }
   await walk('');
-  if (total > MAX_PROJECT_BYTES) {
+  if (total > maxBytes) {
+    if (maxBytes !== MAX_PROJECT_BYTES) throw new BackupError(413, 'BACKUP_TOO_LARGE', `Saved project files: ${total} bytes; limit ${maxBytes} bytes.`);
     const categories = new Map<string, number>();
     for (const [file, stat] of files) {
       const category = file.startsWith('assets/') || file.startsWith('sources/') ? file.split('/').slice(0, 2).join('/') : file.split('/')[0];
@@ -163,6 +164,13 @@ async function inventory(dir: string): Promise<Inventory> {
   checkCollisions([...files.keys()]);
   return { files, directories };
 }
+
+/** Shared policy and semantic checks; archive v2 never constructs base64 records. */
+const policy = {
+  stores, validPath, validProjectId, allowedFile, checkCollisions, inventory, signature,
+  sameInventory, validateManifest, parseJson, remapImageStores, record, exactKeys, dateString,
+};
+export const backupPolicy: typeof policy = policy;
 
 function sameInventory(before: Inventory, after: Inventory): boolean {
   return before.files.size === after.files.size && before.directories.size === after.directories.size
@@ -420,3 +428,5 @@ export async function restoreProjectBackup(input: unknown, options: BackupOption
     }
   }
 }
+
+export { validPath as validateBackupPath, validProjectId as validateBackupProjectId };
