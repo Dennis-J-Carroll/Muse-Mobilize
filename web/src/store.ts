@@ -449,7 +449,7 @@ export const useStore = create<State>((set, get) => ({
     const bindingId = opts.bindingId;
     const existing = s.panes.find((p) => p.type === type && p.binding?.id === bindingId);
     if (existing) {
-      set({ panes: s.panes.map((p) => (p.id === existing.id ? { ...p, sizeMode: opts.focus ? 'maximized' : 'normal' } : opts.focus && p.sizeMode === 'maximized' ? { ...p, sizeMode: 'normal' } : p)) });
+      set({ panes: s.panes.map((p) => (p.id === existing.id ? { ...p, sessionOnly: false, sizeMode: opts.focus ? 'maximized' : 'normal' } : opts.focus && p.sizeMode === 'maximized' ? { ...p, sizeMode: 'normal' } : p)) });
       return;
     }
     const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' || type === 'world' || type === 'plot' || type === 'scenes' || type === 'dialogue' || type === 'themes' || type === 'references' || type === 'goals' || type === 'progress' || type === 'sources' || type === 'premise' || type === 'constraints' || type === 'threads' ? 'main' : 'bottom');
@@ -640,7 +640,7 @@ export const useStore = create<State>((set, get) => ({
     const ws: WorkspaceDef = {
       id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       name,
-      panes: s.panes.map((p) => ({ id: p.id, type: p.type, region: p.region, binding: p.binding })),
+      panes: s.panes.filter(p => !p.sessionOnly).map((p) => ({ id: p.id, type: p.type, region: p.region, binding: p.binding })),
     };
     const { workspace } = await api.saveWorkspace(s.project.id, ws);
     const others = s.workspaces.filter((w) => w.id !== workspace.id);

@@ -395,6 +395,8 @@ export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'out
 export type Region = 'main' | 'right' | 'bottom';
 
 export interface Pane {
+  /** Runtime companion; excluded from Saved Desks until explicitly opened. */
+  sessionOnly?: boolean;
   id: string;
   type: PaneType;
   title: string;

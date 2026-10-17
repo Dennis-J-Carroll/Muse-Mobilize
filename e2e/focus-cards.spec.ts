@@ -16,14 +16,13 @@ test('focus card lookup edits a shared draft and Escape dismisses only the card 
   const card = page.getByRole('dialog', { name: 'Revise Focus keeper', exact: true });
   await expect(card).toBeVisible();
   await card.getByPlaceholder('Character name').fill('Focus keeper revised');
-  const position = await card.boundingBox();
-  const grip = card.getByRole('button', { name: 'Move Revise Focus keeper', exact: true });
-  await grip.focus();
-  await grip.press('ArrowLeft');
-  expect((await card.boundingBox())!.x).toBe(position!.x - 5);
+  await expect(page.getByRole('button', { name: 'Return to writing', exact: true })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Back to character', exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('focus-story-card.png') });
   await card.press('Escape');
   await expect(card).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Edit dossier', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Return to writing', exact: true }).click();
   await expect(draft).toBeFocused();
   expect(await draft.evaluate((el: HTMLTextAreaElement) => [el.selectionStart, el.selectionEnd])).toEqual([15, 23]);
   await expect(draft).toHaveValue(prose);
@@ -34,6 +33,8 @@ test('focus card lookup edits a shared draft and Escape dismisses only the card 
   await expect(card.getByPlaceholder('Character name')).toHaveValue('Focus keeper revised');
   await card.getByRole('button', { name: 'Save changes', exact: true }).click();
   await expect(card).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Edit dossier', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Return to writing', exact: true }).click();
   await expect(draft).toBeFocused();
   const { canon } = await (await request.get(`/api/projects/${projectId}/canon`)).json();
   expect(canon.entities.find((item: { id: string }) => item.id === entity.id).name).toBe('Focus keeper revised');
@@ -45,6 +46,7 @@ test('focus card lookup edits a shared draft and Escape dismisses only the card 
 
 test('quiet phone lookup cancels above the draft and can reopen a parked editor without duplicates', async ({ page, projectId }) => {
   await page.getByRole('button', { name: /^Characters / }).click();
+  await page.getByRole('button', { name: 'Open full Cast', exact: true }).click();
   await page.getByRole('button', { name: /Add character/ }).click();
   await page.getByPlaceholder('Character name').fill('Parked before focus');
   await page.keyboard.press('Escape');
@@ -60,11 +62,14 @@ test('quiet phone lookup cancels above the draft and can reopen a parked editor 
   const card = page.getByRole('dialog', { name: 'New character', exact: true });
   await expect(card.getByPlaceholder('Character name')).toHaveValue('Parked before focus');
   await expect(card).toBeInViewport();
-  // Focus layers trap Tab, including reverse wrap from the move handle.
-  await card.getByRole('button', { name: 'Move New character', exact: true }).focus();
-  await page.keyboard.press('Shift+Tab');
-  expect(await card.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+  // The mobile sheet traps Tab across its header and portalled form.
+  const sheet = page.getByRole('dialog', { name: 'Character reference', exact: true });
+  await card.getByRole('button', { name: 'Add to cast', exact: true }).focus();
+  await page.keyboard.press('Tab');
+  await expect(sheet.getByRole('button', { name: 'Return to writing', exact: true })).toBeFocused();
   await card.press('Escape');
+  await expect(sheet).toBeVisible();
+  await sheet.press('Escape');
   await expect(draft).toBeFocused();
   await expect(page.getByRole('button', { name: 'Show writing controls', exact: true })).toBeVisible();
   await draft.press('Alt+Shift+k');

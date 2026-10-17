@@ -73,6 +73,8 @@ test('bang-hash links a selected passage in quiet focus without leaving command 
   await expect(card).toBeVisible();
   await card.getByPlaceholder('Character name').fill('Mara revised');
   await card.press('Escape');
+  await expect(page.getByRole('button', { name: 'Edit dossier', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Return to writing', exact: true }).click();
   await expect(draft).toBeFocused();
   await expect(page.getByRole('button', { name: 'Show writing controls', exact: true })).toBeVisible();
   await expect(draft).toHaveValue('Mara watched the tide.');
@@ -127,6 +129,8 @@ test('record connections form a nested focus layer and Escape returns through th
   await expect(card).toBeVisible();
   await expect(card.getByPlaceholder('Character name')).toHaveValue('Unsaved keeper');
   await card.press('Escape');
+  await expect(page.getByRole('button', { name: 'Edit dossier', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Return to writing', exact: true }).click();
   await expect(page.locator('.pane-editor textarea.draft')).toBeFocused();
   await expect(page.getByRole('button', { name: 'Exit writing focus', exact: true })).toBeVisible();
 });

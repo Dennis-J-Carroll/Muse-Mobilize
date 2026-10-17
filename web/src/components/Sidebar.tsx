@@ -1,3 +1,4 @@
+import { beginCharacterConsultation, openFullCast } from '../characterConsultation';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { useStore } from '../store';
@@ -31,7 +32,7 @@ const agentItem = (label: string, agentId: string): Item => ({
 });
 const soon = (label: string): Item => ({ label, soon: true });
 const canonItem = (): Item => ({ label: 'Canon & continuity', run: () => useStore.getState().openPane('canon', { title: 'Canon' }) });
-const openCharacters = () => useStore.getState().openPane('characters', { title: 'Cast', region: 'main', focus: true });
+const openCharacters = () => { if (!beginCharacterConsultation()) openFullCast(); };
 const openWorld = () => useStore.getState().openPane('world', { title: 'World Atlas', region: 'main', focus: true });
 const openPlot = () => useStore.getState().openPane('plot', { title: 'Plot Through-line', region: 'main', focus: true });
 const openScenes = () => useStore.getState().openPane('scenes', { title: 'Scene Board', region: 'main', focus: true });

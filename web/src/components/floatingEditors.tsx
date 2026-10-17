@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react';
+import { showConsultationEditor, useCharacterConsultation } from '../characterConsultation';
+import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { getProjectSession, useStore } from '../store';
 import type { PaneType } from '../types';
@@ -15,7 +16,8 @@ export function openFloatingEditor(config: {
   render: (close: () => void) => ReactNode;
 }) {
   const state = useStore.getState();
-  if (useWritingView.getState().focusPaneId) useWritingView.getState().setFocusLayer({ kind: 'editor', id: config.id });
+  if (config.paneType === 'characters' && useCharacterConsultation.getState().current) showConsultationEditor(config.id);
+  else if (useWritingView.getState().focusPaneId) useWritingView.getState().setFocusLayer({ kind: 'editor', id: config.id });
   if (state.floatingPanels.some((panel) => panel.id === config.id)) {
     state.undockFloatingPanel(config.id);
     // Also focus an already-visible instance without replacing its form.
@@ -42,22 +44,36 @@ export function openFloatingEditor(config: {
   useStore.setState((current) => ({ floatingEditorContents: { ...current.floatingEditorContents, [config.id]: content } }));
 }
 
+/** Portal destination stays stable while its host moves; the live form never remounts. */
+function FloatingMount({ companion, children }: { companion: boolean; children: ReactNode }) {
+  const [host] = useState(() => document.createElement('div'));
+  useLayoutEffect(() => {
+    const target = companion ? document.getElementById('consultation-editor') : document.getElementById('floating-editor-default');
+    target?.appendChild(host);
+    host.className = companion ? 'consultation-form-host' : '';
+    return () => host.remove();
+  }, [host, companion]);
+  return createPortal(children, host);
+}
+
 export function FloatingEditorHost() {
+  const consultation = useCharacterConsultation(state => state.current);
   const focused = useWritingView((state) => state.focusPaneId !== null);
   const layer = useWritingView((state) => state.focusLayer);
   const focusEditorId = focused && layer?.kind === 'editor' ? layer.id : null;
   const panels = useStore((state) => state.floatingPanels);
   const contents = useStore((state) => state.floatingEditorContents);
   useEffect(() => {
-    if (!focusEditorId || panels.some((panel) => panel.id === focusEditorId && !panel.docked)) return;
+    if (consultation || !focusEditorId || panels.some((panel) => panel.id === focusEditorId && !panel.docked)) return;
     useWritingView.getState().setFocusLayer(null);
     returnToWriting();
-  }, [focusEditorId, panels]);
-  return createPortal(<div className="floating-editor-host" hidden={focused && !focusEditorId}>
+  }, [focusEditorId, panels, consultation]);
+  return createPortal(<div className="floating-editor-host" hidden={Boolean(consultation) || (focused && !focusEditorId)}>
     {focusEditorId && <div className="focus-editor-backdrop" />}
-    {panels.map((panel, index) => <FloatingDrawer key={panel.id} panel={panel} order={index} hidden={focused && panel.id !== focusEditorId} focusMode={panel.id === focusEditorId}>
+    <div id="floating-editor-default" />
+    {panels.map((panel, index) => <FloatingMount key={panel.id} companion={consultation?.editorId === panel.id}><FloatingDrawer key={panel.id} panel={panel} order={index} hidden={consultation ? panel.id !== consultation.editorId : focused && panel.id !== focusEditorId} focusMode={!consultation && panel.id === focusEditorId} companion={consultation?.editorId === panel.id}>
       {contents[panel.id]}
-    </FloatingDrawer>)}
-    <FloatingPanelStrip disabled={focused} />
+    </FloatingDrawer></FloatingMount>)}
+    <FloatingPanelStrip disabled={focused || Boolean(consultation)} />
   </div>, document.body);
 }

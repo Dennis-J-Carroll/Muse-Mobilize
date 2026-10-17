@@ -1,0 +1,27 @@
+/* Consultation is a presentation layer. Workspace positions and preferences stay untouched. */
+.character-consultation[hidden],.consultation-cast[hidden],#consultation-editor[hidden]{display:none!important}
+.app.is-consulting{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);height:100dvh;min-height:0;padding:16px;gap:0}
+.app.is-consulting>.sidebar,.app.is-consulting>.tool-menu,.app.is-consulting #workspace-navigation,
+.app.is-consulting .workspace>.workspace-head,.app.is-consulting .workspace>.workspace-toolbar,
+.app.is-consulting .workspace>.mobile-workspace-toggle,.app.is-consulting .workspace>.canvas,
+.app.is-consulting .workspace>.workspace-empty-message{display:none!important}
+.app.is-consulting .workspace{min-height:0;overflow:hidden}
+.character-consultation{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:16px;overflow:hidden}
+.consultation-writing,.consultation-cast,#consultation-editor,.consultation-form-host{display:flex;flex:1;min-height:0;min-width:0;overflow:hidden}
+.consultation-sheet{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--glass-face);border-left:1px solid var(--line);animation:consult-arrive 140ms ease-out}
+.consultation-sheet>header{flex:none;display:flex;flex-direction:column;gap:8px;padding:12px;border-bottom:1px solid var(--line)}
+.consultation-sheet>header>div{display:flex;gap:8px;flex-wrap:wrap}
+.consultation-sheet button{min-height:44px;min-width:44px}
+.consultation-sheet>header button{padding:8px 12px;border:1px solid var(--line-strong);border-radius:8px;background:var(--glass-face);color:var(--ink);font:inherit;font-size:13px}
+.app.is-consulting .character-consultation .pane-slot{display:flex!important;position:static!important;flex:1!important;width:100%!important;height:100%!important;min-width:0;min-height:0}
+.app.is-consulting .character-consultation .pane{display:flex!important;width:100%!important;height:100%!important;min-height:0;flex:1!important}
+.character-consultation .pane-head,.character-consultation .pane-resize-handle{display:none}
+.character-consultation .writing-toolbar,.character-consultation .writing-appearance{display:none}
+.floating-drawer.is-companion{position:static!important;flex:1;min-width:0;width:100%!important;height:100%!important;box-shadow:none;border:0;border-radius:0;animation:none}
+.is-companion .floating-drawer-grip>span{flex:1;font-size:12px}
+.character-consultation.is-narrow{grid-template-columns:minmax(0,1fr)}
+.character-consultation.is-narrow>.consultation-writing{position:absolute;visibility:hidden;pointer-events:none}
+.consultation-sheet :focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+@keyframes consult-arrive{from{opacity:0;transform:translateX(6px)}to{opacity:1;transform:none}}
+@media(max-width:700px){.app.is-consulting{padding:0}.consultation-sheet>header{padding:8px}.consultation-sheet>header button{flex:1}}
+@media(prefers-reduced-motion:reduce){.consultation-sheet{animation:none}}

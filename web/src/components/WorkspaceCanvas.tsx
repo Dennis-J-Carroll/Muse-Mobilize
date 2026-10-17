@@ -1,3 +1,5 @@
+import { CharacterConsultation } from './CharacterConsultation';
+import { consultationPreservesPaneOrder, consultationWorkspacePreview, finishCharacterConsultation, useCharacterConsultation } from '../characterConsultation';
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../store';
@@ -122,8 +124,8 @@ function PaneFrame({ pane, tiled, viewport, onFloat }: { pane: Pane; tiled: bool
       ref={ref}
       id={`workspace-${pane.id}`}
       className={`pane pane-${pane.type} ${minimized ? 'is-min' : ''} ${maximized ? 'pane-maximized' : ''} ${focusPaneId === pane.id ? 'is-writing-focus' : ''}`}
-      onPointerDownCapture={() => useStore.getState().raisePane(pane.id)}
-      onFocusCapture={() => useStore.getState().raisePane(pane.id)}
+      onPointerDownCapture={() => { if (!consultationPreservesPaneOrder()) useStore.getState().raisePane(pane.id); }}
+      onFocusCapture={() => { if (!consultationPreservesPaneOrder()) useStore.getState().raisePane(pane.id); }}
     >
       <header className="pane-head">
         <button type="button" className="pane-title pane-move" aria-label={`Move ${pane.title}`} title="Drag to move; arrow keys nudge" onPointerDown={onMoveDrag}
@@ -218,6 +220,9 @@ function PaneMount({ pane, target, hidden, focused, order, panelMode, viewport, 
 }
 
 export function WorkspaceCanvas() {
+  const consultation = useCharacterConsultation(state => state.current);
+  const consultWritingRef = useRef<HTMLDivElement>(null);
+  const consultCastRef = useRef<HTMLDivElement>(null);
   const panes = useStore((s) => s.panes);
   const rightWidth = useStore((s) => s.rightWidth);
   const bottomHeight = useStore((s) => s.bottomHeight);
@@ -247,7 +252,7 @@ export function WorkspaceCanvas() {
     return () => window.removeEventListener('resize', resize);
   }, []);
   const drawerKey = `muse:tool-drawer:${projectId}:${workspaceId ?? 'custom'}`;
-  const docked = panes.filter((pane) => pane.sizeMode === 'minimized');
+  const docked = panes.filter((pane) => pane.sizeMode === 'minimized' && !pane.sessionOnly);
   const activeDockId = docked.find((pane) => pane.id === selectedId)?.id ?? docked[0]?.id;
 
   useEffect(() => {
@@ -264,7 +269,7 @@ export function WorkspaceCanvas() {
     requestAnimationFrame(() => drawerTriggerRef.current?.focus());
   };
   useEffect(() => {
-    if (!drawerOpen || focusPaneId) return;
+    if (!drawerOpen || focusPaneId || consultation) return;
     const escape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
       if (event.target instanceof Element && event.target.closest('.floating-drawer, .modal-backdrop')) return;
@@ -273,7 +278,7 @@ export function WorkspaceCanvas() {
     };
     window.addEventListener('keydown', escape);
     return () => window.removeEventListener('keydown', escape);
-  }, [drawerOpen, focusPaneId]);
+  }, [drawerOpen, focusPaneId, consultation]);
 
   const onDragV = useDrag((dx) => setRightWidth(useStore.getState().rightWidth - dx));
   const onDragH = useDrag((_dx, dy) => setBottomHeight(useStore.getState().bottomHeight - dy));
@@ -305,7 +310,7 @@ export function WorkspaceCanvas() {
   const captureDesk = (name: string): SavedDesk => {
     const state = useStore.getState();
     const view = useWritingView.getState();
-    const visible = [...state.panes].sort((a, b) => (a.floating?.layer ?? 0) - (b.floating?.layer ?? 0)).flatMap((pane) => {
+    const visible = [...state.panes.filter(pane => !pane.sessionOnly)].sort((a, b) => (a.floating?.layer ?? 0) - (b.floating?.layer ?? 0)).flatMap((pane) => {
       const element = document.getElementById(`workspace-${pane.id}`);
       if (!element?.getClientRects().length) return [];
       const box = element.getBoundingClientRect();
@@ -317,13 +322,14 @@ export function WorkspaceCanvas() {
     const focusDocumentId = focused?.binding?.type === 'document' ? focused.binding.id : undefined;
     return {
       version: 1, id: crypto.randomUUID(), name,
-      panes: state.panes.map(({ id: _id, ...pane }) => pane),
+      panes: state.panes.filter(pane => !pane.sessionOnly).map(({ id: _id, sessionOnly: _sessionOnly, ...pane }) => pane),
       view: { layout, workbench, sidebarCollapsed: view.sidebarCollapsed, rightWidth: state.rightWidth, bottomHeight: state.bottomHeight,
         drawerMode, font: view.font, surface: view.surface, weight: view.weight, ...(focusDocumentId ? { focusDocumentId } : {}) },
-      preview: visible,
+      preview: consultationWorkspacePreview() ?? visible,
     };
   };
   const restoreDesk = (desk: SavedDesk) => {
+    finishCharacterConsultation(false);
     const state = useStore.getState();
     const view = useWritingView.getState();
     state.restoreDeskPanes(desk.panes);
@@ -349,7 +355,7 @@ export function WorkspaceCanvas() {
   };
 
   const maximized = panes.find((p) => p.sizeMode === 'maximized');
-  const active = panes.filter((pane) => pane.sizeMode !== 'minimized' && !pane.floating);
+  const active = panes.filter((pane) => !pane.sessionOnly && pane.sizeMode !== 'minimized' && !pane.floating);
   const isTiled = (pane: Pane) => layout !== 'workspace' && pane.binding?.type === 'document' && pane.sizeMode === 'normal' && !pane.floating && pane.id !== focusPaneId;
   const rw = active.some((pane) => pane.region === 'right' && !isTiled(pane)) ? rightWidth : 0;
   const bh = active.some((pane) => pane.region === 'bottom' && !isTiled(pane)) ? bottomHeight : 0;
@@ -361,7 +367,7 @@ export function WorkspaceCanvas() {
   const focusLayerOpen = useWritingView((s) => Boolean(s.focusLayer));
   const maximizedId = maximized?.id ?? null;
   useEffect(() => {
-    if (!maximizedId || focusPaneId || focusLayerOpen) return;
+    if (!maximizedId || focusPaneId || focusLayerOpen || consultation) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
       if (event.target instanceof Element && event.target.closest('.floating-drawer, .modal-backdrop')) return;
@@ -372,10 +378,11 @@ export function WorkspaceCanvas() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [maximizedId, focusPaneId, focusLayerOpen]);
+  }, [maximizedId, focusPaneId, focusLayerOpen, consultation]);
 
   return (
     <>
+    <CharacterConsultation writingRef={consultWritingRef} castRef={consultCastRef} />
     <WorkspaceToolbar layout={layout} workbench={workbench} onWorkbench={toggleWorkbench} captureDesk={captureDesk} restoreDesk={restoreDesk} onLayout={(next) => { setLayout(next); if (next !== 'workspace') useStore.getState().tileDocuments(); }} />
     <div
       className={`canvas ${maximized ? 'canvas-single' : ''}`}
@@ -402,9 +409,9 @@ export function WorkspaceCanvas() {
           : `Use the cards ${viewport.width <= 700 ? 'above' : 'on the left'} to bring your ideas to life.`}</p>
       </div>}
     </div>
-    {createPortal(<div ref={floatingRef} className="workspace-floating-layer" hidden={Boolean(focusPaneId)} />, document.body)}
-    {workbench && <WorkbenchRail hidden={Boolean(focusPaneId)} open={drawerOpen} selectedId={activeDockId} onOpen={openWorkbenchTool} />}
-    <ToolDrawer panes={docked} open={drawerOpen} hidden={Boolean(focusPaneId)} mode={drawerMode} workbench={workbench}
+    {createPortal(<div ref={floatingRef} className="workspace-floating-layer" hidden={Boolean(focusPaneId || consultation)} />, document.body)}
+    {workbench && <WorkbenchRail hidden={Boolean(focusPaneId || consultation)} open={drawerOpen} selectedId={activeDockId} onOpen={openWorkbenchTool} />}
+    <ToolDrawer panes={docked} open={drawerOpen} hidden={Boolean(focusPaneId || consultation)} mode={drawerMode} workbench={workbench}
       selectedId={activeDockId} contentRef={drawerRef} triggerRef={drawerTriggerRef}
       onToggle={() => setDrawerOpen((open) => !open)} onClose={closeDrawer} onSelect={setSelectedId}
       onMode={(mode) => {
@@ -413,9 +420,9 @@ export function WorkspaceCanvas() {
       }} />
     {panes.map((pane, order) => <PaneMount key={pane.id} pane={pane} order={order} viewport={{ ...viewport, gutter: recallGutter(workbench, viewport.width) }} focused={pane.id === focusPaneId}
       tiled={isTiled(pane)} onFloat={() => setDrawerOpen(false)}
-      panelMode={pane.sizeMode === 'minimized' && pane.id !== focusPaneId ? drawerMode : undefined}
-      target={pane.id === focusPaneId ? maximumRef : pane.sizeMode === 'minimized' ? drawerRef : pane.id === maximized?.id ? maximumRef : pane.floating ? floatingRef : isTiled(pane) ? tileRef : pane.region === 'main' ? mainRef : pane.region === 'right' ? rightRef : bottomRef}
-      hidden={pane.id === focusPaneId ? false : pane.sizeMode === 'minimized' ? drawerMode === 'tabs' && pane.id !== activeDockId : Boolean(maximized && pane.id !== maximized.id)} />)}
+      panelMode={!consultation && pane.sizeMode === 'minimized' && pane.id !== focusPaneId ? drawerMode : undefined}
+      target={consultation?.paneId === pane.id ? consultWritingRef : consultation?.castPaneId === pane.id ? consultCastRef : pane.id === focusPaneId ? maximumRef : pane.sizeMode === 'minimized' ? drawerRef : pane.id === maximized?.id ? maximumRef : pane.floating ? floatingRef : isTiled(pane) ? tileRef : pane.region === 'main' ? mainRef : pane.region === 'right' ? rightRef : bottomRef}
+      hidden={consultation ? pane.id !== consultation.paneId && pane.id !== consultation.castPaneId : pane.sessionOnly ? true : pane.id === focusPaneId ? false : pane.sizeMode === 'minimized' ? drawerMode === 'tabs' && pane.id !== activeDockId : Boolean(maximized && pane.id !== maximized.id)} />)}
     </>
   );
 }

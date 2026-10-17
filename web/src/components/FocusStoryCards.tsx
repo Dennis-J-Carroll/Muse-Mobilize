@@ -1,3 +1,4 @@
+import { beginCharacterConsultation, showConsultationEditor } from '../characterConsultation';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../store';
@@ -76,7 +77,9 @@ export function FocusStoryCards() {
       <div className="focus-card-results">
         {drafts.length > 0 && <div className="focus-card-group"><h3>Open editors · session drafts</h3>{drafts.map((panel) => <button key={panel.id} type="button" aria-label={`Resume ${panel.title}`} onClick={() => {
           useStore.getState().undockFloatingPanel(panel.id);
-          useWritingView.getState().setFocusLayer({ kind: 'editor', id: panel.id });
+          if (panel.paneType === 'characters' && beginCharacterConsultation(panel.id === 'characters:new' ? undefined : panel.id.slice('characters:'.length))) {
+            showConsultationEditor(panel.id);
+          } else useWritingView.getState().setFocusLayer({ kind: 'editor', id: panel.id });
         }}><span>{panel.title}</span><small>Resume draft</small></button>)}</div>}
         {visible.length > 0 && <div className="focus-card-group"><h3>Story records</h3>{visible.map((card) => <button key={card.id} type="button" aria-label={`${card.group}: ${card.label}`} onClick={card.open}><span>{card.label}</span><small>{card.group}</small></button>)}</div>}
         {!loading && !visible.length && !drafts.length && <p>No matching cards.</p>}

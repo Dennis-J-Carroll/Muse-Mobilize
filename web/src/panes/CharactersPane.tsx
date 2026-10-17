@@ -1,3 +1,5 @@
+import { beginCharacterConsultation, leaveConsultationForWorkspace, useCharacterConsultation } from '../characterConsultation';
+import { useWritingView } from '../writingView';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { ImageGalleryEditor, StoryImageStrip } from '../components/ImageGalleryEditor';
@@ -253,6 +255,7 @@ function CharacterEditor({ entity, onClose, onSaved }: { entity?: CanonEntity; o
 }
 
 export function openCharacterEditor(entity?: CanonEntity, onSaved?: (entity: CanonEntity) => void) {
+  if (useWritingView.getState().focusPaneId) beginCharacterConsultation(entity?.id);
   openFloatingEditor({ id: `characters:${entity?.id ?? 'new'}`, paneType: 'characters', title: entity ? `Revise ${entity.name}` : 'New character', width: 620,
     render: (close) => <CharacterEditor entity={entity} onClose={close} onSaved={(saved) => onSaved?.(saved)} /> });
 }
@@ -260,10 +263,14 @@ export function openCharacterEditor(entity?: CanonEntity, onSaved?: (entity: Can
 export function CharactersPane({ pane }: { pane: Pane }) {
   const canon = useStore((s) => s.canon);
   const agents = useStore((s) => s.agents);
+  const requestedCharacter = useCharacterConsultation(state => state.current?.characterId);
   const [selectedId, setSelectedId] = useState('');
+  useEffect(() => { if (requestedCharacter) setSelectedId(requestedCharacter); }, [requestedCharacter]);
   const [filter, setFilter] = useState('all');
 
-  useEffect(() => { void useStore.getState().loadCanon(); }, []);
+  const [loading, setLoading] = useState(true);
+  const reload = async () => { setLoading(true); try { await useStore.getState().loadCanon(); } finally { setLoading(false); } };
+  useEffect(() => { void reload(); }, []);
   const characters = useMemo(() => (canon?.entities ?? []).filter((entity) => entity.type === 'character'), [canon]);
   const categories = useMemo(() => Array.from(new Set(characters.flatMap((entity) => entity.character?.categories ?? []))).sort(), [characters]);
   const visible = filter === 'all' ? characters : characters.filter((entity) => entity.character?.categories.includes(filter));
@@ -281,7 +288,7 @@ export function CharactersPane({ pane }: { pane: Pane }) {
 
   const openDrawer = (entity?: CanonEntity) => openCharacterEditor(entity, (saved) => setSelectedId(saved.id));
 
-  if (!canon) return <div className="pane-body pane-loading">Gathering cast…</div>;
+  if (!canon) return <div className="pane-body pane-loading" role="status">{loading ? 'Gathering cast…' : <>Cast could not load. <button onClick={() => void reload()}>Retry loading cast</button></>}</div>;
 
   return (
     <div className="characters-workspace">
@@ -323,8 +330,8 @@ export function CharactersPane({ pane }: { pane: Pane }) {
             </dl>
             <div className="identity-actions">
               <button className="btn btn-primary" onClick={() => openDrawer(selected)}>Edit dossier</button>
-              {characterAgent && <button className="btn" onClick={() => { useStore.getState().setPaneSize(pane.id, 'normal'); useStore.getState().openPane('agent', { bindingId: characterAgent.id, region: 'right' }); }}>Speak with {selected.name}</button>}
-              <button className="linkish" onClick={() => { useStore.getState().setPaneSize(pane.id, 'normal'); useStore.getState().openPane('canon', { title: 'Canon', region: 'right' }); }}>open canon trail</button>
+              {characterAgent && <button className="btn" onClick={() => { leaveConsultationForWorkspace(); useStore.getState().setPaneSize(pane.id, 'normal'); useStore.getState().openPane('agent', { bindingId: characterAgent.id, region: 'right' }); }}>Speak with {selected.name}</button>}
+              <button className="linkish" onClick={() => { leaveConsultationForWorkspace(); useStore.getState().setPaneSize(pane.id, 'normal'); useStore.getState().openPane('canon', { title: 'Canon', region: 'right' }); }}>open canon trail</button>
             </div>
           </aside>
 

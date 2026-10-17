@@ -120,6 +120,15 @@ focus, and can be reordered or recalled by number. `Alt+Shift+D` finds a desk;
 `Alt+Shift+0` restores the previous arrangement. Desk layouts stay in this
 browser for this project, outside portable project backups.
 
+In **Drafting**, **Characters** temporarily pairs the active manuscript with Cast.
+Below 1,000px of content width, character reference becomes a sheet with a
+persistent **Return to writing** action. Return restores your selection and
+reading position; unfinished character edits stay in the same parked form.
+Use **Save changes** to save, **Cancel** to discard, or **Open full Cast** for the
+normal workspace. Escape steps from editor to character detail, then back to
+writing. Saved Desks retain the underlying arrangement.
+See [character consultation decisions and verification](docs/architecture/ADR-002-character-consultation.md).
+
 See [design and responsive verification](docs/design-2026-09-05.md).
 
 Short phone and landscape screens now scroll vertically to preserve the working
@@ -135,8 +144,9 @@ for setup, troubleshooting, and the hands-on checklist.
 
 Manuscript **Focus** also offers **Hide controls** for a quiet page and optional
 browser **Fullscreen**. A small feather restores controls. **Story cards** or
-**Alt+Shift+K** opens editable story records above the draft; Escape dismisses
-that layer before leaving writing focus. Card drafts recover locally when the
+**Alt+Shift+K** opens editable story records. Characters use the consultation
+flow above; other records keep their existing floating editors. Escape dismisses
+the current layer before leaving writing focus. Card drafts recover locally when the
 same form is reopened; save them to include their contents in project backups.
 Browser fullscreen Escape is controlled by the browser.
 See [quiet focus and story cards](docs/quiet-focus-and-story-cards-2026-09-06.md).

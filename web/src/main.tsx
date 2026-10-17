@@ -22,6 +22,7 @@ import './styles/threads.css';
 import './styles/sources.css';
 import './styles/mobile.css';
 import './styles/project-tools.css';
+import './styles/character-consultation.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

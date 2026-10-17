@@ -1,3 +1,4 @@
+import { finishCharacterConsultation } from '../characterConsultation';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { resolvePassageAnchor, type ConnectionStore, type ConnectionTarget, type StoryAttachment } from '../../../shared/connections';
@@ -69,7 +70,7 @@ function ConnectionContents({ projectId }: { projectId: string }) {
   const hereNotes = context && !context.range ? threadsForTarget(threads, context.target).filter((thread) => thread.status === 'open') : [];
   const linkingNotes = context ? notesLinkingTo(threads, context.target) : [];
   const taggedNotes = filter ? notesTaggedWith(threads, filter) : [];
-  const openNoteRow = (thread: Thread) => { closeConnections(false); void openNote(thread); };
+  const openNoteRow = (thread: Thread) => { finishCharacterConsultation(false); closeConnections(false); void openNote(thread); };
 
   const mutate = async (action: () => Promise<unknown>) => {
     if (pending || !data) return;
@@ -109,7 +110,7 @@ function ConnectionContents({ projectId }: { projectId: string }) {
       setError(`Passage ${resolved.status === 'ambiguous' ? 'has more than one match' : 'or its nearby context has changed'}. Original quote retained; reselect the intended passage to reconnect it.`);
       return;
     }
-    closeConnections(false);
+    finishCharacterConsultation(false); closeConnections(false);
     record(link.target)?.open();
     requestAnimationFrame(() => revealRange(link.target.id, resolved.start, resolved.end));
   };
@@ -173,7 +174,7 @@ function ConnectionContents({ projectId }: { projectId: string }) {
           <div className="connections-records">{filtered.map((item) => <article key={targetKey(item.target)}>
             <div className="connections-row"><button className="connection-record-title" type="button" aria-label={`Inspect ${item.group}: ${item.label}`} onClick={() => useConnectionsView.setState({ context: { target: item.target } })}><small>{item.group}</small><span>{item.label}</span></button>
               <div className="connection-record-actions">{context && !sameTarget(context.target, item.target) && <button type="button" disabled={pending || !data} aria-label={`Link ${item.group}: ${item.label}`} onClick={() => void mutate(() => attach({ entity: item.target }))}>Link</button>}
-                <button type="button" aria-label={`Open ${item.group}: ${item.label}`} onClick={() => { closeConnections(false); item.open(); }}>Open</button></div></div>
+                <button type="button" aria-label={`Open ${item.group}: ${item.label}`} onClick={() => { finishCharacterConsultation(false); closeConnections(false); item.open(); }}>Open</button></div></div>
             {filter && <ul className="connection-passages">{data?.attachments.filter((link) => link.tagId === filter && sameTarget(link.target, item.target) && link.anchor).map(showLink)}</ul>}
           </article>)}</div>
           {data && !filtered.length && <p>No matching records. Try another tag, type, or name.</p>}

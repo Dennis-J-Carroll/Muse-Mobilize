@@ -1,3 +1,4 @@
+import { parkConsultationEditor } from '../characterConsultation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useStore } from '../store';
 import type { FloatingPanel } from '../types';
@@ -8,7 +9,7 @@ import { dismissFocusLayer, trapLayerTab } from '../focusLayers';
 import { openConnections, targetForEditor } from '../connectionsView';
 import { ThreadButton } from './ThreadButton';
 
-export function FloatingDrawer({ panel, order, children, hidden = false, focusMode = false }: { panel: FloatingPanel; order: number; children: ReactNode; hidden?: boolean; focusMode?: boolean }) {
+export function FloatingDrawer({ panel, order, children, hidden = false, focusMode = false, companion = false }: { panel: FloatingPanel; order: number; children: ReactNode; hidden?: boolean; focusMode?: boolean; companion?: boolean }) {
   const root = useRef<HTMLDivElement>(null);
   const lastFocus = useRef<HTMLElement | null>(null);
   const wasDocked = useRef(panel.docked);
@@ -45,7 +46,7 @@ export function FloatingDrawer({ panel, order, children, hidden = false, focusMo
   return <div
     ref={root}
     id={`floating-${panel.id}`}
-    className="floating-drawer"
+    className={`floating-drawer ${companion ? 'is-companion' : ''}`}
     role="dialog"
     aria-label={panel.title}
     aria-modal={focusMode || undefined}
@@ -58,25 +59,28 @@ export function FloatingDrawer({ panel, order, children, hidden = false, focusMo
     }}
     onKeyDown={(event) => {
       if (focusMode) trapLayerTab(event);
-      if (event.key !== 'Escape' || event.defaultPrevented || event.nativeEvent.isComposing) return;
+      if (event.key !== 'Escape' || event.defaultPrevented || event.nativeEvent.isComposing || (companion && document.fullscreenElement)) return;
+      if (companion && (event.target as Element).closest('[role="dialog"]') !== root.current) return;
       event.preventDefault();
       event.stopPropagation();
-      if (focusMode) dismissFocusLayer();
+      if (companion) parkConsultationEditor();
+      else if (focusMode) dismissFocusLayer();
       else useStore.getState().dockFloatingPanel(panel.id);
     }}
   >
     <header className="floating-drawer-grip">
-      <button type="button" className="floating-drawer-move" aria-label={`Move ${panel.title}`} title="Drag to move; arrow keys nudge"
+      {!companion && <button type="button" className="floating-drawer-move" aria-label={`Move ${panel.title}`} title="Drag to move; arrow keys nudge"
         onPointerDown={drag}
         onKeyDown={(event) => {
           const step = event.shiftKey ? 20 : 5;
           const delta = event.key === 'ArrowLeft' ? [-step, 0] : event.key === 'ArrowRight' ? [step, 0] : event.key === 'ArrowUp' ? [0, -step] : event.key === 'ArrowDown' ? [0, step] : null;
           if (delta) { event.preventDefault(); move(delta[0], delta[1]); }
-        }}><span aria-hidden="true">⠿</span><span>{panel.title}</span></button>
+        }}><span aria-hidden="true">⠿</span><span>{panel.title}</span></button>}
+      {companion && <span>{panel.title}</span>}
       {connectionTarget && <ThreadButton target={connectionTarget} />}
       {connectionTarget && <button type="button" className="floating-drawer-dock" aria-label="Tags and links" title="Tags and links" onClick={() => openConnections({ target: connectionTarget })}>#</button>}
-      <button type="button" className="floating-drawer-dock" aria-label={focusMode ? 'Return to writing' : 'Send to side'} title={focusMode ? 'Return to writing, keep card draft (Escape)' : 'Send to side (Escape)'}
-        onClick={() => focusMode ? dismissFocusLayer() : useStore.getState().dockFloatingPanel(panel.id)}>−</button>
+      <button type="button" className="floating-drawer-dock" aria-label={companion ? 'Back to character' : focusMode ? 'Return to writing' : 'Send to side'} title={focusMode ? 'Return to writing, keep card draft (Escape)' : 'Send to side (Escape)'}
+        onClick={() => companion ? parkConsultationEditor() : focusMode ? dismissFocusLayer() : useStore.getState().dockFloatingPanel(panel.id)}>−</button>
     </header>
     <div className="floating-drawer-body">{children}</div>
   </div>;

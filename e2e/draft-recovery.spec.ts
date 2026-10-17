@@ -65,6 +65,7 @@ test('all seven story editors recover unsaved fields after reload, then clear re
     if (group === 'Character') await card.getByPlaceholder('Character name').fill(`${title} recovered`);
     else await card.getByLabel(field, { exact: true }).fill(`${title} recovered`);
     await card.press('Escape');
+    if (group === 'Character') await page.getByRole('button', { name: 'Return to writing', exact: true }).click();
   }
   await page.reload();
   await page.getByRole('button', { name: 'Focus writing', exact: true }).click();
@@ -75,6 +76,7 @@ test('all seven story editors recover unsaved fields after reload, then clear re
     await expect(control).toHaveValue(`${title} recovered`);
     await card.getByRole('button', { name: save, exact: true }).click();
     await expect(card).toBeHidden();
+    if (group === 'Character') await page.getByRole('button', { name: 'Return to writing', exact: true }).click();
   }
   expect(await page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('muse:draft:v1:')))).toEqual([]);
 });

@@ -1,3 +1,4 @@
+import { noteConsultationScrollIntent, trackConsultationScroll, updateConsultationBookmark } from '../characterConsultation';
 import { DocumentUndo } from '../components/UndoControls';
 import { useEditHistory } from '../editHistory';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -129,6 +130,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
   const syncSelection = () => {
     const el = ref.current;
     if (!el) return;
+    updateConsultationBookmark(pane.id, el);
     const start = el.selectionStart ?? 0;
     const end = el.selectionEnd ?? 0;
     if (end > start) setSelection({ documentId: docId, start, end, text: el.value.slice(start, end) });
@@ -341,8 +343,13 @@ export function EditorPane({ pane }: { pane: Pane }) {
         readOnly={Boolean(doc.recovery) || restoring}
         aria-label={doc.recovery ? `${doc.title} — choose a recovered version to continue` : undefined}
         value={doc.content}
-        onChange={(e) => { editDoc(docId, e.target.value); recenter(); }}
+        onChange={(e) => { editDoc(docId, e.target.value); updateConsultationBookmark(pane.id, e.currentTarget); recenter(); }}
         onSelect={syncSelection}
+        onPointerDown={() => noteConsultationScrollIntent(pane.id)}
+        onPointerUp={event => updateConsultationBookmark(pane.id, event.currentTarget)}
+        onTouchMove={() => noteConsultationScrollIntent(pane.id)}
+        onScroll={event => trackConsultationScroll(pane.id, event.currentTarget)}
+        onWheel={() => noteConsultationScrollIntent(pane.id)}
         onPaste={() => { bang.current = null; }}
         onCompositionStart={() => { bang.current = null; }}
         onKeyDown={(event) => {

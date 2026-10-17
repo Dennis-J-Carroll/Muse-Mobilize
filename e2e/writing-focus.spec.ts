@@ -33,6 +33,7 @@ test('writing focus fills the viewport and Escape restores the workspace without
 
 test('writing focus suspends floating recall and restores maximized layout and collapsed sidebar', async ({ page, projectId }) => {
   await page.getByRole('button', { name: /^Characters / }).click();
+  await page.getByRole('button', { name: 'Open full Cast', exact: true }).click();
   await page.getByRole('button', { name: /Add character/ }).click();
   await page.getByPlaceholder('Character name').fill('A character waiting beside the page');
   await page.keyboard.press('Escape');

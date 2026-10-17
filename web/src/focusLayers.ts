@@ -15,7 +15,7 @@ export function dismissFocusLayer() {
   returnToWriting();
 }
 
-export function trapLayerTab(event: KeyboardEvent<HTMLElement>) {
+export function trapLayerTab(event: Pick<KeyboardEvent<HTMLElement>, 'key' | 'shiftKey' | 'currentTarget' | 'preventDefault'>) {
   if (event.key !== 'Tab') return;
   const root = event.currentTarget;
   const controls = Array.from(root.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]'))

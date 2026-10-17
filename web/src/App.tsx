@@ -1,3 +1,4 @@
+import { useCharacterConsultation } from './characterConsultation';
 import { useEditHistory } from './editHistory';
 import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { useStore } from './store';
@@ -20,6 +21,7 @@ import { LegendTrigger } from './components/ShortcutLegend';
 import { WorkspaceTabs } from './components/WorkspaceTabs';
 
 export default function App() {
+  const consulting = useCharacterConsultation(state => Boolean(state.current));
   const restoring = useEditHistory((s) => s.restoring);
   useEffect(() => {
     const app = document.querySelector<HTMLElement>('.app');
@@ -64,7 +66,7 @@ export default function App() {
   }, [focusPaneId, writingFocused]);
 
   useEffect(() => {
-    if (!writingFocused) return;
+    if (!writingFocused || consulting) return;
     const exit = (event: KeyboardEvent) => {
       if (event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey && event.code === 'KeyK' && !event.isComposing && !event.defaultPrevented) {
         // Do not replace an editor that currently owns the focus layer.
@@ -84,7 +86,7 @@ export default function App() {
     };
     window.addEventListener('keydown', exit);
     return () => window.removeEventListener('keydown', exit);
-  }, [writingFocused]);
+  }, [writingFocused, consulting]);
 
   useEffect(() => {
     if (!notice) return;
@@ -123,7 +125,7 @@ export default function App() {
   }
 
   return (
-    <div ref={appRef} className={`app ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''} ${writingFocused ? 'is-writing-focus' : ''} ${workbench ? 'is-workbench' : ''} ${mobileControlsCollapsed ? 'is-mobile-controls-collapsed' : ''}`}
+    <div ref={appRef} className={`app ${consulting ? 'is-consulting' : ''} ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''} ${writingFocused ? 'is-writing-focus' : ''} ${workbench ? 'is-workbench' : ''} ${mobileControlsCollapsed ? 'is-mobile-controls-collapsed' : ''}`}
       onFocusCapture={collapseForWriting} onInputCapture={collapseForWriting}>
       <Sidebar
         collapsed={sidebarCollapsed}
