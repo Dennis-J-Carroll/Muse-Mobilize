@@ -133,6 +133,13 @@ Short title cues show where panes go when parked or when a desk is restored;
 live text stays in place at its final size. Drawer openings use a brief slide.
 System reduced-motion settings skip travel and retain text feedback.
 
+Right-click a pane header for focus, expand, park, restore, or close-view actions.
+Right-click an atlas landmark to edit it, open its linked lore page, or manage
+tags and links. **More** buttons expose the same actions on pane headers and
+atlas details/pages, including touch screens. Focus a header control or landmark
+and press `Shift+F10` (or the Menu key); use arrows to navigate and `Escape` to
+return focus. Manuscripts and form fields retain native text context menus.
+
 Atlas Pages, landmark details, and Canon distinguish summaries, facts, labels,
 and metadata through size, weight, and spacing. Existing fonts and manuscript
 appearance settings remain independent of these reference views.

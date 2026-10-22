@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { ContextMenu } from './components/ContextMenu';
 import '@fontsource-variable/inter';
 import '@fontsource-variable/inter/wght-italic.css';
 import '@fontsource/antic/latin.css';
@@ -26,9 +27,11 @@ import './styles/project-tools.css';
 import './styles/character-consultation.css';
 import './styles/lore-type.css';
 import './styles/workspace-motion.css';
+import './styles/context-menu.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
+    <ContextMenu />
   </StrictMode>,
 );

@@ -1,0 +1,28 @@
+.context-menu {
+  position: fixed; z-index: 2600; width: 236px; padding: 6px; overflow: auto;
+  overscroll-behavior: contain; border-radius: var(--r-md); color: var(--ink);
+  background: var(--glass-sheen), var(--glass-overlay); box-shadow: var(--shadow-float);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  font: 13px/1.4 var(--font-ui); scrollbar-color: var(--card-blue) transparent;
+}
+.context-menu-title { padding: 7px 10px 9px; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.context-menu button {
+  display: block; width: 100%; min-height: 36px; padding: 8px 10px; text-align: left;
+  border: 0; border-radius: 6px; background: transparent; color: var(--ink); font: inherit;
+}
+.context-menu button:hover, .context-menu button:focus { background: var(--card-mist); }
+.context-menu button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.context-menu-separator { height: 1px; margin: 6px 4px; background: var(--line-strong); }
+.pane-tools .pane-more { display: inline-flex; align-items: center; width: auto; gap: 3px; padding-inline: 5px; font-size: 11px; }
+.world-inspector header .landmark-more { width: auto; margin-left: auto; padding: 4px 8px; font: 12px var(--font-ui); }
+@media (max-width: 700px) {
+  /* These actions remain in More; keep titles readable without another header row. */
+  .pane-tools .pane-expand, .pane-tools .pane-close { display: none; }
+}
+@media (pointer: coarse) {
+  .context-menu button { min-height: 44px; }
+  .pane-tools .pane-more, .world-inspector header .landmark-more, .world-page-actions .landmark-more { min-width: 44px; min-height: 44px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .context-menu { background: var(--paper); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}

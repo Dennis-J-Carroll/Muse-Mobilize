@@ -31,6 +31,7 @@ import { WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkbenchRail, type WorkbenchTool } from './WorkbenchRail';
 import type { SavedDesk } from '../desks';
 import { useWorkspaceMotion, type WorkspaceTransition } from '../workspaceMotion';
+import { useContextMenu, type ContextAction } from './ContextMenu';
 
 /**
  * The Workspace Canvas. Panes are views, not agents (§34.3): the same shell
@@ -84,6 +85,7 @@ function PaneBody({ pane }: { pane: Pane }) {
 }
 
 function PaneFrame({ pane, tiled, viewport, onFloat, transition }: { pane: Pane; tiled: boolean; viewport: WorkspaceViewport; onFloat: () => void; transition: WorkspaceTransition }) {
+  const menu = useContextMenu();
   const focusPaneId = useWritingView((s) => s.focusPaneId);
   const setPaneSize = useStore((s) => s.setPaneSize);
   const closePane = useStore((s) => s.closePane);
@@ -116,6 +118,17 @@ function PaneFrame({ pane, tiled, viewport, onFloat, transition }: { pane: Pane;
   // Expand/restore stays usable from the keyboard: Enter or Space on the
   // header toggle behaves like a click, and the control announces its state.
   const toggleMaximized = () => setPaneSize(pane.id, maximized ? 'normal' : 'maximized');
+  const toggleParked = () => transition(() => setPaneSize(pane.id, minimized ? 'normal' : 'minimized'), `${pane.title} ${minimized ? 'returned to workspace' : 'moved to Tools'}.`);
+  const returnToLayout = () => useStore.getState().returnPaneToLayout(pane.id);
+  const focusWriting = () => useWritingView.getState().focus(pane.id);
+  const closeView = () => closePane(pane.id);
+  const actions: ContextAction[] = [
+    ...(isManuscript ? [{ label: 'Focus writing', run: focusWriting }] : []),
+    ...(!minimized ? [{ label: maximized ? 'Restore pane size' : 'Expand pane', run: toggleMaximized }] : []),
+    { label: minimized ? 'Restore to workspace' : 'Park in Tools', run: toggleParked },
+    ...(pane.floating && !minimized ? [{ label: 'Return to layout', run: returnToLayout }] : []),
+    { label: 'Close view', run: closeView, separator: true },
+  ];
   const onToggleKey = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleMaximized(); }
   };
@@ -128,7 +141,7 @@ function PaneFrame({ pane, tiled, viewport, onFloat, transition }: { pane: Pane;
       onPointerDownCapture={() => { if (!consultationPreservesPaneOrder()) useStore.getState().raisePane(pane.id); }}
       onFocusCapture={() => { if (!consultationPreservesPaneOrder()) useStore.getState().raisePane(pane.id); }}
     >
-      <header className="pane-head">
+      <header className="pane-head" {...menu.bind(pane.title, actions)}>
         <button type="button" className="pane-title pane-move" aria-label={`Move ${pane.title}`} title="Drag to move; arrow keys nudge" onPointerDown={onMoveDrag}
           onKeyDown={(event) => {
             const step = event.shiftKey ? 20 : 5;
@@ -145,18 +158,19 @@ function PaneFrame({ pane, tiled, viewport, onFloat, transition }: { pane: Pane;
         {doc?.dirty && <span className="pane-dirty" title="unsaved">•</span>}
         {isManuscript && toolsCollapsed && !minimized && <button type="button" className="pane-focus-button" aria-label="Focus writing" title="Focus writing (Alt+Shift+F)"
           onPointerDown={(event) => { if (document.activeElement?.matches('textarea.draft')) event.preventDefault(); }}
-          onClick={() => useWritingView.getState().focus(pane.id)}><Icon.Expand size={13} /> Focus</button>}
+          onClick={focusWriting}><Icon.Expand size={13} /> Focus</button>}
         {isManuscript && !minimized && <span className="pane-drag-space" aria-hidden="true" onPointerDown={onMoveDrag} />}
         <span className="pane-tools">
-          {pane.floating && !minimized && <button title="Return to layout" onClick={() => useStore.getState().returnPaneToLayout(pane.id)}><Icon.Layers size={16} /></button>}
-          <button title={minimized ? `Restore ${pane.title} to workspace` : 'Minimize'} onClick={() => transition(() => setPaneSize(pane.id, minimized ? 'normal' : 'minimized'), `${pane.title} ${minimized ? 'returned to workspace' : 'moved to Tools'}.`)}>
+          <button className="pane-more" {...menu.trigger(pane.title, actions)}><Icon.Dots size={14} /><span>More</span></button>
+          {pane.floating && !minimized && <button title="Return to layout" onClick={returnToLayout}><Icon.Layers size={16} /></button>}
+          <button title={minimized ? `Restore ${pane.title} to workspace` : 'Minimize'} onClick={toggleParked}>
             {minimized ? <Icon.Expand /> : <Icon.Minus />}
           </button>
           {!minimized && <button type="button" className="pane-expand" onClick={toggleMaximized} onKeyDown={onToggleKey}
             aria-pressed={maximized} aria-label={maximized ? `Restore ${pane.title} to workspace` : `Expand ${pane.title} to full workspace`} title={maximized ? 'Restore' : 'Expand'}>
             <Icon.Expand />
           </button>}
-          <button title="Close" onClick={() => closePane(pane.id)}>
+          <button className="pane-close" title="Close" onClick={closeView}>
             <Icon.Close />
           </button>
         </span>

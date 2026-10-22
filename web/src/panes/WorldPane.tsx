@@ -5,6 +5,8 @@ import { ImageGalleryEditor, StoryImageStrip } from '../components/ImageGalleryE
 import { preflightImageFiles } from '../components/ImageGalleryEditor';
 import { openFloatingEditor } from '../components/floatingEditors';
 import { DraftRecoveryNotice, useRecoverableDraft } from '../useRecoverableDraft';
+import { useContextMenu, type ContextAction } from '../components/ContextMenu';
+import { openConnections } from '../connectionsView';
 import type { CanonEntity, CanonEntityType, CanonFact, Pane, StoryImage, WorldProfile } from '../types';
 
 type Point = { x: number; y: number };
@@ -173,6 +175,7 @@ export function openWorldEditor(point: Point, entity?: CanonEntity, onSaved?: (e
 }
 
 export function WorldPane({ pane }: { pane: Pane }) {
+  const menu = useContextMenu();
   const canon = useStore((s) => s.canon);
   const plot = useStore((s) => s.plot);
   const worldMap = useStore((s) => s.worldMap);
@@ -392,6 +395,14 @@ export function WorldPane({ pane }: { pane: Pane }) {
     useStore.getState().openPane('editor', { bindingId: documentId, region: 'right' });
   };
 
+  const editLandmark = (entity: CanonEntity) => openDrawer(positions[entity.id] ?? fallbackPoint(0), entity);
+  const landmarkActions = (entity: CanonEntity): ContextAction[] => [
+    { label: 'Edit landmark', run: () => editLandmark(entity) },
+    ...(entity.world?.referenceDocumentId && documents.some(document => document.id === entity.world?.referenceDocumentId)
+      ? [{ label: 'Open lore page', run: () => openDocument(entity.world!.referenceDocumentId!) }] : []),
+    { label: 'Tags and links', run: () => openConnections({ target: { kind: 'canon', id: entity.id } }) },
+  ];
+
   const openCanon = () => {
     useStore.getState().setPaneSize(pane.id, 'normal');
     useStore.getState().openPane('canon', { title: 'Canon', region: 'right' });
@@ -539,6 +550,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
                   className={`world-node type-${entity.type} ${selectedId === entity.id ? 'is-selected' : ''}`}
                   style={{ left: point.x, top: point.y }}
                   aria-label={`${TYPE_LABEL[entity.type]}: ${entity.name}`}
+                  onContextMenu={menu.bind(entity.name, landmarkActions(entity)).onContextMenu}
                   onPointerDown={(event) => {
                     event.stopPropagation();
                     if (event.button !== 0 || touches.current.size >= 2) return;
@@ -547,6 +559,8 @@ export function WorldPane({ pane }: { pane: Pane }) {
                   }}
                   onClick={() => setSelectedId(entity.id)}
                   onKeyDown={(event) => {
+                    menu.bind(entity.name, landmarkActions(entity)).onKeyDown(event);
+                    if (event.defaultPrevented) return;
                     const amount = event.shiftKey ? 20 : 5;
                     const delta = event.key === 'ArrowLeft' ? [-amount, 0] : event.key === 'ArrowRight' ? [amount, 0] : event.key === 'ArrowUp' ? [0, -amount] : event.key === 'ArrowDown' ? [0, amount] : null;
                     if (delta) { event.preventDefault(); moveNode(entity, delta[0], delta[1]); }
@@ -624,7 +638,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
 
           {selected && (
             <aside className="world-inspector">
-              <header><span>{TYPE_LABEL[selected.type]}</span><button onClick={() => setSelectedId('')} aria-label="Close inspector">×</button></header>
+              <header><span>{TYPE_LABEL[selected.type]}</span><button className="landmark-more" {...menu.trigger(selected.name, landmarkActions(selected))}>More</button><button onClick={() => setSelectedId('')} aria-label="Close inspector">×</button></header>
               <div className="world-inspector-scroll">
                 <h1>{selected.name}</h1>
                 {selected.aliases.length > 0 && <p className="world-aliases">{selected.aliases.join(' · ')}</p>}
@@ -642,7 +656,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
               </div>
               <footer>
                 {selected.world?.referenceDocumentId && documents.some((document) => document.id === selected.world?.referenceDocumentId) && <button className="btn" onClick={() => openDocument(selected.world!.referenceDocumentId!)}>Open lore page</button>}
-                <button className="btn" onClick={() => openDrawer(positions[selected.id] ?? fallbackPoint(0), selected)}>Edit landmark</button>
+                <button className="btn" onClick={() => editLandmark(selected)}>Edit landmark</button>
                 <button className="linkish" onClick={openCanon}>canon trail</button>
               </footer>
             </aside>
@@ -657,7 +671,7 @@ export function WorldPane({ pane }: { pane: Pane }) {
             {visible.map((entity) => {
               const related = links.filter((link) => link.source.id === entity.id || link.target.id === entity.id);
               const cover = entity.world?.images?.[0];
-              return <article key={entity.id} className={`world-page-entry type-${entity.type}`}><div className={`world-page-mark ${cover ? 'has-image' : ''}`}>{cover ? <img src={cover.src} alt="" /> : TYPE_GLYPH[entity.type]}<small>{TYPE_LABEL[entity.type]}</small></div><div><span>{entity.world?.attributes.era || 'Era unmarked'}</span><h2>{entity.name}</h2><p>{entity.summary || 'No summary recorded.'}</p><div className="world-page-meta">{entity.world?.attributes.atmosphere && <em>Atmosphere: {entity.world.attributes.atmosphere}</em>}{entity.world?.attributes.significance && <em>Story weight: {entity.world.attributes.significance}</em>}{related.length > 0 && <em>{related.length} connected {related.length === 1 ? 'thread' : 'threads'}</em>}</div></div><div className="world-page-actions">{entity.world?.referenceDocumentId && documents.some((document) => document.id === entity.world?.referenceDocumentId) && <button className="linkish" onClick={() => openDocument(entity.world!.referenceDocumentId!)}>Open lore page</button>}<button className="linkish" onClick={() => openDrawer(positions[entity.id] ?? fallbackPoint(0), entity)}>Edit</button><button className="linkish" onClick={() => { setSelectedId(entity.id); setMode('canvas'); }}>Locate</button></div></article>;
+              return <article key={entity.id} className={`world-page-entry type-${entity.type}`}><div className={`world-page-mark ${cover ? 'has-image' : ''}`}>{cover ? <img src={cover.src} alt="" /> : TYPE_GLYPH[entity.type]}<small>{TYPE_LABEL[entity.type]}</small></div><div><span>{entity.world?.attributes.era || 'Era unmarked'}</span><h2>{entity.name}</h2><p>{entity.summary || 'No summary recorded.'}</p><div className="world-page-meta">{entity.world?.attributes.atmosphere && <em>Atmosphere: {entity.world.attributes.atmosphere}</em>}{entity.world?.attributes.significance && <em>Story weight: {entity.world.attributes.significance}</em>}{related.length > 0 && <em>{related.length} connected {related.length === 1 ? 'thread' : 'threads'}</em>}</div></div><div className="world-page-actions">{entity.world?.referenceDocumentId && documents.some((document) => document.id === entity.world?.referenceDocumentId) && <button className="linkish" onClick={() => openDocument(entity.world!.referenceDocumentId!)}>Open lore page</button>}<button className="linkish" onClick={() => editLandmark(entity)}>Edit</button><button className="linkish" onClick={() => { setSelectedId(entity.id); setMode('canvas'); }}>Locate</button><button className="linkish landmark-more" {...menu.trigger(entity.name, landmarkActions(entity))}>More</button></div></article>;
             })}
           </main>
         </div>
