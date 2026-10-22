@@ -150,6 +150,7 @@ export function AgentPane({ pane }: { pane: Pane }) {
         <div className="compose-row">
           <textarea
             rows={2}
+            aria-label={`Ask ${agent.name}`}
             value={q}
             placeholder={`Ask ${agent.name}…`}
             onChange={(e) => setQ(e.target.value)}

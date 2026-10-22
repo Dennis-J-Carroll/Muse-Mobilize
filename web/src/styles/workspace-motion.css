@@ -1,0 +1,21 @@
+/* Drawer arrives from its recall edge; text keeps its final size throughout. */
+.tool-drawer:not([hidden]), .floating-drawer:not(.is-companion) {
+  animation: drawer-arrive 180ms cubic-bezier(.16, 1, .3, 1);
+}
+@keyframes drawer-arrive {
+  from { opacity: .65; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+/* Detached title cues explain travel without moving or cloning live editors. */
+.workspace-motion-cue {
+  position: fixed; left: 0; top: 0; z-index: 2500; pointer-events: none;
+  max-width: min(180px, calc(100vw - 16px)); padding: 6px 10px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border: 1px solid var(--line-strong); border-radius: 8px;
+  background: var(--glass-overlay); box-shadow: var(--shadow-card);
+  color: var(--ink); font: 500 12px/1.5 var(--font-ui);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tool-drawer, .floating-drawer { animation: none; }
+  .workspace-motion-cue { display: none; }
+}

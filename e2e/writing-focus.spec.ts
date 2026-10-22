@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, openPageSettings, closePageSettings } from './fixtures';
 
 test('writing focus fills the viewport and Escape restores the workspace without losing drafts', async ({ page, projectId }, testInfo) => {
   const manuscript = page.locator('.pane-editor').getByPlaceholder('Start writing your story…');
@@ -9,6 +9,7 @@ test('writing focus fills the viewport and Escape restores the workspace without
   await companion.fill('Keep this companion draft.');
   const before = await page.locator('main.workspace').boundingBox();
   await manuscript.evaluate((element: HTMLTextAreaElement) => { element.focus(); element.setSelectionRange(12, 12); });
+  await closePageSettings(page);
   await page.getByRole('button', { name: 'Focus writing', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Exit writing focus', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Collapse tool menu', exact: true })).toBeHidden();
@@ -42,6 +43,7 @@ test('writing focus suspends floating recall and restores maximized layout and c
   const pane = page.locator('.pane-editor');
   await pane.getByRole('button', { name: 'Expand Chapter One to full workspace', exact: true }).click();
   const before = await pane.boundingBox();
+  await closePageSettings(page);
   await page.getByRole('button', { name: 'Focus writing', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Recall New character', exact: true })).toBeHidden();
   await page.keyboard.press('Alt+1');
@@ -57,15 +59,20 @@ test('optional paper and light sans persist without changing companion typograph
   const manuscript = page.locator('.pane-editor').getByPlaceholder('Start writing your story…');
   await expect(manuscript).toHaveValue(/Chapter One/);
   const companionWeight = await page.getByPlaceholder('Ask Muse…').evaluate((element) => getComputedStyle(element).fontWeight);
+  await openPageSettings(page);
   await page.getByLabel('Page surface', { exact: true }).selectOption('paper');
+  await openPageSettings(page);
   await page.getByLabel('Writing weight', { exact: true }).selectOption('350');
   await expect(manuscript).toHaveCSS('font-weight', '350');
   await expect(page.locator('.writing-page')).toHaveCSS('background-color', 'rgb(248, 246, 240)');
   await expect(page.getByPlaceholder('Ask Muse…')).toHaveCSS('font-weight', companionWeight);
   await page.reload();
+  await openPageSettings(page);
   await expect(page.getByLabel('Page surface', { exact: true })).toHaveValue('paper');
+  await openPageSettings(page);
   await expect(page.getByLabel('Writing weight', { exact: true })).toHaveValue('350');
   await page.setViewportSize({ width: 390, height: 844 });
+  await closePageSettings(page);
   await page.getByRole('button', { name: 'Focus writing', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Exit writing focus', exact: true })).toBeInViewport();
   expect((await manuscript.boundingBox())!.width).toBeGreaterThan(360);

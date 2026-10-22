@@ -21,8 +21,11 @@ import './styles/connections.css';
 import './styles/threads.css';
 import './styles/sources.css';
 import './styles/mobile.css';
+import './styles/drafting-controls.css';
 import './styles/project-tools.css';
 import './styles/character-consultation.css';
+import './styles/lore-type.css';
+import './styles/workspace-motion.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

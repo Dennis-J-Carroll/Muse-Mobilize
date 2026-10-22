@@ -13,6 +13,8 @@ export interface DeskView {
   font: WritingFont;
   surface: 'glass' | 'paper';
   weight: '350' | '400';
+  /** Optional for compatibility with desks saved before compact tools were captured. */
+  writingToolsCollapsed?: boolean;
   /** Set when the desk was saved in writing focus; restoring re-enters focus on this document. */
   focusDocumentId?: string;
 }
@@ -23,6 +25,21 @@ export interface SavedDesk {
   panes: DeskPane[];
   view: DeskView;
   preview: (WindowBounds & { title: string; document: boolean })[];
+}
+
+/** An opt-in arrangement; retain every pane so switching never discards local drafts. */
+export function writingReferenceDesk(current: SavedDesk, documentId: string, referenceIndex: number, viewportWidth: number): SavedDesk | null {
+  const manuscriptIndex = current.panes.findIndex((pane) => pane.binding?.type === 'document' && pane.binding.id === documentId);
+  if (manuscriptIndex < 0 || referenceIndex === manuscriptIndex || !current.panes[referenceIndex]) return null;
+  return {
+    ...current, name: 'Writing with reference', preview: [],
+    panes: current.panes.map((pane, index) => index === manuscriptIndex || index === referenceIndex
+      ? { ...pane, region: index === manuscriptIndex ? 'main' : 'right', sizeMode: 'normal', size: undefined, floating: undefined }
+      : { ...pane, sizeMode: 'minimized' }),
+    view: { ...current.view, layout: 'workspace', workbench: false, sidebarCollapsed: true,
+      rightWidth: Math.min(400, Math.max(280, Math.round(viewportWidth * .28))),
+      writingToolsCollapsed: true, focusDocumentId: undefined },
+  };
 }
 
 /** Reuse mounted identities. Unlisted live tools are parked, never discarded. */
@@ -63,6 +80,11 @@ export function parseDesks(raw: string | null): SavedDesk[] {
       if (!WRITING_FONTS.some((font) => font.id === view.font) || !['glass', 'paper'].includes(view.surface) || !['350', '400'].includes(view.weight)) return false;
       return Array.isArray(desk.preview) && desk.preview.length <= 64 && desk.preview.every((frame: unknown) => object(frame) && bounds(frame) && text(frame.title, 1000) && typeof frame.document === 'boolean');
     }).map((desk) => {
+      // Older desks leave the current tools preference alone; malformed values do too.
+      if (desk.view.writingToolsCollapsed !== undefined && typeof desk.view.writingToolsCollapsed !== 'boolean') {
+        const { writingToolsCollapsed: _drop, ...view } = desk.view;
+        desk = { ...desk, view };
+      }
       const focusId = (desk.view as { focusDocumentId?: unknown }).focusDocumentId;
       if (focusId === undefined || text(focusId)) return desk;
       const { focusDocumentId: _drop, ...view } = desk.view;

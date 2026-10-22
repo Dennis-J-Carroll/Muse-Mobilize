@@ -35,6 +35,7 @@ export default function App() {
   const notice = useStore((s) => s.notice);
   const settings = useStore((s) => s.settings);
   const panes = useStore((s) => s.panes);
+  const drafting = useStore((s) => s.activeWorkspace === 'drafting');
   const focusPaneId = useWritingView((s) => s.focusPaneId);
   const workbench = useWritingView((s) => s.workbench);
   const writingFocused = panes.some((pane) => pane.id === focusPaneId);
@@ -125,7 +126,7 @@ export default function App() {
   }
 
   return (
-    <div ref={appRef} className={`app ${consulting ? 'is-consulting' : ''} ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''} ${writingFocused ? 'is-writing-focus' : ''} ${workbench ? 'is-workbench' : ''} ${mobileControlsCollapsed ? 'is-mobile-controls-collapsed' : ''}`}
+    <div ref={appRef} className={`app ${drafting ? 'is-drafting' : ''} ${consulting ? 'is-consulting' : ''} ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''} ${writingFocused ? 'is-writing-focus' : ''} ${workbench ? 'is-workbench' : ''} ${mobileControlsCollapsed ? 'is-mobile-controls-collapsed' : ''}`}
       onFocusCapture={collapseForWriting} onInputCapture={collapseForWriting}>
       <Sidebar
         collapsed={sidebarCollapsed}
@@ -151,7 +152,7 @@ export default function App() {
         <header id="workspace-heading" className={`workspace-head ${headerCollapsed ? 'is-collapsed' : ''}`}>
           <div className="workspace-title">
             <div className="workspace-title-row">
-              <h1>{project.name}</h1>
+              <h1 title={project.name}>{project.name}</h1>
               <button type="button" className="workspace-head-toggle"
                 aria-label={headerCollapsed ? 'Expand project header' : 'Collapse project header'}
                 title={headerCollapsed ? 'Expand header' : 'Collapse header'}

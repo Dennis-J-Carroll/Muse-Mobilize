@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../store';
-import type { SavedDesk } from '../desks';
-import { restoreWithMemory, useDeskList } from '../deskList';
+import { writingReferenceDesk, type SavedDesk } from '../desks';
+import { restorePrevious, restoreWithMemory, useDeskList } from '../deskList';
+import { useWritingView } from '../writingView';
+import { useEditHistory } from '../editHistory';
 import * as Icon from './icons';
 
 function DeskPreview({ desk }: { desk: SavedDesk }) {
@@ -19,29 +21,64 @@ function DeskPreview({ desk }: { desk: SavedDesk }) {
 
 export function SavedDesks({ capture, restore }: { capture: (name: string) => SavedDesk; restore: (desk: SavedDesk) => void }) {
   const projectId = useStore((s) => s.project?.id);
+  const documents = useStore((s) => s.project?.documents);
+  const panes = useStore((s) => s.panes);
+  const lastWritingPaneId = useWritingView((s) => s.lastWritingPaneId);
+  const historyBusy = useEditHistory((s) => s.restoring || s.pending > 0);
   const desks = useDeskList((s) => s.desks);
+  const previous = useDeskList((s) => s.previous);
   const error = useDeskList((s) => s.error);
   const { persist, move } = useDeskList.getState();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
+  const [documentId, setDocumentId] = useState('');
+  const [referenceId, setReferenceId] = useState('');
+  const available = panes.filter((pane) => !pane.sessionOnly);
+  const manuscripts = available.filter((pane) => pane.binding?.type === 'document' && documents?.some((doc) => doc.id === pane.binding?.id && doc.kind === 'manuscript'));
+  const manuscript = manuscripts.find((pane) => pane.binding?.id === documentId)
+    ?? manuscripts.find((pane) => pane.id === lastWritingPaneId) ?? manuscripts.find((pane) => pane.sizeMode !== 'minimized') ?? manuscripts[0];
+  const references = available.filter((pane) => pane.id !== manuscript?.id);
+  const reference = references.find((pane) => pane.id === referenceId) ?? references.find((pane) => pane.sizeMode !== 'minimized') ?? references[0];
   const trigger = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLElement>(null);
   const input = useRef<HTMLInputElement>(null);
-  useEffect(() => { useDeskList.getState().load(projectId ?? null); setOpen(false); setName(''); }, [projectId]);
+  useEffect(() => { useDeskList.getState().load(projectId ?? null); setOpen(false); setName(''); setDocumentId(''); setReferenceId(''); }, [projectId]);
   useEffect(() => { if (open) input.current?.focus(); }, [open]);
   const close = () => { setOpen(false); requestAnimationFrame(() => trigger.current?.focus()); };
   return <>
     <button ref={trigger} type="button" className="saved-desks-trigger" aria-label="Saved desks" aria-haspopup="dialog" onClick={() => setOpen(true)}><Icon.Layers size={16} /> Desks</button>
     {open && createPortal(<div className="desk-backdrop" onPointerDown={(event) => { if (event.target === event.currentTarget) close(); }}>
-      <section ref={dialog} className="saved-desks" role="dialog" aria-modal="true" aria-labelledby="saved-desks-title" onKeyDown={(event) => {
+      <section ref={dialog} className="saved-desks" role="dialog" aria-modal="true" aria-label="Your desks" onKeyDown={(event) => {
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); }
         if (event.key !== 'Tab') return;
-        const controls = Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input') ?? []);
+        const controls = Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input, select:not(:disabled)') ?? []);
         const first = controls[0]; const last = controls.at(-1);
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
         if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
       }}>
         <header><div><h2 id="saved-desks-title">Your desks</h2><p>Click a desk to return to its arrangement.</p></div><button type="button" aria-label="Close saved desks" onClick={close}><Icon.Close /></button></header>
+        <section className="writing-desk-preset" aria-label="Writing with reference">
+          <h3 id="writing-desk-title">Writing with reference</h3>
+          <p>More room for prose, compact writing tools, and one reference beside it. Other panes stay in the tool drawer. On narrow screens, the reference sits below.</p>
+          <div className="writing-desk-choices">
+            <label>Manuscript<select value={manuscript?.binding?.id ?? ''} disabled={!manuscript} onChange={(event) => setDocumentId(event.target.value)}>
+              {!manuscript && <option value="">Open a manuscript first</option>}
+              {manuscripts.map((pane) => <option key={pane.id} value={pane.binding!.id}>{pane.title}</option>)}
+            </select></label>
+            <label>Reference pane<select value={reference?.id ?? ''} disabled={!reference} onChange={(event) => setReferenceId(event.target.value)}>
+              {!reference && <option value="">Open a reference pane first</option>}
+              {references.map((pane) => <option key={pane.id} value={pane.id}>{pane.title}</option>)}
+            </select></label>
+          </div>
+          <div className="writing-desk-actions">
+            <button type="button" disabled={!manuscript || !reference || historyBusy} onClick={() => {
+              if (!manuscript?.binding || !reference) return;
+              const desk = writingReferenceDesk(capture('Writing with reference'), manuscript.binding.id, available.indexOf(reference), window.innerWidth);
+              if (desk) { restoreWithMemory(capture, restore, desk); close(); }
+            }}>Use writing desk</button>
+            <button type="button" disabled={!previous || historyBusy} onClick={() => { restorePrevious(capture, restore); close(); }}>Previous arrangement</button>
+          </div>
+        </section>
         <form onSubmit={(event) => {
           event.preventDefault();
           if (!name.trim()) return;

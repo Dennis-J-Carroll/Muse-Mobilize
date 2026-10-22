@@ -26,6 +26,7 @@ export function UndoControls() {
     return () => window.removeEventListener('keydown', key);
   }, [pending, formsOpen]);
   return <div className="undo-controls" role="group" aria-label="Saved project history">
+    <span className="history-scope">Saved</span>
     {(['undo', 'redo'] as const).map((direction) => <button key={direction} type="button"
       aria-label={`${direction === 'undo' ? 'Undo' : 'Redo'} saved change`}
       title={formsOpen ? 'Save or cancel open card forms first' : history[direction]?.label ?? 'No saved changes in this session'}

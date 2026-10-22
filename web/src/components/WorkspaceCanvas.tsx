@@ -30,6 +30,7 @@ import { fitWindow, isWorkbenchDocument, recallGutter, type WorkspaceViewport, t
 import { WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkbenchRail, type WorkbenchTool } from './WorkbenchRail';
 import type { SavedDesk } from '../desks';
+import { useWorkspaceMotion, type WorkspaceTransition } from '../workspaceMotion';
 
 /**
  * The Workspace Canvas. Panes are views, not agents (§34.3): the same shell
@@ -82,7 +83,7 @@ function PaneBody({ pane }: { pane: Pane }) {
   }
 }
 
-function PaneFrame({ pane, tiled, viewport, onFloat }: { pane: Pane; tiled: boolean; viewport: WorkspaceViewport; onFloat: () => void }) {
+function PaneFrame({ pane, tiled, viewport, onFloat, transition }: { pane: Pane; tiled: boolean; viewport: WorkspaceViewport; onFloat: () => void; transition: WorkspaceTransition }) {
   const focusPaneId = useWritingView((s) => s.focusPaneId);
   const setPaneSize = useStore((s) => s.setPaneSize);
   const closePane = useStore((s) => s.closePane);
@@ -139,7 +140,7 @@ function PaneFrame({ pane, tiled, viewport, onFloat }: { pane: Pane; tiled: bool
           aria-expanded={!toolsCollapsed}
           onPointerDown={(event) => { if (document.activeElement?.matches('textarea.draft')) event.preventDefault(); }}
           onClick={() => useWritingView.getState().setWritingToolsCollapsed(!toolsCollapsed)}>
-          <Icon.Chevron up={!toolsCollapsed} />
+          <Icon.Chevron up={!toolsCollapsed} /><span>Tools</span>
         </button>}
         {doc?.dirty && <span className="pane-dirty" title="unsaved">•</span>}
         {isManuscript && toolsCollapsed && !minimized && <button type="button" className="pane-focus-button" aria-label="Focus writing" title="Focus writing (Alt+Shift+F)"
@@ -148,7 +149,7 @@ function PaneFrame({ pane, tiled, viewport, onFloat }: { pane: Pane; tiled: bool
         {isManuscript && !minimized && <span className="pane-drag-space" aria-hidden="true" onPointerDown={onMoveDrag} />}
         <span className="pane-tools">
           {pane.floating && !minimized && <button title="Return to layout" onClick={() => useStore.getState().returnPaneToLayout(pane.id)}><Icon.Layers size={16} /></button>}
-          <button title={minimized ? `Restore ${pane.title} to workspace` : 'Minimize'} onClick={() => setPaneSize(pane.id, minimized ? 'normal' : 'minimized')}>
+          <button title={minimized ? `Restore ${pane.title} to workspace` : 'Minimize'} onClick={() => transition(() => setPaneSize(pane.id, minimized ? 'normal' : 'minimized'), `${pane.title} ${minimized ? 'returned to workspace' : 'moved to Tools'}.`)}>
             {minimized ? <Icon.Expand /> : <Icon.Minus />}
           </button>
           {!minimized && <button type="button" className="pane-expand" onClick={toggleMaximized} onKeyDown={onToggleKey}
@@ -176,7 +177,7 @@ function PaneFrame({ pane, tiled, viewport, onFloat }: { pane: Pane; tiled: bool
 /** Keep each portal target stable while moving its DOM host between regions.
  * Moving the existing host preserves React state; a new portal target would
  * remount the tool and discard unsent questions or other local form state. */
-function PaneMount({ pane, target, hidden, focused, order, panelMode, viewport, tiled, onFloat }: { pane: Pane; target: RefObject<HTMLDivElement>; hidden: boolean; focused: boolean; order: number; panelMode?: DrawerMode; viewport: WorkspaceViewport; tiled: boolean; onFloat: () => void }) {
+function PaneMount({ pane, target, hidden, focused, order, panelMode, viewport, tiled, onFloat, transition }: { pane: Pane; target: RefObject<HTMLDivElement>; hidden: boolean; focused: boolean; order: number; panelMode?: DrawerMode; viewport: WorkspaceViewport; tiled: boolean; onFloat: () => void; transition: WorkspaceTransition }) {
   const [host] = useState(() => document.createElement('div'));
   const wasFocused = useRef(false);
   const movedFocus = useRef<HTMLElement | null>(null);
@@ -216,7 +217,7 @@ function PaneMount({ pane, target, hidden, focused, order, panelMode, viewport, 
     movedFocus.current = null;
     wasFocused.current = focused;
   }, [host, target, order, hidden, pane.id, pane.title, pane.size, pane.sizeMode, pane.floating, focused, panelMode, viewport, tiled]);
-  return createPortal(<PaneFrame pane={pane} tiled={tiled} viewport={viewport} onFloat={onFloat} />, host);
+  return createPortal(<PaneFrame pane={pane} tiled={tiled} viewport={viewport} onFloat={onFloat} transition={transition} />, host);
 }
 
 export function WorkspaceCanvas() {
@@ -231,6 +232,7 @@ export function WorkspaceCanvas() {
   const focusPaneId = useWritingView((s) => s.focusPaneId);
   const projectId = useStore((s) => s.project?.id);
   const workspaceId = useStore((s) => s.activeWorkspace);
+  const transition = useWorkspaceMotion(projectId, workspaceId);
   const workbench = useWritingView((s) => s.workbench);
   const beforeWorkbench = useRef(new Map<string, Pane['sizeMode']>());
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -283,7 +285,7 @@ export function WorkspaceCanvas() {
   const onDragV = useDrag((dx) => setRightWidth(useStore.getState().rightWidth - dx));
   const onDragH = useDrag((_dx, dy) => setBottomHeight(useStore.getState().bottomHeight - dy));
 
-  const toggleWorkbench = () => {
+  const toggleWorkbench = () => transition(() => {
     const current = useStore.getState().panes;
     if (!workbench) {
       beforeWorkbench.current = new Map(current.map((pane) => [pane.id, pane.sizeMode]));
@@ -294,7 +296,7 @@ export function WorkspaceCanvas() {
     }
     useWritingView.getState().setWorkbench(!workbench);
     setDrawerOpen(false);
-  };
+  }, workbench ? 'Workspace arrangement restored.' : 'Companion tools moved to Tools.');
   const openWorkbenchTool = (tool: WorkbenchTool) => {
     const state = useStore.getState();
     let pane = state.panes.find((pane) => tool.paneId ? pane.id === tool.paneId : pane.type === tool.type && pane.binding?.id === tool.bindingId);
@@ -324,11 +326,11 @@ export function WorkspaceCanvas() {
       version: 1, id: crypto.randomUUID(), name,
       panes: state.panes.filter(pane => !pane.sessionOnly).map(({ id: _id, sessionOnly: _sessionOnly, ...pane }) => pane),
       view: { layout, workbench, sidebarCollapsed: view.sidebarCollapsed, rightWidth: state.rightWidth, bottomHeight: state.bottomHeight,
-        drawerMode, font: view.font, surface: view.surface, weight: view.weight, ...(focusDocumentId ? { focusDocumentId } : {}) },
+        drawerMode, font: view.font, surface: view.surface, weight: view.weight, writingToolsCollapsed: view.writingToolsCollapsed, ...(focusDocumentId ? { focusDocumentId } : {}) },
       preview: consultationWorkspacePreview() ?? visible,
     };
   };
-  const restoreDesk = (desk: SavedDesk) => {
+  const restoreDesk = (desk: SavedDesk) => transition(() => {
     finishCharacterConsultation(false);
     const state = useStore.getState();
     const view = useWritingView.getState();
@@ -341,6 +343,7 @@ export function WorkspaceCanvas() {
     view.setFont(desk.view.font);
     view.setSurface(desk.view.surface);
     view.setWeight(desk.view.weight);
+    if (typeof desk.view.writingToolsCollapsed === 'boolean') view.setWritingToolsCollapsed(desk.view.writingToolsCollapsed);
     setLayout(desk.view.layout);
     setDrawerMode(desk.view.drawerMode);
     setDrawerOpen(false);
@@ -352,7 +355,7 @@ export function WorkspaceCanvas() {
         if (pane) useWritingView.getState().focus(pane.id);
       });
     }
-  };
+  }, `Desk restored: ${desk.name}.`);
 
   const maximized = panes.find((p) => p.sizeMode === 'maximized');
   const active = panes.filter((pane) => !pane.sessionOnly && pane.sizeMode !== 'minimized' && !pane.floating);
@@ -419,7 +422,7 @@ export function WorkspaceCanvas() {
         try { localStorage.setItem(drawerKey, mode); } catch { /* Keep session preference. */ }
       }} />
     {panes.map((pane, order) => <PaneMount key={pane.id} pane={pane} order={order} viewport={{ ...viewport, gutter: recallGutter(workbench, viewport.width) }} focused={pane.id === focusPaneId}
-      tiled={isTiled(pane)} onFloat={() => setDrawerOpen(false)}
+      transition={transition} tiled={isTiled(pane)} onFloat={() => setDrawerOpen(false)}
       panelMode={!consultation && pane.sizeMode === 'minimized' && pane.id !== focusPaneId ? drawerMode : undefined}
       target={consultation?.paneId === pane.id ? consultWritingRef : consultation?.castPaneId === pane.id ? consultCastRef : pane.id === focusPaneId ? maximumRef : pane.sizeMode === 'minimized' ? drawerRef : pane.id === maximized?.id ? maximumRef : pane.floating ? floatingRef : isTiled(pane) ? tileRef : pane.region === 'main' ? mainRef : pane.region === 'right' ? rightRef : bottomRef}
       hidden={consultation ? pane.id !== consultation.paneId && pane.id !== consultation.castPaneId : pane.sessionOnly ? true : pane.id === focusPaneId ? false : pane.sizeMode === 'minimized' ? drawerMode === 'tabs' && pane.id !== activeDockId : Boolean(maximized && pane.id !== maximized.id)} />)}

@@ -114,11 +114,28 @@ Reduced-motion and transparency preferences have explicit CSS fallbacks.
 
 **Drafting, Planning, and Review** have workspace tabs. The manuscript editor
 adds page-width presets and a width slider, text zoom, typewriter scrolling,
-and a Focus button. An optional guard catches Space or Enter replacing a long
-selection. **Saved Desks** remember pane arrangements, can include writing
+and a Focus button. **Page** groups surface, font, weight, reading width, and
+the optional guard against Space or Enter replacing a long selection. Editing
+actions stay beside the manuscript; selection actions appear when text is selected.
+**Saved Desks** remember pane arrangements, can include writing
 focus, and can be reordered or recalled by number. `Alt+Shift+D` finds a desk;
 `Alt+Shift+0` restores the previous arrangement. Desk layouts stay in this
 browser for this project, outside portable project backups.
+
+In **Desks**, **Writing with reference** is an optional starting arrangement:
+choose an open manuscript and reference pane, then select **Use writing desk**.
+It gives prose more space, folds writing tools, and parks other panes in the
+tool drawer. Narrow screens stack the reference below the manuscript.
+**Previous arrangement** restores the prior layout and tools setting; save the
+new arrangement under a name to recall it later. Existing desks remain unchanged.
+Each document shows its own word count and save state beneath the writing field.
+Short title cues show where panes go when parked or when a desk is restored;
+live text stays in place at its final size. Drawer openings use a brief slide.
+System reduced-motion settings skip travel and retain text feedback.
+
+Atlas Pages, landmark details, and Canon distinguish summaries, facts, labels,
+and metadata through size, weight, and spacing. Existing fonts and manuscript
+appearance settings remain independent of these reference views.
 
 In **Drafting**, **Characters** temporarily pairs the active manuscript with Cast.
 Below 1,000px of content width, character reference becomes a sheet with a

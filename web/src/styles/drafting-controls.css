@@ -1,0 +1,94 @@
+/* Hierarchy inside the existing etched-glass world; manuscript preferences stay authoritative. */
+.app.is-drafting, .page-popover {
+  --text-context: 14px;
+  --text-control: 12px;
+  --text-detail: 11px;
+  --text-pane-title: 13px;
+}
+.app.is-drafting .workspace-head { align-items: center; gap: 12px; padding: 18px 18px 10px; }
+.app.is-drafting .workspace-head h1 { font-size: 21px; line-height: 1.25; letter-spacing: -.02em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.app.is-drafting .workspace-head p { font-size: var(--text-detail); color: var(--ink-mid); }
+.app.is-drafting .workspace-head.is-collapsed { padding-block: 8px; }
+.app.is-drafting .workspace-head.is-collapsed h1 { font-size: 17px; }
+.app.is-drafting .pane-title { font-size: var(--text-pane-title); font-weight: 500; color: var(--ink); }
+.app.is-drafting :is(.document-status, .agent-scope, .run-meta) { font-size: var(--text-detail); }
+.app.is-drafting :is(.document-status, .ask-count, .state-chip) { font-variant-numeric: tabular-nums; }
+.app.is-drafting .agent-blurb { font-size: var(--text-control); line-height: 1.5; }
+.app.is-drafting .run-q { font-size: var(--text-control); font-weight: 600; }
+.app.is-drafting :is(.run-text, .consult-a) { font-size: var(--text-context); line-height: 1.65; }
+
+.workspace-toolbar { gap: 8px 16px; }
+.workspace-tool-group, .workspace-project-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.workspace-project-group { margin-left: auto; }
+.workspace-tool-group .workbench-toggle { margin-left: 0; }
+.history-scope { color: var(--ink-mid); font-size: 11px; margin-right: 2px; }
+.workspace-project-group .undo-controls { flex-wrap: nowrap; }
+.workspace-project-group .undo-message { max-width: 180px; }
+
+.writing-toolbar { gap: 6px 14px; padding: 8px 10px; font-size: 12px; }
+.writing-primary, .writing-secondary { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.writing-primary { flex: 1 1 320px; }
+.writing-secondary { flex: 0 1 auto; }
+.writing-primary .undo-controls { flex-wrap: nowrap; }
+.writing-primary .undo-controls button { min-width: 54px; }
+.writing-primary > button, .writing-secondary > button, .page-popover-root > button {
+  min-height: 32px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px;
+  background: var(--glass-face); color: var(--ink-mid); font: inherit;
+}
+.writing-secondary .writing-typewriter[aria-pressed="true"] { background: var(--accent); color: var(--ink-onDeep); }
+.writing-secondary .writing-dice { display: inline-flex; align-items: center; justify-content: center; }
+.writing-focus-actions { flex-basis: 100%; }
+.writing-toolbar .writing-focus-title { flex-basis: 100%; font-size: 13px; font-weight: 500; color: var(--ink); }
+.pane.is-writing-focus .writing-toolbar { padding: 10px 16px; }
+.writing-primary .writing-focus-button { margin-left: auto; color: var(--accent); }
+.writing-primary > button:hover:not(:disabled), .writing-secondary > button:hover:not(:disabled), .page-popover-root > button:hover { border-color: var(--line-strong); }
+
+.page-popover {
+  position: fixed; z-index: 2400; width: min(320px, calc(100vw - 16px)); overflow-y: auto; overscroll-behavior: contain;
+  display: grid; gap: 14px; padding: 16px; border: 1px solid var(--glass-edge); border-radius: var(--r-md);
+  background: var(--glass-sheen), var(--glass-overlay); box-shadow: var(--shadow-float);
+  backdrop-filter: blur(18px) saturate(110%); -webkit-backdrop-filter: blur(18px) saturate(110%);
+  font: var(--text-control)/1.5 var(--font-ui); color: var(--ink); scrollbar-color: var(--card-blue) transparent;
+}
+.page-popover header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.page-popover h2 { margin: 0; font-size: 18px; font-weight: var(--weight-display); }
+.page-popover :is(button, select) { min-height: 34px; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--glass-face); color: var(--ink); font: inherit; }
+.page-popover header button { display: grid; place-items: center; min-width: 34px; }
+.page-popover select { width: 100%; min-width: 0; }
+.page-popover select:disabled { opacity: .65; cursor: default; }
+.page-popover :is(button, select, input):focus-visible, .page-popover:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.page-popover label { display: grid; gap: 4px; font-weight: var(--weight-label); }
+.page-setting-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.page-setting-wide { grid-column: 1 / -1; }
+.page-width-settings { display: grid; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+.page-popover output { color: var(--ink-mid); font-variant-numeric: tabular-nums; }
+.page-popover input[type="range"] { width: 100%; accent-color: var(--accent); }
+.page-popover-note { margin: 0; color: var(--ink-mid); font-size: var(--text-detail); line-height: 1.5; }
+.page-popover-check { display: flex !important; align-items: flex-start; gap: 8px !important; padding-top: 10px; border-top: 1px solid var(--line); }
+.page-popover-check input { margin: 3px 0 0; accent-color: var(--accent); }
+.page-popover .page-width-reset { justify-self: start; border: 0; background: transparent; padding: 0; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+
+@container writing-space (max-width: 650px) {
+  .workspace-toolbar { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+  .workspace-tool-group, .workspace-project-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-left: 0; }
+  .workspace-project-group { border-top: 1px solid var(--line); padding-top: 8px; }
+  .workspace-project-group .undo-controls { grid-column: 1 / -1; }
+  .workspace-tool-group > :is(button, .document-picker, .tile-picker), .workspace-project-group > button, .workspace-tool-group .document-picker > button { width: 100%; min-width: 0; }
+  .workspace-tool-group .tile-picker select { flex: 1; min-width: 0; max-width: none; width: 100%; }
+  .workspace-project-group .undo-controls button { flex: 1; }
+}
+@media (max-width: 700px) {
+  .app.is-drafting .workspace-head { padding: 10px 12px; }
+  .app.is-drafting .workspace-head h1 { font-size: 19px; }
+  .writing-toolbar, .pane.is-writing-focus .writing-toolbar { padding: 6px 8px; gap: 6px; }
+  .writing-primary, .writing-secondary { gap: 4px; }
+}
+@media (pointer: coarse) {
+  .page-popover :is(button, select, input[type="range"]), .page-popover-check { min-height: 44px; }
+  .page-popover select { font-size: 16px; }
+  .page-popover header button { min-width: 44px; }
+  .writing-primary > button, .writing-secondary > button, .page-popover-root > button { min-height: 44px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .page-popover { backdrop-filter: none; -webkit-backdrop-filter: none; }
+}

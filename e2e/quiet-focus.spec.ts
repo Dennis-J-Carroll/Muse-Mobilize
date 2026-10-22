@@ -1,13 +1,15 @@
-import { test, expect } from './fixtures';
+import { test, expect, openPageSettings, closePageSettings } from './fixtures';
 
 test('hidden focus controls leave a full-height draft and return without changing selection', async ({ page, projectId }, testInfo) => {
   const draft = page.locator('.pane-editor textarea.draft');
   await expect(draft).toHaveValue(/Chapter One/);
+  await openPageSettings(page);
   await page.getByLabel('Writing font', { exact: true }).selectOption('times');
+  await closePageSettings(page);
   await draft.evaluate((el: HTMLTextAreaElement) => { el.focus(); el.setSelectionRange(12, 22); });
   await page.getByRole('button', { name: 'Focus writing', exact: true }).click();
   await page.getByRole('button', { name: 'Hide writing controls', exact: true }).click();
-  await expect(page.getByLabel('Writing font', { exact: true })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Page settings', exact: true })).toBeHidden();
   await expect(page.getByText('Uses installed Times New Roman; otherwise a serif fallback.')).toBeHidden();
   await expect(draft).toBeFocused();
   expect(await draft.evaluate((el: HTMLTextAreaElement) => [el.selectionStart, el.selectionEnd])).toEqual([12, 22]);
@@ -17,13 +19,13 @@ test('hidden focus controls leave a full-height draft and return without changin
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.screenshot({ path: testInfo.outputPath('quiet-focus-phone.png') });
   await page.getByRole('button', { name: 'Show writing controls', exact: true }).click();
-  await expect(page.getByLabel('Writing font', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Page settings', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Hide writing controls', exact: true }).click();
   await draft.press('Escape');
-  await expect(page.getByLabel('Writing font', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Page settings', exact: true })).toBeVisible();
   await page.reload();
   await page.getByRole('button', { name: 'Focus writing', exact: true }).click();
-  await expect(page.getByLabel('Writing font', { exact: true })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Page settings', exact: true })).toBeHidden();
 });
 
 test('browser fullscreen exits independently of writing focus and includes body overlays', async ({ page, projectId }) => {

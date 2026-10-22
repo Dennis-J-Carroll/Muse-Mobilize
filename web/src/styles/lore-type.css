@@ -1,0 +1,54 @@
+/* Readable atlas/canon roles; manuscript preferences remain owned by writingView. */
+.world-workspace, .world-drawer, .canon-pane {
+  --lore-body: 16px;
+  --lore-fact: 14px;
+  --lore-label: 12px;
+  --lore-detail: 12px;
+}
+.world-inspector h1 { font-size: 26px; line-height: 1.2; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.world-summary, .world-page-entry p { max-width: 70ch; font-size: var(--lore-body); line-height: 1.65; white-space: pre-line; overflow-wrap: anywhere; }
+.world-page-entry h2 { font-size: 24px; line-height: 1.25; letter-spacing: -.02em; overflow-wrap: anywhere; margin-bottom: 12px; }
+.world-page-entry > div { min-width: 0; }
+.world-page-entry > div:nth-child(2) > span, .world-page-meta em { font: var(--lore-detail)/1.5 var(--font-ui); color: var(--ink-mid); text-transform: none; overflow-wrap: anywhere; }
+.world-page-meta { gap: 6px; margin-top: 16px; max-width: 70ch; }
+.world-page-list > header p, .world-aliases { font-size: var(--lore-detail); line-height: 1.5; }
+.world-page-index button { font-size: var(--lore-label); }
+.world-page-index button em { font: var(--lore-detail)/1.4 var(--font-ui); font-variant-numeric: tabular-nums; }
+.world-page-mark small { font-size: 10px; letter-spacing: .03em; }
+.world-inspector > header span, .world-categories span, .world-ledger dt { font-size: var(--lore-label); font-weight: 500; letter-spacing: .02em; text-transform: none; }
+.world-ledger dd { font-size: var(--lore-fact); line-height: 1.6; overflow-wrap: anywhere; }
+.world-ledger div { padding-block: 12px; }
+.world-threads h3, .world-plot-echoes h3, .world-connect h3 { font-size: var(--lore-label); font-weight: 600; letter-spacing: 0; text-transform: none; margin-bottom: 10px; }
+.world-threads > div { grid-template-columns: 7px minmax(0, 1fr); padding-block: 10px; }
+.world-threads > div :is(p, strong), .world-threads > p { font-size: var(--lore-fact); line-height: 1.6; overflow-wrap: anywhere; }
+.world-threads > div em { grid-column: 2; font-size: var(--lore-detail); }
+.world-plot-echoes button { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+.world-plot-echoes button strong { font-size: var(--lore-fact); line-height: 1.5; white-space: normal; overflow-wrap: anywhere; }
+.world-plot-echoes button :is(i, span), .world-drawer-note { font-size: var(--lore-detail); line-height: 1.5; }
+.world-drawer .drawer-section h3 { font-size: 14px; font-weight: 600; letter-spacing: 0; }
+.world-drawer .drawer-grid label { gap: 6px; font-size: var(--lore-label); font-weight: 500; }
+.world-drawer .drawer-grid :is(input, textarea, select) { font-size: var(--lore-fact); line-height: 1.5; font-weight: 400; }
+.world-drawer .drawer-grid textarea { font-size: var(--lore-body); line-height: 1.6; }
+.canon-section { gap: 12px; }
+.canon-scroll { gap: 24px; }
+.canon-section-head h3 { font-size: 18px; font-weight: 500; letter-spacing: -.01em; }
+.canon-section-head p { max-width: 65ch; font-size: var(--lore-detail); line-height: 1.5; }
+.canon-section-head > span { font-size: var(--lore-detail); font-variant-numeric: tabular-nums; }
+.canon-pane .entity-chip { max-width: 100%; font-size: var(--lore-fact); line-height: 1.5; overflow-wrap: anywhere; text-align: left; }
+.canon-pane .entity-chip small { font-size: var(--lore-detail); text-transform: none; letter-spacing: 0; }
+.canon-pane .fact-line { font-size: var(--lore-fact); line-height: 1.6; overflow-wrap: anywhere; }
+.canon-pane .fact-line > * { min-width: 0; max-width: 70ch; }
+.canon-pane .fact-line b { font-weight: 600; }
+.canon-pane .fact-line strong { font-weight: 400; }
+.canon-pane .fact-meta { margin-top: 10px; font-size: var(--lore-detail); }
+.canon-pane .fact-meta :is(select, .evidence-link) { font-size: var(--lore-detail); overflow-wrap: anywhere; }
+.canon-form-grid label { font-size: var(--lore-label); gap: 5px; font-weight: 500; color: var(--ink-mid); }
+@media (pointer: coarse) {
+  .world-drawer .drawer-grid :is(input, textarea, select) { font-size: 16px; }
+}
+@container world (max-width: 520px) {
+  .world-page-entry h2 { font-size: 20px; }
+}
+@container floating-editor (max-width: 400px) {
+  .world-drawer > header h2 { font-size: 20px; line-height: 1.25; }
+}

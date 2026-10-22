@@ -47,33 +47,37 @@ export function WorkspaceToolbar({ layout, onLayout, workbench, onWorkbench, cap
     return () => document.removeEventListener('pointerdown', outside);
   }, [open]);
   return <div id="workspace-arrangement" className="workspace-toolbar" aria-label="Workspace arrangement">
-    {/* One control: the icon mirrors the chosen arrangement, the select changes it. */}
-    <label className="tile-picker" title="Arrange documents">{TILE_ICONS[layout]}
-      <select aria-label="Document tiles" value={layout} onChange={(event) => onLayout(event.target.value as TileLayout)}>
-        <option value="workspace">Workspace</option><option value="columns">Columns</option><option value="rows">Rows</option><option value="grid">Grid</option>
-      </select>
-    </label>
-    <div ref={root} className="document-picker" onKeyDown={(event) => {
-      if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); setOpen(false); trigger.current?.focus(); }
-    }}>
-      <button ref={trigger} type="button" aria-label="Open document" aria-expanded={open} aria-controls="document-picker-list" onClick={() => setOpen(!open)}><Icon.Book size={16} /> Documents</button>
-      {open && <div id="document-picker-list" className="document-picker-list" role="group" aria-label="Project documents">
-        {documents.map((doc) => <button type="button" key={doc.id} aria-label={`Open ${doc.title}`} onClick={() => {
-          const s = useStore.getState();
-          const existing = s.panes.find((pane) => pane.binding?.type === 'document' && pane.binding.id === doc.id);
-          if (existing) s.setPaneSize(existing.id, 'normal');
-          else s.openPane('editor', { bindingId: doc.id });
-          setOpen(false);
-          trigger.current?.focus();
-        }}><span>{doc.title}</span><small>{doc.kind}</small></button>)}
-      </div>}
+    <div className="workspace-tool-group" role="group" aria-label="Documents and desk">
+      {/* One control: the icon mirrors the chosen arrangement, the select changes it. */}
+      <label className="tile-picker" title="Arrange documents">{TILE_ICONS[layout]}
+        <select aria-label="Document tiles" value={layout} onChange={(event) => onLayout(event.target.value as TileLayout)}>
+          <option value="workspace">Workspace</option><option value="columns">Columns</option><option value="rows">Rows</option><option value="grid">Grid</option>
+        </select>
+      </label>
+      <div ref={root} className="document-picker" onKeyDown={(event) => {
+        if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); setOpen(false); trigger.current?.focus(); }
+      }}>
+        <button ref={trigger} type="button" aria-label="Open document" aria-expanded={open} aria-controls="document-picker-list" onClick={() => setOpen(!open)}><Icon.Book size={16} /> Documents</button>
+        {open && <div id="document-picker-list" className="document-picker-list" role="group" aria-label="Project documents">
+          {documents.map((doc) => <button type="button" key={doc.id} aria-label={`Open ${doc.title}`} onClick={() => {
+            const s = useStore.getState();
+            const existing = s.panes.find((pane) => pane.binding?.type === 'document' && pane.binding.id === doc.id);
+            if (existing) s.setPaneSize(existing.id, 'normal');
+            else s.openPane('editor', { bindingId: doc.id });
+            setOpen(false);
+            trigger.current?.focus();
+          }}><span>{doc.title}</span><small>{doc.kind}</small></button>)}
+        </div>}
+      </div>
+      <SavedDesks capture={captureDesk} restore={restoreDesk} />
+      <button type="button" className="workbench-toggle" aria-pressed={workbench} onClick={onWorkbench}><Icon.Layers size={16} /> Workbench</button>
     </div>
-    <UndoControls />
-    <SavedDesks capture={captureDesk} restore={restoreDesk} />
     {switcherOpen && <DeskSwitcher onRestore={(desk) => { if (!busy()) restoreWithMemory(captureDesk, restoreDesk, desk); }} />}
     <ShortcutLegend />
-    <button type="button" className="connections-trigger" aria-label="Open connections" onClick={() => openConnections()}>Connections</button>
-    <ProjectBackups />
-    <button type="button" className="workbench-toggle" aria-pressed={workbench} onClick={onWorkbench}><Icon.Layers size={16} /> Workbench</button>
+    <div className="workspace-project-group" role="group" aria-label="Project actions">
+      <UndoControls />
+      <button type="button" className="connections-trigger" aria-label="Open connections" onClick={() => openConnections()}>Connections</button>
+      <ProjectBackups />
+    </div>
   </div>;
 }

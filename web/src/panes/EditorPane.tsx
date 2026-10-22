@@ -6,7 +6,7 @@ import { useStore } from '../store';
 import { api } from '../api';
 import type { Pane } from '../types';
 import * as Icon from '../components/icons';
-import { measureCss, stepZoom, useWritingView, WIDTH_PRESETS, WRITING_FONTS, ZOOM_DEFAULT, ZOOM_MAX, ZOOM_MIN, type WritingFont } from '../writingView';
+import { measureCss, stepZoom, useWritingView, WRITING_FONTS, ZOOM_DEFAULT, ZOOM_MAX, ZOOM_MIN } from '../writingView';
 import { useWritingFullscreen } from '../useWritingFullscreen';
 import { openConnections } from '../connectionsView';
 import { useThreadPopover } from '../threads';
@@ -18,6 +18,7 @@ import { resolveBangHash, type BangSnapshot } from '../bangHash';
 import { caretTop, typewriterScrollTop } from '../typewriter';
 import { PinnedConstraints } from '../components/PinnedConstraints';
 import { rollAll } from '../constraints';
+import { DocumentStatus } from '../components/DocumentStatus';
 
 /** Registry so a patch card can point at the exact range inside the draft. */
 export const editorRefs = new Map<string, HTMLTextAreaElement>();
@@ -231,29 +232,21 @@ export function EditorPane({ pane }: { pane: Pane }) {
         onPointerDown={(event) => event.preventDefault()} onClick={toggleControls}><Icon.Feather size={16} /></button>}
       {isManuscript && <div className="writing-toolbar" hidden={quiet || folded}>
         <span className="writing-focus-title">{doc.title}</span>
-        <DocumentUndo documentId={docId} />
-        <div className="writing-appearance">
-          <select aria-label="Page surface" value={surface} onChange={(event) => useWritingView.getState().setSurface(event.target.value as 'glass' | 'paper')}>
-            <option value="glass">Glass</option><option value="paper">Paper</option>
-          </select>
-          <select aria-label="Writing font" value={font.id} onChange={(event) => useWritingView.getState().setFont(event.target.value as WritingFont)}>
-            {WRITING_FONTS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-          </select>
-          <select aria-label="Writing weight" value={font.variable ? weight : '400'} disabled={!font.variable} title={font.variable ? 'Writing weight' : 'This font has one regular weight'} onChange={(event) => useWritingView.getState().setWeight(event.target.value as '350' | '400')}>
-            <option value="350">Light</option><option value="400">Regular</option>
-          </select>
-          <select aria-label="Page width" value={measure === null ? 'default' : measure === 'full' ? 'full' : WIDTH_PRESETS.some((p) => p.value === measure) ? String(measure) : 'custom'}
-            onChange={(event) => {
-              const value = event.target.value;
-              if (value === 'custom') return;
-              useWritingView.getState().setMeasure(value === 'default' ? null : value === 'full' ? 'full' : Number(value));
-            }}>
-            <option value="default">Default width</option>
-            {WIDTH_PRESETS.map((preset) => <option key={preset.value} value={String(preset.value)}>{preset.label} ({preset.value})</option>)}
-            <option value="full">Full</option>
-            {typeof measure === 'number' && !WIDTH_PRESETS.some((p) => p.value === measure) && <option value="custom">Custom ({measure})</option>}
-          </select>
-          <PagePopover />
+        <div className="writing-primary" role="group" aria-label="Document actions">
+          <DocumentUndo documentId={docId} />
+          <button type="button" aria-label="Tag or link selection" title="Connect selected text, or type !#" disabled={Boolean(doc.recovery)} onPointerDown={(event) => event.preventDefault()} onClick={connectSelection}>Tag / link</button>
+          <button type="button" aria-label="Note on selection" title="Add a note on the selected text, or open this document's notes" disabled={Boolean(doc.recovery)} onPointerDown={(event) => event.preventDefault()} onClick={() => void noteSelection()}>Note</button>
+          <button type="button" className="writing-focus-button"
+            aria-label={focused ? 'Exit writing focus' : 'Focus writing'}
+            aria-pressed={focused}
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => useWritingView.getState().focus(focused ? null : pane.id)}>
+            <Icon.Expand size={15} /> {focused ? 'Back to workspace' : 'Focus'}
+            {focused && <kbd>Esc</kbd>}
+          </button>
+        </div>
+        <div className="writing-secondary" role="group" aria-label="Page and writing tools">
+          <PagePopover paneId={pane.id} available={!quiet && !folded} />
           <button type="button" className="writing-typewriter" aria-pressed={typewriter} title="Keep the line you're writing at a steady height"
             onPointerDown={(event) => event.preventDefault()}
             onClick={() => { useWritingView.getState().setTypewriter(!typewriter); ref.current?.focus({ preventScroll: true }); }}>Typewriter</button>
@@ -265,26 +258,24 @@ export function EditorPane({ pane }: { pane: Pane }) {
             <button type="button" aria-label="Zoom in text" title="Zoom in (Ctrl +)" disabled={zoom >= ZOOM_MAX}
               onPointerDown={(event) => event.preventDefault()} onClick={() => zoomTo(stepZoom(useWritingView.getState().zoom, 1))}>+</button>
           </div>
-        </div>
-        <button type="button" className="writing-dice" aria-label="Roll constraints" title="Roll five constraints and pin them over the draft"
-          onPointerDown={(event) => event.preventDefault()}
-          onClick={async () => {
-            const entities = await useStore.getState().canonForRolling();
-            await useStore.getState().pinConstraints(rollAll(entities, null, new Set()));
-            ref.current?.focus({ preventScroll: true });
-          }}><span aria-hidden="true">🎲</span></button>
-        <button type="button" aria-label="Tag or link selection" title="Connect selected text, or type !#" disabled={Boolean(doc.recovery)} onPointerDown={(event) => event.preventDefault()} onClick={connectSelection}>Tag / link</button>
-        <button type="button" aria-label="Note on selection" title="Add a note on the selected text, or open this document's notes" disabled={Boolean(doc.recovery)} onPointerDown={(event) => event.preventDefault()} onClick={() => void noteSelection()}>Note</button>
-        {isManuscript && <div className="export-menu" data-testid="export-menu">
-          <button type="button" aria-label="Export document" aria-haspopup="menu" aria-expanded={exportOpen}
-            disabled={exporting} onPointerDown={(event) => event.preventDefault()}
-            onClick={() => setExportOpen((open) => !open)}>{exporting ? 'Exporting…' : 'Export'}</button>
-          {exportOpen && <div className="export-menu-list" role="menu" aria-label="Export formats">
-            {([['docx', 'Word (.docx)'], ['markdown', 'Markdown (.md)'], ['txt', 'Plain text (.txt)']] as const).map(([format, label]) => (
-              <button key={format} role="menuitem" onClick={() => { setExportOpen(false); void exportAs(format); }}>{label}</button>
-            ))}
+          <button type="button" className="writing-dice" aria-label="Roll constraints" title="Roll five constraints and pin them over the draft"
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={async () => {
+              const entities = await useStore.getState().canonForRolling();
+              await useStore.getState().pinConstraints(rollAll(entities, null, new Set()));
+              ref.current?.focus({ preventScroll: true });
+            }}><Icon.Spark size={16} /></button>
+          {isManuscript && <div className="export-menu" data-testid="export-menu">
+            <button type="button" aria-label="Export document" aria-haspopup="menu" aria-expanded={exportOpen}
+              disabled={exporting} onPointerDown={(event) => event.preventDefault()}
+              onClick={() => setExportOpen((open) => !open)}>{exporting ? 'Exporting…' : 'Export'}</button>
+            {exportOpen && <div className="export-menu-list" role="menu" aria-label="Export formats">
+              {([['docx', 'Word (.docx)'], ['markdown', 'Markdown (.md)'], ['txt', 'Plain text (.txt)']] as const).map(([format, label]) => (
+                <button key={format} role="menuitem" onClick={() => { setExportOpen(false); void exportAs(format); }}>{label}</button>
+              ))}
+            </div>}
           </div>}
-        </div>}
+        </div>
         {focused && <div className="writing-focus-actions">
           <button type="button" aria-label="Open story cards" aria-keyshortcuts="Alt+Shift+K" title="Open story cards (Alt+Shift+K)" onPointerDown={(event) => event.preventDefault()}
             onClick={() => useWritingView.getState().setFocusLayer({ kind: 'cards' })}>Story cards</button>
@@ -296,44 +287,27 @@ export function EditorPane({ pane }: { pane: Pane }) {
           <button type="button" aria-label="Hide writing controls" onPointerDown={(event) => event.preventDefault()} onClick={toggleControls}>Hide controls</button>
           <LegendTrigger />
         </div>}
-        <button type="button" className="writing-focus-button"
-          aria-label={focused ? 'Exit writing focus' : 'Focus writing'}
-          aria-pressed={focused}
-          onPointerDown={(event) => event.preventDefault()}
-          onClick={() => useWritingView.getState().focus(focused ? null : pane.id)}>
-          <Icon.Expand size={15} /> {focused ? 'Back to workspace' : 'Focus'}
-          {focused && <kbd>Esc</kbd>}
-        </button>
       </div>}
       {focused && browserScreen.message && <p className="writing-font-note" role="status" hidden={quiet || folded}>{browserScreen.message}</p>}
-      {isManuscript && font.id === 'times' && <p className="writing-font-note" hidden={quiet || folded}>Uses installed Times New Roman; otherwise a serif fallback.</p>}
       {!isManuscript && <div className="document-history"><DocumentUndo documentId={docId} /></div>}
       {isManuscript && <PinnedConstraints />}
-      <div className={`ask-bar ${mine ? 'is-live' : ''}`} hidden={folded && !mine}>
-        {mine ? (
-          <>
-            <span className="ask-count">{selWords} words selected</span>
-            <span className="ask-label">Ask</span>
-            <div className="ask-agents">
-              {agents.map((a) => (
-                <button
-                  key={a.id}
-                  className="chip chip-agent"
-                  disabled={anyBusy}
-                  style={{ ['--chip' as any]: a.accent ?? 'var(--accent)' }}
-                  onClick={() => askAbout(a.id)}
-                >
-                  {busy[a.id] ? '…' : a.name}
-                </button>
-              ))}
-            </div>
-          </>
-        ) : (
-          <span className="ask-hint">
-            <Icon.Spark size={14} /> Highlight a passage to send it to an agent.
-          </span>
-        )}
-      </div>
+      {mine && <div className="ask-bar is-live">
+        <span className="ask-count">{selWords} words selected</span>
+        <span className="ask-label">Ask</span>
+        <div className="ask-agents">
+          {agents.map((a) => (
+            <button
+              key={a.id}
+              className="chip chip-agent"
+              disabled={anyBusy}
+              style={{ ['--chip' as any]: a.accent ?? 'var(--accent)' }}
+              onClick={() => askAbout(a.id)}
+            >
+              {busy[a.id] ? '…' : a.name}
+            </button>
+          ))}
+        </div>
+      </div>}
 
       <textarea
         ref={bindEditor}
@@ -341,7 +315,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
         style={isManuscript ? { fontFamily: font.family, fontWeight: font.variable ? Number(weight) : 400 } : undefined}
         spellCheck
         readOnly={Boolean(doc.recovery) || restoring}
-        aria-label={doc.recovery ? `${doc.title} — choose a recovered version to continue` : undefined}
+        aria-label={doc.recovery ? `${doc.title} — choose a recovered version to continue` : doc.title}
         value={doc.content}
         onChange={(e) => { editDoc(docId, e.target.value); updateConsultationBookmark(pane.id, e.currentTarget); recenter(); }}
         onSelect={syncSelection}
@@ -373,6 +347,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
         onBlur={() => void useStore.getState().flushDoc(docId)}
         placeholder="Start writing your story…"
       />
+      {!quiet && <DocumentStatus documentId={docId} />}
     </div>
   );
 }

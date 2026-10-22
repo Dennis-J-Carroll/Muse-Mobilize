@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, openPageSettings, closePageSettings } from './fixtures';
 
 test('visual desk presets restore arrangement and survive reload without replacing live drafts', async ({ page, projectId }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -8,7 +8,9 @@ test('visual desk presets restore arrangement and survive reload without replaci
   await page.getByRole('button', { name: 'Workbench', exact: true }).click();
   await page.getByLabel('Document tiles', { exact: true }).selectOption('columns');
   const manuscript = page.locator('.pane-editor');
+  await openPageSettings(page);
   await page.getByLabel('Writing font', { exact: true }).selectOption('josefin-slab');
+  await closePageSettings(page);
   await manuscript.getByRole('button', { name: 'Move Chapter One', exact: true }).focus();
   await page.keyboard.press('ArrowRight');
   const savedPosition = await manuscript.boundingBox();
@@ -21,20 +23,25 @@ test('visual desk presets restore arrangement and survive reload without replaci
   await expect(page.getByRole('img', { name: 'Preview of Atlas desk', exact: true }).locator('g').last()).toContainText('Chapter One');
   await page.screenshot({ path: testInfo.outputPath('saved-desks-preview.png'), animations: 'disabled' });
   await page.getByRole('button', { name: 'Close saved desks', exact: true }).click();
+  await closePageSettings(page);
   await manuscript.getByRole('button', { name: 'Return to layout', exact: true }).click();
   await page.getByLabel('Document tiles', { exact: true }).selectOption('rows');
   await page.getByRole('button', { name: 'Workbench', exact: true }).click();
+  await openPageSettings(page);
   await page.getByLabel('Writing font', { exact: true }).selectOption('inter');
+  await closePageSettings(page);
   await page.getByRole('button', { name: 'Expand tool menu', exact: true }).click();
   await page.getByRole('button', { name: 'Saved desks', exact: true }).click();
   await page.getByRole('button', { name: 'Restore Atlas desk', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Workbench', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: 'Expand tool menu', exact: true })).toBeVisible();
   await expect(page.getByLabel('Document tiles', { exact: true })).toHaveValue('columns');
+  await openPageSettings(page);
   await expect(page.getByLabel('Writing font', { exact: true })).toHaveValue('josefin-slab');
   expect(await manuscript.boundingBox()).toEqual(savedPosition);
   await page.getByRole('button', { name: 'Open Muse in workbench', exact: true }).click();
   await expect(question).toHaveValue('A live question must survive desk switching.');
+  await closePageSettings(page);
   await page.getByRole('button', { name: 'Close tool drawer', exact: true }).click();
   await page.reload();
   await page.getByRole('button', { name: 'Saved desks', exact: true }).click();

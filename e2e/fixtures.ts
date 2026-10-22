@@ -31,3 +31,15 @@ export const png = {
   mimeType: 'image/png',
   buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
 };
+
+/** Appearance controls share the Page disclosure in both workspace and focus. */
+export async function openPageSettings(page: Page) {
+  const dialog = page.getByRole('dialog', { name: 'Page settings', exact: true });
+  if (!await dialog.isVisible()) await page.getByRole('button', { name: 'Page settings', exact: true }).click();
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+export async function closePageSettings(page: Page) {
+  const close = page.getByRole('button', { name: 'Close page settings', exact: true });
+  if (await close.isVisible()) await close.click();
+}

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseDesks, reconcileDeskPanes, type SavedDesk } from '../src/desks.ts';
+import { parseDesks, reconcileDeskPanes, writingReferenceDesk, type SavedDesk } from '../src/desks.ts';
 import { fitWindow, recallGutter } from '../src/workspaceLayout.ts';
 import type { Pane } from '../src/types.ts';
 
@@ -64,4 +64,36 @@ test('focusDocumentId is optional: valid ids are kept, invalid ones are dropped,
   assert.equal(stripped.id, 'bad');
   assert.equal('focusDocumentId' in stripped.view, false);
   assert.equal('focusDocumentId' in old.view, false);
+});
+
+test('writing desk parks other tools, preserves the original snapshot, and clears old geometry only for its pair', () => {
+  const original: SavedDesk = { ...desk, panes: [
+    { ...page, floating: { x: 100, y: 100, width: 800, height: 400, layer: 2 } },
+    muse,
+    { type: 'notes', title: 'Notes', region: 'bottom', sizeMode: 'normal', size: { width: 500, height: 300 } },
+  ], view: { ...desk.view, writingToolsCollapsed: false, focusDocumentId: 'chapter' } };
+  const before = structuredClone(original);
+  const next = writingReferenceDesk(original, 'chapter', 1, 1280)!;
+  assert.deepEqual(original, before);
+  assert.deepEqual(next.panes.map((pane) => [pane.region, pane.sizeMode]), [['main', 'normal'], ['right', 'normal'], ['bottom', 'minimized']]);
+  assert.equal(next.panes[0].floating, undefined);
+  assert.deepEqual(next.panes[2].size, original.panes[2].size);
+  assert.equal(next.view.writingToolsCollapsed, true);
+  assert.equal(next.view.focusDocumentId, undefined);
+  assert.equal(next.view.font, original.view.font);
+  assert.equal(next.view.surface, original.view.surface);
+  assert.equal(next.view.weight, original.view.weight);
+  assert.equal(writingReferenceDesk(original, 'missing', 1, 1280), null);
+  assert.equal(writingReferenceDesk(original, 'chapter', 0, 1280), null);
+  assert.equal(writingReferenceDesk(original, 'chapter', 99, 1280), null);
+});
+
+test('compact tools preference is optional and invalid stored values do not change it', () => {
+  const parsed = parseDesks(JSON.stringify([
+    desk,
+    { ...desk, view: { ...desk.view, writingToolsCollapsed: false } },
+    { ...desk, view: { ...desk.view, writingToolsCollapsed: true } },
+    { ...desk, view: { ...desk.view, writingToolsCollapsed: 'false' } },
+  ]));
+  assert.deepEqual(parsed.map((item) => item.view.writingToolsCollapsed), [undefined, false, true, undefined]);
 });

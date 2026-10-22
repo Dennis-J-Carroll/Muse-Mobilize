@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, openPageSettings, closePageSettings } from './fixtures';
 
 test.use({ isMobile: true, hasTouch: true });
 
@@ -16,7 +16,9 @@ test('phone workspace folds into a button and keeps the draft and selection when
   await expect(show).toBeInViewport();
   await show.tap();
 
+  await openPageSettings(page);
   await page.getByLabel('Page surface', { exact: true }).selectOption('paper');
+  await openPageSettings(page);
   await page.getByLabel('Writing font', { exact: true }).selectOption('antic-didone');
   const text = `The door opened onto a quiet garden.\n\nA second paragraph stays separate. ${projectId}`;
   await draft.fill(text);
@@ -51,13 +53,16 @@ test('phone workspace folds into a button and keeps the draft and selection when
 
 test('mobile manuscript spacing fits both surfaces without changing paragraph breaks', async ({ page, projectId }, testInfo) => {
   const draft = page.locator('.pane-editor textarea.draft');
+  await openPageSettings(page);
   await page.getByLabel('Writing font', { exact: true }).selectOption('antic-didone');
   const text = 'The mist lifted from the garden wall. Beyond the gate, wet branches brushed against the stone, leaving dark trails where the water ran.\n\nFootsteps crossed the empty courtyard. She closed her notebook and waited for the figure beneath the arch to step into the morning light.';
   for (const width of [320, 390, 430]) {
     await page.setViewportSize({ width, height: 844 });
     for (const surface of ['glass', 'paper']) {
+      await openPageSettings(page);
       await page.getByLabel('Page surface', { exact: true }).selectOption(surface);
       await draft.fill(text);
+      await closePageSettings(page);
       await page.getByRole('button', { name: 'Focus writing', exact: true }).tap();
       const hide = page.getByRole('button', { name: 'Hide writing controls', exact: true });
       if (await hide.isVisible()) await hide.tap();
@@ -84,6 +89,7 @@ test('writing follows a keyboard-sized visual viewport and restores after it clo
   await page.setViewportSize({ width: 390, height: 844 });
   const draft = page.locator('.pane-editor textarea.draft');
   await draft.fill(`Keyboard viewport check. ${projectId}`);
+  await closePageSettings(page);
   await page.getByRole('button', { name: 'Focus writing', exact: true }).tap();
   await page.getByRole('button', { name: 'Hide writing controls', exact: true }).tap();
   // Emulate visual-viewport events only; this is not a native iOS keyboard test.
