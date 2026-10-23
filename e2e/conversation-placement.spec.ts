@@ -1,0 +1,112 @@
+import { test, expect, openTool } from './fixtures';
+
+test('quick Muse becomes a movable workspace card and saved desks retain its placement', async ({ page, projectId }, testInfo) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const question = page.getByRole('textbox', { name: 'Ask Muse', exact: true });
+  await question.fill('Keep this question through every placement.');
+  await question.evaluate(element => { element.dataset.identity = 'same-composer'; });
+  await openTool(page, 'Themes');
+  await page.getByRole('button', { name: 'Open Muse conversation', exact: true }).click();
+  const quick = page.getByRole('region', { name: 'Muse conversation', exact: true });
+  await quick.getByRole('button', { name: 'Workspace', exact: true }).click();
+  await expect(quick).toBeHidden();
+  const muse = page.locator('.pane-agent');
+  await expect(muse.locator('..')).toHaveClass(/is-floating/);
+  await expect(question).toBeFocused();
+  await expect(question).toHaveValue('Keep this question through every placement.');
+  await expect(question).toHaveAttribute('data-identity', 'same-composer');
+  await expect(page.locator('.pane-themes')).toBeVisible();
+  await muse.getByRole('button', { name: 'Move Muse', exact: true }).focus();
+  const before = (await muse.boundingBox())!;
+  await page.keyboard.press('Shift+ArrowLeft');
+  expect((await muse.boundingBox())!.x).toBeCloseTo(before.x - 20, 0);
+  await muse.getByRole('button', { name: 'Resize Muse from left', exact: true }).focus();
+  await page.keyboard.press('Shift+ArrowLeft');
+  expect((await muse.boundingBox())!.width).toBeCloseTo(before.width + 20, 0);
+  const position = await muse.boundingBox();
+  await page.screenshot({ path: testInfo.outputPath('muse-workspace-placement.png'), animations: 'disabled' });
+
+  await page.getByRole('button', { name: 'Saved desks', exact: true }).click();
+  await page.getByLabel('Desk name', { exact: true }).fill('Muse beside Themes');
+  await page.getByRole('button', { name: 'Save desk', exact: true }).click();
+  await page.getByRole('button', { name: 'Close saved desks', exact: true }).click();
+  await page.getByRole('button', { name: 'Open Muse conversation', exact: true }).click();
+  await quick.getByRole('button', { name: 'Tools tab', exact: true }).click();
+  await page.getByRole('button', { name: 'Close tool drawer', exact: true }).click();
+  await page.getByRole('button', { name: 'Saved desks', exact: true }).click();
+  await page.getByRole('button', { name: 'Restore Muse beside Themes', exact: true }).click();
+  await expect(muse.locator('..')).toHaveClass(/is-floating/);
+  expect(await muse.boundingBox()).toEqual(position);
+  await expect(question).toHaveAttribute('data-identity', 'same-composer');
+  await muse.getByRole('button', { name: 'Return to layout', exact: true }).click();
+  await expect(page.locator('.region-right .pane-agent')).toBeVisible();
+  await expect(page.locator('.pane-agent')).toHaveCount(1);
+});
+
+test('Tools tabs and Workbench reuse the conversation, replies, and unfinished question', async ({ page, projectId }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const launch = page.getByRole('button', { name: 'Open Muse conversation', exact: true });
+  const quick = page.getByRole('region', { name: 'Muse conversation', exact: true });
+  const question = page.getByRole('textbox', { name: 'Ask Muse', exact: true });
+  await launch.click();
+  await question.fill('Explore the theme.');
+  await quick.getByRole('button', { name: 'Ask', exact: true }).click();
+  await expect(quick.locator('.run-text')).toBeVisible();
+  const response = await quick.locator('.run-text').innerText();
+  await question.fill('Keep my follow-up.');
+  await quick.getByRole('button', { name: 'Tools tab', exact: true }).click();
+  const drawer = page.getByRole('region', { name: 'Parked workspace tools', exact: true });
+  await expect(quick).toBeHidden();
+  await expect(drawer.getByRole('tab', { name: 'Muse', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(question).toBeFocused();
+  await expect(drawer.locator('.run-text')).toHaveText(response);
+  await expect(page.getByRole('button', { name: 'Workbench', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  await page.keyboard.press('Escape');
+  await expect(question).toBeHidden();
+  await page.getByRole('button', { name: 'Open tool drawer', exact: true }).click();
+  await expect(question).toHaveValue('Keep my follow-up.');
+  await launch.click();
+  await quick.getByRole('button', { name: 'Workbench', exact: true }).click();
+  const rail = page.getByRole('navigation', { name: 'Workbench tools', exact: true });
+  await expect(rail).toBeVisible();
+  await expect(question).toBeFocused();
+  await expect(drawer.locator('.run-text')).toHaveText(response);
+  await expect(page.locator('.pane-editor textarea.draft')).toBeVisible();
+  await launch.click();
+  // The rail is keyboard-accessible even when the quick drawer covers it.
+  await rail.getByRole('button', { name: 'Open Muse in workbench', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(quick).toBeHidden();
+  await expect(drawer).toBeVisible();
+  await expect(question).toHaveValue('Keep my follow-up.');
+  await expect(page.locator('.pane-agent')).toHaveCount(1);
+  await launch.click();
+  await quick.getByRole('button', { name: 'Workspace', exact: true }).click();
+  await expect(page.locator('.pane-agent').locator('..')).toHaveClass(/is-floating/);
+  await page.getByRole('button', { name: 'Workbench', exact: true }).click();
+  await expect(rail).toBeHidden();
+  await expect(question).toBeVisible();
+  await expect(question).toHaveValue('Keep my follow-up.');
+});
+
+test('phone placement controls stay reachable and can leave writing focus for a Tools tab', async ({ page, projectId }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const draft = page.locator('.pane-editor textarea.draft');
+  await draft.focus();
+  const text = await draft.inputValue();
+  await page.keyboard.press('Alt+Shift+F');
+  await page.keyboard.press('Alt+Shift+M');
+  const quick = page.getByRole('region', { name: 'Muse conversation', exact: true });
+  for (const name of ['Workspace', 'Workbench', 'Tools tab']) {
+    await expect(quick.getByRole('button', { name, exact: true })).toBeInViewport();
+  }
+  await quick.getByRole('textbox', { name: 'Ask Muse', exact: true }).fill('Phone question stays.');
+  await page.screenshot({ path: testInfo.outputPath('muse-placement-phone.png'), animations: 'disabled' });
+  await quick.getByRole('button', { name: 'Tools tab', exact: true }).click();
+  await expect(page.locator('.pane-editor')).not.toHaveClass(/is-writing-focus/);
+  const drawer = page.getByRole('region', { name: 'Parked workspace tools', exact: true });
+  await expect(drawer.getByRole('tab', { name: 'Muse', exact: true })).toBeInViewport();
+  await expect(drawer.getByRole('textbox', { name: 'Ask Muse', exact: true })).toHaveValue('Phone question stays.');
+  await expect(draft).toHaveValue(text);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+});

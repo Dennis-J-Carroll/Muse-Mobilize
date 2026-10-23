@@ -19,6 +19,18 @@
 .tool-drawer.is-stack .pane-slot { flex: 0 0 380px; }
 .tool-drawer .pane.is-min { flex: 1; }
 .tool-drawer :is(button, input, textarea, select):focus-visible, .tool-drawer-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.quick-conversation { z-index: 2200; right: 16px; bottom: 16px; width: min(440px, calc(100vw - 32px)); background: var(--glass-sheen), #edf3f4; }
+.quick-conversation .pane { min-height: 0; border: 0; box-shadow: none; }
+.quick-conversation .pane-body { min-height: 0; }
+.conversation-placement { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0; font-size: 12px; color: var(--ink-mid); }
+.conversation-placement > span { margin-right: 2px; }
+.conversation-placement button { min-height: 34px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--glass-face); color: var(--ink); font: inherit; }
+@media (pointer: coarse) { .conversation-placement button { min-height: 44px; } }
+.quick-muse-trigger { color: var(--accent); }
+.quick-muse-trigger[aria-expanded="true"] { background: var(--glass-face); border-color: var(--line-strong); }
+@media (max-width: 700px) {
+  .quick-conversation { top: max(8px, env(safe-area-inset-top)); right: 8px; bottom: max(8px, env(safe-area-inset-bottom)); width: calc(100vw - 16px); }
+}
 .app.is-writing-focus .pane-slot:has(.is-writing-focus) { flex: 1 !important; width: 100% !important; height: 100% !important; }
 .app.is-writing-focus .pane-slot:not(:has(.is-writing-focus)) { display: none; }
 @container writing-space (max-width: 650px) {

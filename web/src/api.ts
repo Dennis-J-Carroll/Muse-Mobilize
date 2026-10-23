@@ -11,6 +11,7 @@ import type { StorySource, SourceSearchHit, SourceClassification, SourceAuthorit
 import type { ConnectionStore, ConnectionTarget, StoryAttachment, StoryTag } from '../../shared/connections';
 import type { Thread } from '../../shared/threads';
 import type { ResourceInfo, BinderRecipe } from '../../shared/project-tools';
+import type { RecordProposal, RecordProposalInput } from '../../shared/record-proposals';
 
 export interface AgentArrangement { id: string; name: string; agents: AgentDef[] }
 export interface BinderPreview { html: string; included: number; omitted: number; warnings: string[]; receipt: { snapshotHash: string; capturedAt: string } }
@@ -64,6 +65,8 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  previewRecordProposal: (id: string, input: RecordProposalInput) => req<{ proposal: RecordProposal }>(`/api/projects/${id}/record-proposals/preview`, { method: 'POST', body: JSON.stringify(input) }),
+  applyRecordProposal: (id: string, proposal: RecordProposal) => req<{ proposal: RecordProposal }>(`/api/projects/${id}/record-proposals/apply`, { method: 'POST', body: JSON.stringify(proposal) }),
   history: (id: string) => req<{ history: HistoryStatus }>(`/api/projects/${id}/history`),
   restoreEdit: (id: string, direction: 'undo' | 'redo', expectedId: string) => req<{ history: HistoryStatus; label: string; files: string[] }>(`/api/projects/${id}/history/${direction}`, { method: 'POST', body: JSON.stringify({ expectedId }) }),
   resources: (id: string) => req<{ resources: ResourceInfo[] }>(`/api/projects/${id}/resources`),

@@ -1,0 +1,33 @@
+.agent-reply { font: 14px/1.65 var(--font-ui); overflow-wrap: anywhere; white-space: normal; max-width: 72ch; }
+.agent-reply > :first-child { margin-top: 0; } .agent-reply > :last-child { margin-bottom: 0; }
+.agent-reply p { margin: 0 0 1em; }
+.agent-reply :is(h1, h2, h3, h4, h5, h6) { margin: 1.4em 0 .5em; font-size: 1.15em; line-height: 1.35; font-weight: 600; }
+.agent-reply strong { font-weight: 600; }
+.agent-reply :is(ul, ol) { padding-left: 1.5em; margin: .75em 0 1.1em; }
+.agent-reply li + li { margin-top: .5em; }
+.agent-reply li > p { margin: .4em 0; }
+.agent-reply blockquote { margin: 1em 0; padding: .5em 1em; background: var(--glass-face); color: var(--ink-mid); }
+.agent-reply hr { border: 0; border-top: 1px solid var(--line-strong); margin: 1.4em 0; }
+.agent-reply a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.agent-reply code { font: .9em/1.5 var(--font-mono); }
+.agent-reply pre { max-width: 100%; overflow: auto; padding: 12px; background: var(--glass-face); white-space: pre; }
+.agent-reply table { display: block; max-width: 100%; overflow: auto; border-collapse: collapse; }
+.agent-reply :is(th, td) { padding: 6px 9px; border: 1px solid var(--line-strong); text-align: left; }
+.reply-image-note { font-style: italic; }
+.reply-copy { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; color: var(--ink-mid); }
+.reply-placement { margin-top: 12px; font-size: 12px; }
+.reply-placement summary { cursor: pointer; color: var(--accent); padding-block: 8px; }
+.reply-placement-form { display: grid; gap: 10px; padding-top: 8px; }
+.reply-placement p { margin: 0; line-height: 1.5; color: var(--ink-mid); }
+.reply-placement label { display: grid; gap: 5px; }
+.reply-placement :is(select, textarea, button) { max-width: 100%; min-width: 0; min-height: 34px; padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: 6px; color: var(--ink); background: var(--glass-face); font: inherit; }
+.reply-placement textarea { width: 100%; line-height: 1.55; resize: vertical; }
+.reply-placement button { justify-self: start; }
+.reply-placement [role="alert"] { color: var(--danger); }
+.reply-placement-preview { padding-top: 12px; border-top: 1px solid var(--line-strong); }
+.reply-placement h4 { margin: 0 0 6px; font: 600 13px var(--font-ui); }
+.reply-placement pre { max-height: 180px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.6 var(--font-ui); }
+.reply-placement-done { display: grid; gap: 8px; }
+.reply-placement .btn-primary { background: var(--accent); color: var(--ink-onDeep); }
+.reply-placement :is(summary, select, textarea, button):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (pointer: coarse) { .reply-placement :is(summary, select, button), .reply-copy button { min-height: 44px; } .reply-placement :is(select, textarea) { font-size: 16px; } }

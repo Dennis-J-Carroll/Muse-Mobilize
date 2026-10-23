@@ -81,7 +81,7 @@ body:has(.app.is-workbench) .floating-panel-strip { top: auto; bottom: 64px; tra
 .desk-preview { display: block; width: 100%; height: auto; border-radius: 7px; }
 .desk-restore > span { font-size: 15px; padding-right: 25px; overflow-wrap: anywhere; }
 .desk-restore small { color: var(--ink-mid); font-size: 11px; }
-.saved-desks .desk-remove { position: absolute; bottom: 24px; right: 8px; padding: 3px; border: 0; min-height: 24px; background: transparent; }
+.saved-desks .desk-remove { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; color: var(--ink-mid); }
 .desk-note, .desk-empty { color: var(--ink-mid); font-size: 12px; line-height: 1.6; }
 .desk-note { margin-bottom: 0; }
 .desk-error { color: var(--danger); font-size: 13px; }
@@ -124,6 +124,7 @@ body:has(.app.is-workbench) .floating-panel-strip { top: auto; bottom: 64px; tra
 }
 
 .desk-number { position: absolute; top: 8px; left: 8px; z-index: 1; min-width: 20px; height: 20px; display: grid; place-items: center; border-radius: 6px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 500; pointer-events: none; }
-.desk-move { display: flex; gap: 4px; }
+.desk-move { display: flex; align-items: center; gap: 4px; padding-top: 6px; }
 .desk-move button { min-width: 28px; min-height: 28px; border: 1px solid var(--line); border-radius: 6px; background: var(--glass-face); color: var(--ink-mid); }
 .desk-move button:disabled { opacity: .4; }
+@media (pointer: coarse) { .desk-move button { min-width: 44px; min-height: 44px; } }

@@ -97,8 +97,8 @@ export function SavedDesks({ capture, restore }: { capture: (name: string) => Sa
             <div className="desk-move">
               <button type="button" aria-label={`Move ${desk.name} up`} disabled={index === 0} onClick={() => move(desk.id, -1)}>↑</button>
               <button type="button" aria-label={`Move ${desk.name} down`} disabled={index === desks.length - 1} onClick={() => move(desk.id, 1)}>↓</button>
+              <button type="button" className="desk-remove" aria-label={`Remove desk ${desk.name}`} title="Remove saved layout only" onClick={() => persist(desks.filter((item) => item.id !== desk.id))}><Icon.Close size={14} /><span>Remove</span></button>
             </div>
-            <button type="button" className="desk-remove" aria-label={`Remove desk ${desk.name}`} title="Remove saved layout only" onClick={() => persist(desks.filter((item) => item.id !== desk.id))}><Icon.Close size={14} /></button>
           </article>)}
         </div>
         {!desks.length && <p className="desk-empty">Arrange your cards, then save your first desk.</p>}

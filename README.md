@@ -29,6 +29,12 @@ The whole point of MM is to get the idea moving, and to let the story grow.
 
 ## Screenshots
 
+| Quick Muse conversation | Reviewed project changes |
+|---|---|
+| ![Muse beside the manuscript with Workspace, Workbench, and Tools tab placement controls](docs/images/Muse_Conversation.png) | ![A character field proposal showing its destination and Before/After preview before applying](docs/images/Muse_Reviewed_Change.png) |
+
+These two views use a sample project and an offline example response.
+
 | Manuscript drafting | Notes beside the draft |
 |---|---|
 | ![Chapter draft with page, font, typewriter, and focus controls](docs/images/Main-Draft_Artifact.png) | ![Notes Board open beside a manuscript page](docs/images/Notes_with_writing.png) |
@@ -43,7 +49,7 @@ The whole point of MM is to get the idea moving, and to let the story grow.
 
 | Agent Studio | Saved Desks |
 |---|---|
-| ![Agent Studio roster and settings with a legacy scope notice](docs/images/Agent_Studio.png) | ![Saved desk layouts with numbered previews and reordering controls](docs/images/Custom_desk_formatting.png) |
+| ![Agent Studio roster and settings with a legacy scope notice](docs/images/Agent_Studio.png) | ![Saved desks with numbered previews, reordering, and clearly placed Remove controls](docs/images/Custom_desk_formatting.png) |
 
 | Story Connections | Notes on a scene |
 |---|---|
@@ -140,6 +146,12 @@ atlas details/pages, including touch screens. Focus a header control or landmark
 and press `Shift+F10` (or the Menu key); use arrows to navigate and `Escape` to
 return focus. Manuscripts and form fields retain native text context menus.
 
+Normal workspace panes and floating record editors resize from all four borders
+and corners. The opposite edge stays anchored; top/left resizing or resizing a
+tiled pane lifts it into a floating window, with **Return to layout** available.
+The bottom-right handle also supports arrow keys (Shift for larger steps).
+Live writing and unfinished card forms stay mounted throughout resizing.
+
 Atlas Pages, landmark details, and Canon distinguish summaries, facts, labels,
 and metadata through size, weight, and spacing. Existing fonts and manuscript
 appearance settings remain independent of these reference views.
@@ -174,6 +186,52 @@ the current layer before leaving writing focus. Card drafts recover locally when
 same form is reopened; save them to include their contents in project backups.
 Browser fullscreen Escape is controlled by the browser.
 See [quiet focus and story cards](docs/quiet-focus-and-story-cards-2026-09-06.md).
+
+## Muse conversations and reviewed changes
+
+Open **Muse** in the workspace toolbar or press **Alt+Shift+M** while writing or
+editing a non-modal card. Quick conversation appears above floating and expanded
+panes, so you can keep Themes or your manuscript open. **Escape** or **Close
+conversation** returns Muse to its previous placement. Story Idea's Muse entry
+and Agent Studio's **Open conversation** use the same view.
+
+Use **Place in** to keep the conversation where you want it:
+
+| Destination | Behavior |
+|---|---|
+| **Workspace** | A movable card with resizing from every border and corner. **Return to layout** docks it beside other panes. Expanded panes return to normal size. |
+| **Workbench** | Opens the conversation in the tool drawer and enables the Workbench rail for recall. Other companion tools park in Tools. |
+| **Tools tab** | Opens Muse as the selected tab in Tools, without enabling Workbench. If Workbench is already active, it stays active. |
+
+Placement leaves writing focus or character consultation. It moves the same
+conversation: unsent questions, replies, and reply controls stay intact. Use
+**Desks → Save desk** to retain the arrangement. Opening chat does not automatically
+share the card you are viewing or broaden the agent's assigned context.
+
+Responses render headings, emphasis, lists, quotes, and code. **Copy response**
+copies the original text. To put useful advice into your project, open **Send to
+project**, choose a destination, edit the excerpt, and select **Preview change**.
+Nothing changes until you select **Apply to project**.
+
+| Destination | Reviewed change |
+|---|---|
+| Manuscript, outline, notes, or lore document | Append text, or replace the exact selected passage when available. Uses normal document autosave and Undo. |
+| Premise | Save an excerpt of up to 600 characters as a variant; promote it in Premise when ready. |
+| Character | Story function, role, goals, fears, physical description, or vision/audio/proximity summary. |
+| Scene | What happens or why the scene exists. |
+| Plot | Summary, goal, conflict, stakes, outcome, or notes. |
+| World | Summary, era, atmosphere, or significance. |
+
+Record transfers target an existing record and one chosen field. Append or replace,
+then review the complete **Before/After** values. Goals and fears use one item per
+line. Record excerpts accept up to 12,000 characters; unrelated fields, images,
+links, and layout coordinates stay intact. If the record changes after preview,
+preview again. Save or cancel its open, parked, or recovered editor before applying.
+Accepted record changes participate in **Undo saved change**.
+
+**Share advice with another agent** sends only the excerpt you choose for that
+run and opens the recipient's conversation. Your original unfinished question stays
+in its conversation.
 
 ## Writing trust and connections
 
@@ -444,6 +502,15 @@ validation, sparse World anchors, stable relationship edges, fact promotion,
 evidence-aware context, provider request/redaction contracts, agent output
 parsing, patch anchoring, stale-patch refusal, media canvas writes and assets,
 premise and constraint stores, and note threads and passage anchors.
+Reviewed record proposals also cover allowed fields, stale-record rejection,
+unrelated-field preservation, and saved-change Undo.
+
+Frontend logic checks cover reply rendering, exact-passage replacement, border
+resize geometry, and shortcut matching:
+
+```bash
+node --import tsx --test web/test/*.test.ts
+```
 
 Browser acceptance tests use real Chromium, the frontend, and the API against a
 fresh temporary project store. They do not use your projects or provider settings.
@@ -459,6 +526,12 @@ cover uploads, Themes, References, Goals, Progress, Premise Builder, Constraint
 Generator, saved desk shortcuts, card and passage notes, and phone-sized writing
 layouts, including save/reload, failed-save retry, and revision recovery. Failure traces
 and screenshots appear in `test-results/`; HTML report is in `playwright-report/`.
+
+Focused checks for Muse access, placement, output, and reviewed transfers:
+
+```bash
+npm run test:browser -- e2e/quick-conversation.spec.ts e2e/conversation-placement.spec.ts e2e/desk-edges-output.spec.ts e2e/record-proposals.spec.ts
+```
 
 See [acceptance results](docs/acceptance-2026-09-04.md) for tested behavior,
 regressions fixed, and remaining coverage limits.

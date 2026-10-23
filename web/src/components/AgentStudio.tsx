@@ -5,6 +5,7 @@ import { useStore } from '../store';
 import type { AgentDef } from '../types';
 import { RESOURCE_LABELS, permits, type ResourceInfo, type ResourceKind, type ResourceSelection } from '../../../shared/project-tools';
 import { ResourcePicker } from './ResourcePicker';
+import { openConversation } from '../conversationView';
 
 function blank(): AgentDef {
   return { id: `agent-${crypto.randomUUID()}`, name: 'New Muse', role: 'Writing adviser', blurb: '', instructions: { system_prompt: 'Help the writer explore possibilities using assigned material. Distinguish evidence from suggestions.', goals: [] }, model: { provider: 'default' }, state: { mode: 'idle' }, activation: { type: 'manual' }, authority: {}, context: { scope: [] }, communication: {}, budget: { max_steps: 1, max_tokens: 2000 }, access: { version: 1, revision: 'draft', allow: [], deny: [], selection: false, proposeEdits: false } };
@@ -79,7 +80,7 @@ export function AgentStudio({ projectId, resources, initialAgentId, onDirty, onP
           {preview && <div className="context-preview"><p>{preview.summary.join(' · ')}</p>{preview.sections.map((section, i) => <pre key={i}>{section.body}</pre>)}</div>}
         </details>
       </fieldset>
-      <div className="tool-actions"><button disabled={busy} className="btn-primary" onClick={() => void run(async () => { const { agent } = await api.saveAgent(projectId, draft, revision); updateRoster([agent]); edits.reset(); setDraft(editable(agent)); setRevision(agent.access!.revision); setDirty(false); setMessage('Agent saved with explicit assignments.'); })}>Save agent</button><button disabled={busy} onClick={() => select(draft, true)}>Duplicate agent</button><button disabled={busy || dirty || revision === null} onClick={() => { close(); useStore.getState().openPane('agent', { bindingId: draft.id }); }}>Open conversation</button><span>{dirty ? 'Unsaved edits' : 'Saved'}</span></div>
+      <div className="tool-actions"><button disabled={busy} className="btn-primary" onClick={() => void run(async () => { const { agent } = await api.saveAgent(projectId, draft, revision); updateRoster([agent]); edits.reset(); setDraft(editable(agent)); setRevision(agent.access!.revision); setDirty(false); setMessage('Agent saved with explicit assignments.'); })}>Save agent</button><button disabled={busy} onClick={() => select(draft, true)}>Duplicate agent</button><button disabled={busy || dirty || revision === null} onClick={() => { close(); openConversation(draft.id); }}>Open conversation</button><span>{dirty ? 'Unsaved edits' : 'Saved'}</span></div>
     </div>
   </div>;
 }

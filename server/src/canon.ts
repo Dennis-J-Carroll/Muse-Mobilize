@@ -59,7 +59,7 @@ function cleanSense(value: any): CharacterSense {
   return { summary: String(value?.summary ?? '').trim(), subtags };
 }
 
-function cleanCharacterProfile(value: any): CharacterProfile {
+export function cleanCharacterProfile(value: any): CharacterProfile {
   return {
     categories: strings(value?.categories),
     attributes: {
@@ -91,7 +91,7 @@ function coordinate(value: unknown): number {
   return Math.round(Math.max(-100000, Math.min(100000, parsed)) * 10) / 10;
 }
 
-function cleanWorldProfile(value: any): WorldProfile {
+export function cleanWorldProfile(value: any): WorldProfile {
   const referenceDocumentId = String(value?.referenceDocumentId ?? '').trim();
   return {
     categories: strings(value?.categories),

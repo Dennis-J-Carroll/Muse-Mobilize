@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { api } from './api';
 import { reconcileDeskPanes, type DeskPane } from './desks';
 import { draftJournal, draftKey, documentDraftScope, type DraftEntry } from './draftRecovery';
+import { recordWriteBlocked } from './recordProposalGuard';
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
   ConstraintItem, ConstraintStore, FloatingPanel, GoalStore, PremiseStore, ProgressProjection, ReferenceStore, StoryReference,
@@ -93,6 +94,7 @@ interface State {
   dockFloatingPanel: (id: string) => void;
   undockFloatingPanel: (id: string) => void;
   moveFloatingPanel: (id: string, x: number, y: number) => void;
+  resizeFloatingPanel: (id: string, bounds: { x: number; y: number; width: number; height: number }) => void;
   focusFloatingPanel: (id: string) => void;
   setRightWidth: (w: number) => void;
   setBottomHeight: (h: number) => void;
@@ -592,6 +594,10 @@ export const useStore = create<State>((set, get) => ({
     set({ floatingPanels: get().floatingPanels.map((p) => (p.id === id ? { ...p, x, y } : p)) });
   },
 
+  resizeFloatingPanel(id, bounds) {
+    set({ floatingPanels: get().floatingPanels.map(panel => panel.id === id ? { ...panel, ...bounds } : panel) });
+  },
+
   focusFloatingPanel(id) {
     const s = get();
     if (s.floatingPanels.at(-1)?.id === id) return;
@@ -781,6 +787,7 @@ export const useStore = create<State>((set, get) => ({
     const session = projectSession;
     const s = get();
     if (!s.project) return null;
+    if (recordWriteBlocked(s.project.id, 'canon', entityId)) { set({ notice: 'Wait for the reviewed field change to finish, then try again.' }); return null; }
     try {
       const { entity } = await api.updateCanonEntity(s.project.id, entityId, patch);
       if (get().project !== s.project || projectSession !== session) return null;
@@ -865,6 +872,7 @@ export const useStore = create<State>((set, get) => ({
     const session = projectSession;
     const s = get();
     if (!s.project) return null;
+    if (recordWriteBlocked(s.project.id, 'plot', nodeId)) { set({ notice: 'Wait for the reviewed field change to finish, then try again.' }); return null; }
     try {
       const { node } = await api.updatePlotNode(s.project.id, nodeId, patch);
       if (get().project !== s.project || projectSession !== session) return null;
@@ -987,6 +995,7 @@ export const useStore = create<State>((set, get) => ({
     const session = projectSession;
     const s = get();
     if (!s.project) return null;
+    if (recordWriteBlocked(s.project.id, 'scenes', sceneId)) { set({ notice: 'Wait for the reviewed field change to finish, then try again.' }); return null; }
     try {
       const { scene } = await api.updateScene(s.project.id, sceneId, patch);
       if (get().project !== s.project || projectSession !== session) return null;

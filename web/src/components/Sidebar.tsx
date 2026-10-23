@@ -4,6 +4,7 @@ import { api } from '../api';
 import { useStore } from '../store';
 import * as Icon from './icons';
 import { openProjectTool } from './ProjectTools';
+import { openConversation } from '../conversationView';
 
 /**
  * Domain cards mobilize a tool into the workspace. Rich domains can launch a
@@ -28,7 +29,7 @@ const docItem = (label: string, docId: string): Item => ({
 });
 const agentItem = (label: string, agentId: string): Item => ({
   label,
-  run: () => useStore.getState().openPane('agent', { bindingId: agentId }),
+  run: () => { openConversation(agentId); },
 });
 const soon = (label: string): Item => ({ label, soon: true });
 const canonItem = (): Item => ({ label: 'Canon & continuity', run: () => useStore.getState().openPane('canon', { title: 'Canon' }) });

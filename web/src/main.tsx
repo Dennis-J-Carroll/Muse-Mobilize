@@ -28,6 +28,8 @@ import './styles/character-consultation.css';
 import './styles/lore-type.css';
 import './styles/workspace-motion.css';
 import './styles/context-menu.css';
+import './styles/window-resize.css';
+import './styles/agent-reply.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

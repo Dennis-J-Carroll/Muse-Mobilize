@@ -8,6 +8,7 @@ const key = (code: string, extra: Partial<Parameters<typeof matchShortcut>[0]> =
 test('Alt+Shift combinations map to actions by physical key', () => {
   assert.deepEqual(matchShortcut(key('KeyF')), { kind: 'focus-toggle' });
   assert.deepEqual(matchShortcut(key('KeyD')), { kind: 'desk-switcher' });
+  assert.deepEqual(matchShortcut(key('KeyM')), { kind: 'conversation' });
   assert.deepEqual(matchShortcut(key('Slash')), { kind: 'legend' });
   assert.deepEqual(matchShortcut(key('Digit0')), { kind: 'desk-previous' });
   assert.deepEqual(matchShortcut(key('Digit1')), { kind: 'desk', index: 0 });

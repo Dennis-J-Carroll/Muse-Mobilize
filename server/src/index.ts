@@ -49,6 +49,7 @@ import { saveAgent, saveArrangement, readArrangements, loadArrangement, withAgen
 import { projectResources, resourceInfo } from './project-resources.js';
 import { buildContext } from './context.js';
 import { readBinder, saveBinder, previewBinder, verifyBinderSnapshot, packageBinder } from './binder.js';
+import { applyRecordProposal, previewRecordProposal, RecordProposalError } from './record-proposals.js';
 
 const app = express();
 const archiveJobs = new ArchiveJobs(path.join(CONFIG_DIR, 'archive-jobs'));
@@ -99,7 +100,7 @@ const wrap = (fn: express.RequestHandler): express.RequestHandler => async (req,
     } finally { res.json = sendJson; }
     res.json(payload);
   } catch (err: any) {
-    res.status(err instanceof BackupError || err instanceof ThreadConflictError ? err.status : 400).json({ error: String(err?.message ?? err) });
+    res.status(err instanceof BackupError || err instanceof ThreadConflictError || err instanceof RecordProposalError ? err.status : 400).json({ error: String(err?.message ?? err) });
   }
 };
 
@@ -375,6 +376,17 @@ app.post('/api/projects/:id/documents', wrap(async (req, res) => {
 }));
 
 /* ------------------------------------------------------------------- canon */
+
+// These routes own their locking/history boundary; preview is read-only.
+app.post('/api/projects/:id/record-proposals/preview', wrap(async (req, res) => {
+  res.json({ proposal: await previewRecordProposal(await projectDir(req.params.id), req.body) });
+}));
+app.post('/api/projects/:id/record-proposals/apply', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id); const session = historySession(req);
+  const proposal = await applyRecordProposal(dir, session, req.body);
+  if (session) res.set('x-muse-history', encodeURIComponent(JSON.stringify(historyStatus(dir, session))));
+  res.json({ proposal });
+}));
 
 app.get('/api/projects/:id/canon', wrap(async (req, res) => {
   res.json({ canon: await readCanon(await projectDir(req.params.id)) });

@@ -15,7 +15,7 @@
 .consultation-sheet>header button{padding:8px 12px;border:1px solid var(--line-strong);border-radius:8px;background:var(--glass-face);color:var(--ink);font:inherit;font-size:13px}
 .app.is-consulting .character-consultation .pane-slot{display:flex!important;position:static!important;flex:1!important;width:100%!important;height:100%!important;min-width:0;min-height:0}
 .app.is-consulting .character-consultation .pane{display:flex!important;width:100%!important;height:100%!important;min-height:0;flex:1!important}
-.character-consultation .pane-head,.character-consultation .pane-resize-handle{display:none}
+.character-consultation .pane-head,.character-consultation .window-resize-handle{display:none}
 .character-consultation .writing-toolbar,.character-consultation .writing-appearance{display:none}
 .floating-drawer.is-companion{position:static!important;flex:1;min-width:0;width:100%!important;height:100%!important;box-shadow:none;border:0;border-radius:0;animation:none}
 .is-companion .floating-drawer-grip>span{flex:1;font-size:12px}

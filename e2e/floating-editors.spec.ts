@@ -78,7 +78,7 @@ test('story material collapse reclaims board space and pane resize survives maxi
   // Dedicated story panes start maximized; restore exposes generic resize.
   await pane.getByRole('button', { name: 'Restore Scene Board to workspace', exact: true }).click();
   const size = await pane.boundingBox();
-  const handle = pane.getByRole('button', { name: /^Resize / });
+  const handle = pane.getByRole('button', { name: 'Resize Scene Board', exact: true });
   await handle.scrollIntoViewIfNeeded();
   await expect(handle).toBeInViewport();
   const grip = await handle.boundingBox();

@@ -8,6 +8,7 @@ import { recallGutter } from '../workspaceLayout';
 import { dismissFocusLayer, trapLayerTab } from '../focusLayers';
 import { openConnections, targetForEditor } from '../connectionsView';
 import { ThreadButton } from './ThreadButton';
+import { ResizeHandles } from './ResizeHandles';
 
 export function FloatingDrawer({ panel, order, children, hidden = false, focusMode = false, companion = false }: { panel: FloatingPanel; order: number; children: ReactNode; hidden?: boolean; focusMode?: boolean; companion?: boolean }) {
   const root = useRef<HTMLDivElement>(null);
@@ -83,5 +84,7 @@ export function FloatingDrawer({ panel, order, children, hidden = false, focusMo
         onClick={() => companion ? parkConsultationEditor() : focusMode ? dismissFocusLayer() : useStore.getState().dockFloatingPanel(panel.id)}>−</button>
     </header>
     <div className="floating-drawer-body">{children}</div>
+    {!companion && <ResizeHandles label={panel.title} frame={root} viewport={{ ...viewport, gutter }}
+      resize={bounds => useStore.getState().resizeFloatingPanel(panel.id, bounds)} />}
   </div>;
 }

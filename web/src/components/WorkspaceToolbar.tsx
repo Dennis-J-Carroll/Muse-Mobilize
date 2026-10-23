@@ -13,6 +13,7 @@ import { useEditHistory } from '../editHistory';
 import { restorePrevious, restoreWithMemory, useDeskList } from '../deskList';
 import { DeskSwitcher } from './DeskSwitcher';
 import { openLegendFromKeyboard, ShortcutLegend } from './ShortcutLegend';
+import { openConversation, useConversationView } from '../conversationView';
 
 const TILE_ICONS: Record<TileLayout, React.ReactNode> = {
   workspace: <Icon.Layers size={16} />, columns: <Icon.TileColumns />, rows: <Icon.TileRows />, grid: <Icon.TileGrid />,
@@ -20,12 +21,16 @@ const TILE_ICONS: Record<TileLayout, React.ReactNode> = {
 
 export function WorkspaceToolbar({ layout, onLayout, workbench, onWorkbench, captureDesk, restoreDesk }: { layout: TileLayout; onLayout: (layout: TileLayout) => void; workbench: boolean; onWorkbench: () => void; captureDesk: (name: string) => SavedDesk; restoreDesk: (desk: SavedDesk) => void }) {
   const documents = useStore((s) => s.project?.documents ?? []);
+  const hasMuse = useStore(s => s.agents.some(agent => agent.id === 'muse'));
+  const conversation = useConversationView(s => s.current);
+  const museOpen = useStore(s => Boolean(conversation && s.project?.id === conversation.projectId && s.panes.some(pane => pane.id === conversation.paneId && pane.binding?.id === 'muse')));
   const [open, setOpen] = useState(false);
   const projectId = useStore((s) => s.project?.id ?? null);
   useEffect(() => { useDeskList.getState().load(projectId); }, [projectId]);
   const switcherOpen = useWritingView((s) => s.deskSwitcherOpen);
   const busy = () => { const history = useEditHistory.getState(); return history.restoring || history.pending > 0; };
   useShortcutKeys({
+    conversation: () => openConversation(),
     desk: (index) => {
       const desk = useDeskList.getState().desks[index];
       if (!desk || busy()) return false;
@@ -48,6 +53,9 @@ export function WorkspaceToolbar({ layout, onLayout, workbench, onWorkbench, cap
   }, [open]);
   return <div id="workspace-arrangement" className="workspace-toolbar" aria-label="Workspace arrangement">
     <div className="workspace-tool-group" role="group" aria-label="Documents and desk">
+      {hasMuse && <button type="button" className="quick-muse-trigger" aria-label="Open Muse conversation"
+        aria-expanded={museOpen} aria-controls="quick-conversation" aria-keyshortcuts="Alt+Shift+M" title="Talk with Muse (Alt+Shift+M)"
+        onClick={() => openConversation()}><Icon.Feather size={16} /> Muse</button>}
       {/* One control: the icon mirrors the chosen arrangement, the select changes it. */}
       <label className="tile-picker" title="Arrange documents">{TILE_ICONS[layout]}
         <select aria-label="Document tiles" value={layout} onChange={(event) => onLayout(event.target.value as TileLayout)}>

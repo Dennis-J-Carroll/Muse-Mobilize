@@ -8,6 +8,8 @@ import { FloatingPanelStrip } from './FloatingPanelStrip';
 import { useWritingView } from '../writingView';
 import { returnToWriting } from '../focusLayers';
 import { draftJournal } from '../draftRecovery';
+import { recordGroup, recordWriteBlocked } from '../recordProposalGuard';
+import { isRecordKind } from '../../../shared/record-proposals';
 
 /** Forms belong to the project, not to a transient tool pane. The stored
  * elements are session-only and are released by close or project switch. */
@@ -16,6 +18,11 @@ export function openFloatingEditor(config: {
   render: (close: () => void) => ReactNode;
 }) {
   const state = useStore.getState();
+  const [tool, entityId] = config.id.split(':');
+  if (state.project && isRecordKind(tool) && recordWriteBlocked(state.project.id, recordGroup(tool), entityId)) {
+    state.setNotice('Wait for the reviewed field change to finish before opening this editor.');
+    return;
+  }
   if (config.paneType === 'characters' && useCharacterConsultation.getState().current) showConsultationEditor(config.id);
   else if (useWritingView.getState().focusPaneId) useWritingView.getState().setFocusLayer({ kind: 'editor', id: config.id });
   if (state.floatingPanels.some((panel) => panel.id === config.id)) {

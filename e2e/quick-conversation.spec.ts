@@ -1,0 +1,146 @@
+import { test, expect, openTool } from './fixtures';
+
+test('Muse opens above expanded and floating Themes, preserving both panes and their placement', async ({ page, projectId }, testInfo) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const question = page.getByRole('textbox', { name: 'Ask Muse', exact: true });
+  await question.fill('Keep this unfinished question about my theme.');
+  const originalParent = await page.locator('.pane-agent').evaluate(element => element.parentElement!.parentElement!.className);
+  await question.evaluate(element => { element.dataset.identity = 'original-question'; });
+  await openTool(page, 'Themes');
+  const theme = page.locator('.pane-themes');
+  const themeId = await theme.getAttribute('id');
+  const expandedBox = await theme.boundingBox();
+  const launch = page.getByRole('button', { name: 'Open Muse conversation', exact: true });
+  const conversation = page.getByRole('region', { name: 'Muse conversation', exact: true });
+  await launch.click();
+  await expect(conversation).toBeVisible();
+  await expect(question).toBeFocused();
+  await expect(question).toHaveAttribute('data-identity', 'original-question');
+  await expect(question).toHaveValue('Keep this unfinished question about my theme.');
+  await expect(theme).toHaveClass(/pane-maximized/);
+  expect(await theme.boundingBox()).toEqual(expandedBox);
+  await expect(launch).toHaveAttribute('aria-expanded', 'true');
+  await page.screenshot({ path: testInfo.outputPath('quick-muse-theme-desktop.png'), animations: 'disabled' });
+  await page.keyboard.press('Escape');
+  await expect(conversation).toBeHidden();
+  await expect(launch).toBeFocused();
+  await expect(theme).toHaveClass(/pane-maximized/);
+  expect(await page.locator('.pane-agent').evaluate(element => element.parentElement!.parentElement!.className)).toBe(originalParent);
+
+  await theme.getByRole('button', { name: 'Restore Theme Threads to workspace', exact: true }).click();
+  await theme.getByRole('button', { name: 'Move Theme Threads', exact: true }).focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(theme.locator('..')).toHaveClass(/is-floating/);
+  const floatingBox = await theme.boundingBox();
+  await openTool(page, 'Story Idea');
+  await page.getByRole('button', { name: 'Muse', exact: true }).click();
+  await expect(question).toBeFocused();
+  expect(await theme.boundingBox()).toEqual(floatingBox);
+  await question.fill('I can reach Muse without moving Themes.');
+  await conversation.getByRole('button', { name: 'Close conversation', exact: true }).click();
+  await expect(theme).toHaveAttribute('id', themeId!);
+  expect(await theme.boundingBox()).toEqual(floatingBox);
+  await launch.click();
+  await expect(question).toHaveValue('I can reach Muse without moving Themes.');
+  // Repeated launch focuses the existing conversation; it never duplicates or closes it.
+  await page.keyboard.press('Alt+Shift+M');
+  await expect(question).toBeFocused();
+  await expect(page.locator('.pane-agent')).toHaveCount(1);
+});
+
+test('quick Muse leaves an unfinished Theme editor intact and returns focus to it', async ({ page, projectId }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await openTool(page, 'Themes');
+  await page.getByRole('button', { name: 'Add first theme', exact: true }).click();
+  const name = page.getByRole('textbox', { name: 'Theme name', exact: true });
+  await name.fill('Belonging without permission');
+  const meaning = page.getByRole('textbox', { name: 'Working meaning', exact: true });
+  await meaning.fill('Unfinished meaning: a promise carries a cost.');
+  await meaning.evaluate(element => { element.dataset.identity = 'original-meaning'; });
+  await page.keyboard.press('Alt+Shift+M');
+  const question = page.getByRole('textbox', { name: 'Ask Muse', exact: true });
+  await expect(question).toBeFocused();
+  await question.fill('Help me reason about the promise.');
+  await page.keyboard.press('Escape');
+  await expect(meaning).toBeFocused();
+  await expect(meaning).toHaveValue('Unfinished meaning: a promise carries a cost.');
+  await expect(meaning).toHaveAttribute('data-identity', 'original-meaning');
+  await expect(name).toHaveValue('Belonging without permission');
+});
+
+test('Muse works in writing focus and on phones, with reachable composer and restored focus', async ({ page, projectId }, testInfo) => {
+  const draft = page.locator('.pane-editor textarea.draft');
+  await draft.focus();
+  await page.keyboard.press('Alt+Shift+F');
+  await expect(page.locator('.pane-editor')).toHaveClass(/is-writing-focus/);
+  await page.keyboard.press('Alt+Shift+M');
+  const conversation = page.getByRole('region', { name: 'Muse conversation', exact: true });
+  const question = conversation.getByRole('textbox', { name: 'Ask Muse', exact: true });
+  await expect(question).toBeFocused();
+  await question.fill('A question held while writing.');
+  await page.keyboard.press('Escape');
+  await expect(conversation).toBeHidden();
+  await expect(draft).toBeFocused();
+  await expect(page.locator('.pane-editor')).toHaveClass(/is-writing-focus/);
+  await page.keyboard.press('Escape');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Open Muse conversation', exact: true }).click();
+  await expect(question).toHaveValue('A question held while writing.');
+  await expect(question).toBeInViewport();
+  await expect(conversation.getByRole('button', { name: 'Close conversation', exact: true })).toBeInViewport();
+  await conversation.getByRole('button', { name: 'Ask', exact: true }).click();
+  await expect(conversation.locator('.run-text')).toBeVisible();
+  await expect(question).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await page.screenshot({ path: testInfo.outputPath('quick-muse-phone.png'), animations: 'disabled' });
+});
+
+test('new and parked conversations return to Tools; desk and project changes dismiss quick view', async ({ page, projectId }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.locator('.pane-agent').getByRole('button', { name: 'Close', exact: true }).click();
+  const launch = page.getByRole('button', { name: 'Open Muse conversation', exact: true });
+  const conversation = page.getByRole('region', { name: 'Muse conversation', exact: true });
+  await launch.click();
+  const question = page.getByRole('textbox', { name: 'Ask Muse', exact: true });
+  await question.fill('New quick conversation.');
+  await page.keyboard.press('Escape');
+  await expect(question).toBeHidden();
+  await page.getByRole('button', { name: 'Open tool drawer', exact: true }).click();
+  await expect(question).toHaveValue('New quick conversation.');
+  await launch.click();
+  await expect(question).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(question).toBeVisible();
+  await launch.click();
+  // The conversation is non-modal; workspace controls remain keyboard-accessible.
+  await page.getByRole('button', { name: 'Planning', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(conversation).toBeHidden();
+  await launch.click();
+  await expect(conversation).toBeVisible();
+  await page.getByRole('button', { name: 'Project menu', exact: true }).click();
+  page.once('dialog', dialog => dialog.accept(`Next conversation project ${projectId}`));
+  await page.getByRole('button', { name: 'New Project', exact: true }).click();
+  await expect(page.getByRole('heading', { name: `Next conversation project ${projectId}`, exact: true })).toBeVisible();
+  await expect(conversation).toBeHidden();
+});
+
+test('sharing advice reveals its recipient and keeps the original conversation draft', async ({ page, projectId, request }) => {
+  const { agents } = await (await request.get(`/api/projects/${projectId}/agents`)).json();
+  const recipient = agents.find((agent: { id: string }) => agent.id !== 'muse');
+  await page.getByRole('button', { name: 'Open Muse conversation', exact: true }).click();
+  const muse = page.getByRole('region', { name: 'Muse conversation', exact: true });
+  await muse.getByRole('textbox', { name: 'Ask Muse', exact: true }).fill('Explore this theme.');
+  await muse.getByRole('button', { name: 'Ask', exact: true }).click();
+  await expect(muse.locator('.run-text')).toBeVisible();
+  await muse.getByRole('textbox', { name: 'Ask Muse', exact: true }).fill('Keep my follow-up question.');
+  await muse.getByText('Share advice with another agent', { exact: true }).click();
+  await muse.getByLabel('Recipient').selectOption(recipient.id);
+  await muse.getByRole('button', { name: 'Share excerpt and ask', exact: true }).click();
+  const other = page.getByRole('region', { name: `${recipient.name} conversation`, exact: true });
+  await expect(other.getByRole('textbox', { name: `Ask ${recipient.name}`, exact: true })).toBeFocused();
+  await expect(other.locator('.run-text')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Open Muse conversation', exact: true }).click();
+  await expect(muse.getByRole('textbox', { name: 'Ask Muse', exact: true })).toHaveValue('Keep my follow-up question.');
+});

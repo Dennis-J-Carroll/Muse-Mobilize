@@ -10,6 +10,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: 'story-cards', keys: 'Alt Shift K', label: 'Story cards (in focus)', group: 'Writing' },
   { id: 'zoom', keys: 'Ctrl + / Ctrl − / Ctrl 0', label: 'Zoom draft text in, out, reset', group: 'Writing' },
   { id: 'ask-muse', keys: 'Ctrl Enter', label: 'Send to Muse', group: 'Writing' },
+  { id: 'conversation', keys: 'Alt Shift M', label: 'Open Muse conversation', group: 'Writing' },
   { id: 'desk-n', keys: 'Alt Shift 1–9', label: 'Open desk 1–9', group: 'Desks and cards' },
   { id: 'desk-previous', keys: 'Alt Shift 0', label: 'Back to previous arrangement', group: 'Desks and cards' },
   { id: 'desk-switcher', keys: 'Alt Shift D', label: 'Find a desk', group: 'Desks and cards' },
@@ -19,7 +20,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
 
 export type ShortcutAction =
   | { kind: 'focus-toggle' } | { kind: 'desk'; index: number } | { kind: 'desk-previous' }
-  | { kind: 'desk-switcher' } | { kind: 'legend' };
+  | { kind: 'desk-switcher' } | { kind: 'legend' } | { kind: 'conversation' };
 
 export interface KeyLike { altKey: boolean; shiftKey: boolean; ctrlKey: boolean; metaKey: boolean; code: string; isComposing?: boolean; defaultPrevented?: boolean }
 
@@ -28,6 +29,7 @@ export function matchShortcut(event: KeyLike): ShortcutAction | null {
   if (!event.altKey || !event.shiftKey || event.ctrlKey || event.metaKey || event.isComposing || event.defaultPrevented) return null;
   if (event.code === 'KeyF') return { kind: 'focus-toggle' };
   if (event.code === 'KeyD') return { kind: 'desk-switcher' };
+  if (event.code === 'KeyM') return { kind: 'conversation' };
   if (event.code === 'Slash') return { kind: 'legend' };
   if (event.code === 'Digit0') return { kind: 'desk-previous' };
   const digit = /^Digit([1-9])$/.exec(event.code);
