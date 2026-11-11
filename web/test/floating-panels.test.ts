@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { useStore } from '../src/store.ts';
+import { placementBounds, sideBySideBounds } from '../src/cardPlacement.ts';
 
 const reset = () => useStore.setState({ floatingPanels: [] });
 
@@ -109,4 +110,48 @@ test('resizePane clamps to a sane minimum and only affects the targeted pane', (
   const [p1, p2] = useStore.getState().panes;
   assert.deepEqual(p1.size, { width: 900, height: 700 });
   assert.deepEqual(p2.size, { width: 320, height: 200 });
+});
+
+const viewport = { width: 1280, height: 800, gutter: 48 };
+
+test('placeFloatingPanel snaps the card to the placement bounds and remembers it', () => {
+  reset();
+  useStore.getState().openFloatingPanel({ id: 'scenes:a', paneType: 'scenes', title: 'A' });
+  useStore.getState().placeFloatingPanel('scenes:a', 'right', viewport);
+  const a = useStore.getState().floatingPanels.find((p) => p.id === 'scenes:a')!;
+  const { x, y, width, height } = a;
+  assert.deepEqual({ x, y, width, height }, placementBounds('right', viewport));
+  assert.equal(a.placement, 'right');
+});
+
+test('moving or resizing a placed card by hand forgets its placement', () => {
+  reset();
+  useStore.getState().openFloatingPanel({ id: 'scenes:a', paneType: 'scenes', title: 'A' });
+  useStore.getState().placeFloatingPanel('scenes:a', 'right', viewport);
+  useStore.getState().moveFloatingPanel('scenes:a', 40, 40);
+  assert.equal(useStore.getState().floatingPanels.find((p) => p.id === 'scenes:a')!.placement, undefined);
+  useStore.getState().placeFloatingPanel('scenes:a', 'right', viewport);
+  useStore.getState().resizeFloatingPanel('scenes:a', { x: 40, y: 40, width: 400, height: 300 });
+  assert.equal(useStore.getState().floatingPanels.find((p) => p.id === 'scenes:a')!.placement, undefined);
+});
+
+test('arrangeFloatingPanels tiles undocked cards side by side and leaves docked cards alone', () => {
+  reset();
+  useStore.getState().openFloatingPanel({ id: 'scenes:a', paneType: 'scenes', title: 'A' });
+  useStore.getState().openFloatingPanel({ id: 'scenes:b', paneType: 'scenes', title: 'B' });
+  useStore.getState().openFloatingPanel({ id: 'scenes:c', paneType: 'scenes', title: 'C' });
+  useStore.getState().dockFloatingPanel('scenes:b');
+  const bounds = ({ x, y, width, height }: { x: number; y: number; width: number; height: number }) => ({ x, y, width, height });
+  const find = (id: string) => useStore.getState().floatingPanels.find((p) => p.id === id)!;
+  const dockedBefore = bounds(find('scenes:b'));
+  useStore.getState().arrangeFloatingPanels(viewport);
+  const [first, second] = sideBySideBounds(2, viewport);
+  assert.deepEqual(bounds(find('scenes:a')), first);
+  assert.deepEqual(bounds(find('scenes:c')), second);
+  assert.equal(find('scenes:a').placement, 'side-by-side');
+  assert.equal(find('scenes:c').placement, 'side-by-side');
+  assert.deepEqual(bounds(find('scenes:b')), dockedBefore);
+  assert.equal(find('scenes:b').placement, undefined);
+  const order = useStore.getState().floatingPanels.map((p) => p.id);
+  assert.deepEqual(order.slice(-2), ['scenes:a', 'scenes:c']);
 });

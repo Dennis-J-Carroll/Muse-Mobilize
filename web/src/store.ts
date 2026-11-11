@@ -3,6 +3,8 @@ import { create } from 'zustand';
 import type { ReactNode } from 'react';
 import { api } from './api';
 import { reconcileDeskPanes, type DeskPane } from './desks';
+import { placementBounds, sideBySideBounds, type CardPlacement } from './cardPlacement';
+import type { WorkspaceViewport } from './workspaceLayout';
 import { draftJournal, draftKey, documentDraftScope, type DraftEntry } from './draftRecovery';
 import { recordWriteBlocked } from './recordProposalGuard';
 import type {
@@ -96,6 +98,8 @@ interface State {
   moveFloatingPanel: (id: string, x: number, y: number) => void;
   resizeFloatingPanel: (id: string, bounds: { x: number; y: number; width: number; height: number }) => void;
   focusFloatingPanel: (id: string) => void;
+  placeFloatingPanel: (id: string, placement: CardPlacement, viewport: WorkspaceViewport) => void;
+  arrangeFloatingPanels: (viewport: WorkspaceViewport) => void;
   setRightWidth: (w: number) => void;
   setBottomHeight: (h: number) => void;
   applyWorkspace: (id: string) => Promise<void>;
@@ -599,11 +603,11 @@ export const useStore = create<State>((set, get) => ({
   },
 
   moveFloatingPanel(id, x, y) {
-    set({ floatingPanels: get().floatingPanels.map((p) => (p.id === id ? { ...p, x, y } : p)) });
+    set({ floatingPanels: get().floatingPanels.map((p) => (p.id === id ? { ...p, x, y, placement: undefined } : p)) });
   },
 
   resizeFloatingPanel(id, bounds) {
-    set({ floatingPanels: get().floatingPanels.map(panel => panel.id === id ? { ...panel, ...bounds } : panel) });
+    set({ floatingPanels: get().floatingPanels.map(panel => panel.id === id ? { ...panel, ...bounds, placement: undefined } : panel) });
   },
 
   focusFloatingPanel(id) {
@@ -615,6 +619,31 @@ export const useStore = create<State>((set, get) => ({
       floatingPanels: [
         ...s.floatingPanels.filter((p) => p.id !== id),
         panel,
+      ],
+    });
+  },
+
+  placeFloatingPanel(id, placement, viewport) {
+    const s = get();
+    const panel = s.floatingPanels.find((p) => p.id === id);
+    if (!panel) return;
+    set({
+      floatingPanels: [
+        ...s.floatingPanels.filter((p) => p.id !== id),
+        { ...panel, ...placementBounds(placement, viewport), placement },
+      ],
+    });
+  },
+
+  arrangeFloatingPanels(viewport) {
+    const panels = get().floatingPanels;
+    const docked = panels.filter((p) => p.docked);
+    const undocked = panels.filter((p) => !p.docked);
+    const columns = sideBySideBounds(undocked.length, viewport);
+    set({
+      floatingPanels: [
+        ...docked,
+        ...undocked.map((p, i) => ({ ...p, ...columns[i], placement: 'side-by-side' as const })),
       ],
     });
   },
