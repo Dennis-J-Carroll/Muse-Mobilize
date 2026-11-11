@@ -9,6 +9,7 @@ import { dismissFocusLayer, trapLayerTab } from '../focusLayers';
 import { openConnections, targetForEditor } from '../connectionsView';
 import { ThreadButton } from './ThreadButton';
 import { ResizeHandles } from './ResizeHandles';
+import { CardPlacementMenu } from './CardPlacementMenu';
 
 export function FloatingDrawer({ panel, order, children, hidden = false, focusMode = false, companion = false }: { panel: FloatingPanel; order: number; children: ReactNode; hidden?: boolean; focusMode?: boolean; companion?: boolean }) {
   const root = useRef<HTMLDivElement>(null);
@@ -80,6 +81,7 @@ export function FloatingDrawer({ panel, order, children, hidden = false, focusMo
       {companion && <span>{panel.title}</span>}
       {connectionTarget && <ThreadButton target={connectionTarget} />}
       {connectionTarget && <button type="button" className="floating-drawer-dock" aria-label="Tags and links" title="Tags and links" onClick={() => openConnections({ target: connectionTarget })}>#</button>}
+      {!companion && <CardPlacementMenu panel={panel} viewport={{ ...viewport, gutter }} />}
       <button type="button" className="floating-drawer-dock" aria-label={companion ? 'Back to character' : focusMode ? 'Return to writing' : 'Send to side'} title={focusMode ? 'Return to writing, keep card draft (Escape)' : 'Send to side (Escape)'}
         onClick={() => companion ? parkConsultationEditor() : focusMode ? dismissFocusLayer() : useStore.getState().dockFloatingPanel(panel.id)}>−</button>
     </header>
