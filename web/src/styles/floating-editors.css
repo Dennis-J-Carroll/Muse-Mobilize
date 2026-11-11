@@ -57,6 +57,16 @@
 .card-placement-group button:hover, .card-placement-group button:focus { background: var(--card-mist); color: var(--ink); }
 .card-placement-group button[aria-checked="true"] { background: var(--glass-face); color: var(--accent); box-shadow: var(--shadow-well); }
 .card-placement-group button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* A narrow card (Side by side with several cards) cannot fit the icon row
+   right-aligned under the trigger: the drawer clips it. Anchor the menu to the
+   card's header edge instead and stack the two groups. */
+@container floating-editor (max-width: 340px) {
+  .floating-drawer-grip { position: relative; }
+  .card-placement { position: static; }
+  .card-placement-menu { right: 8px; flex-direction: column; max-width: calc(100% - 16px); }
+  .card-placement-group { flex-wrap: wrap; }
+  .card-placement-group + .card-placement-group { padding-left: 0; padding-top: 6px; border-left: 0; border-top: 1px solid var(--line-strong); }
+}
 @media (max-width: 700px) {
   .card-placement { display: none; }
 }

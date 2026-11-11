@@ -112,6 +112,7 @@ test('all story-card kinds can save over a fullscreen draft without moving their
     await picker.getByRole('button', { name: `${group}: ${title}`, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: dialogTitle, exact: true });
     await expect(dialog).toBeInViewport();
+    await expect(dialog.getByRole('button', { name: /^Arrange / })).toHaveCount(0); // focus shows this card alone
     await dialog.getByLabel(field, { exact: true }).fill(`${title} revised`);
     await dialog.getByRole('button', { name: save, exact: true }).click();
     await expect(dialog).toBeHidden();

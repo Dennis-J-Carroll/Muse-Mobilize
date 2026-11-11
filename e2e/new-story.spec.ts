@@ -67,3 +67,24 @@ test('Escape and the backdrop close the form and return focus to the Project men
   await expect(form).toHaveCount(0);
   await expect(menuButton).toBeFocused();
 });
+
+test('a story that is created but fails to open closes the form instead of inviting a duplicate', async ({ page, projectId }) => {
+  expect(projectId).toBeTruthy();
+  let posts = 0;
+  page.on('request', (request) => { if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/projects') posts += 1; });
+  await page.route(/\/api\/projects\/[^/]+$/, (route) => {
+    const id = new URL(route.request().url()).pathname.split('/').pop();
+    if (route.request().method() !== 'GET' || id === projectId) return route.fallback();
+    return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'The new story could not be opened.' }) });
+  });
+  await page.getByRole('button', { name: 'Project menu' }).click();
+  await page.getByRole('button', { name: 'New Project' }).click();
+  const form = page.getByRole('dialog', { name: 'New story' });
+  await form.getByLabel("What's the idea?").fill('a mapmaker who erases towns');
+  await form.getByRole('button', { name: 'Start writing' }).click();
+  await expect(form).toHaveCount(0);
+  await expect(page.getByRole('alert').filter({ hasText: 'The new story could not be opened.' })).toBeVisible();
+  expect(posts).toBe(1);
+  await page.getByRole('button', { name: 'Project menu' }).click();
+  await expect(page.getByRole('button', { name: 'A Mapmaker Who Erases Towns', exact: true })).toHaveCount(1);
+});

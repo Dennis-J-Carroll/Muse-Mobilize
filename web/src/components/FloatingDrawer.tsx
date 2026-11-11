@@ -81,7 +81,8 @@ export function FloatingDrawer({ panel, order, children, hidden = false, focusMo
       {companion && <span>{panel.title}</span>}
       {connectionTarget && <ThreadButton target={connectionTarget} />}
       {connectionTarget && <button type="button" className="floating-drawer-dock" aria-label="Tags and links" title="Tags and links" onClick={() => openConnections({ target: connectionTarget })}>#</button>}
-      {!companion && <CardPlacementMenu panel={panel} viewport={{ ...viewport, gutter }} />}
+      {/* Focus mode shows one card alone, so arranging the others would tile hidden cards. */}
+      {!companion && !focusMode && <CardPlacementMenu panel={panel} viewport={{ ...viewport, gutter }} />}
       <button type="button" className="floating-drawer-dock" aria-label={companion ? 'Back to character' : focusMode ? 'Return to writing' : 'Send to side'} title={focusMode ? 'Return to writing, keep card draft (Escape)' : 'Send to side (Escape)'}
         onClick={() => companion ? parkConsultationEditor() : focusMode ? dismissFocusLayer() : useStore.getState().dockFloatingPanel(panel.id)}>−</button>
     </header>

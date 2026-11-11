@@ -71,7 +71,10 @@ interface State {
   providers: ProviderStatus[];
 
   bootstrap: () => Promise<void>;
-  newProject: (name: string, idea?: string) => Promise<void>;
+  /** Resolves to the new story's id once it exists on the server, even if opening it then failed; null if nothing was created. */
+  newProject: (name: string, idea?: string) => Promise<string | null>;
+  /** Open a story this session just created, with its premise when it began from an idea. */
+  startNewProject: (id: string, idea?: string) => Promise<void>;
   openProject: (id: string) => Promise<void>;
   uploadStoryImage: (file: File) => Promise<StoryImage>;
 
@@ -201,6 +204,13 @@ const titleFor = (type: PaneType, s: State, bindingId?: string): string => {
   return s.docs[bindingId ?? '']?.title ?? s.project?.documents.find((d) => d.id === bindingId)?.title ?? 'Document';
 };
 
+/** Why the open story cannot be left yet, or null when switching is safe. */
+function projectSwitchBlocked(project: ProjectManifest | null): string | null {
+  return project && draftJournal.hasProjectIssues(project.id)
+    ? 'Browser recovery is unavailable for some edits. Save or copy your unfinished writing before switching projects.'
+    : null;
+}
+
 export const useStore = create<State>((set, get) => ({
   ready: false,
   error: null,
@@ -257,23 +267,35 @@ export const useStore = create<State>((set, get) => ({
 
   async newProject(name, idea) {
     set({ error: null });
+    // Refuse before creating: a story that cannot then be opened invites a second, duplicate attempt.
+    const blocked = projectSwitchBlocked(get().project);
+    if (blocked) {
+      set({ error: blocked });
+      return null;
+    }
     let project: ProjectManifest;
     try {
       ({ project } = await api.createProject(name, idea || undefined));
     } catch (err: any) {
       set({ error: err.message });
-      return;
+      return null;
     }
     set({ projects: [project, ...get().projects] });
-    await get().openProject(project.id);
-    if (idea && get().project?.id === project.id) get().openPane('premise', { title: 'Premise', region: 'right' });
+    await get().startNewProject(project.id, idea);
+    return project.id;
+  },
+
+  async startNewProject(id, idea) {
+    await get().openProject(id);
+    if (idea && get().project?.id === id) get().openPane('premise', { title: 'Premise', region: 'right' });
   },
 
   async openProject(id) {
     const request = ++projectOpenRequest;
     try {
-      if (get().project && draftJournal.hasProjectIssues(get().project!.id)) {
-        set({ error: 'Browser recovery is unavailable for some edits. Save or copy your unfinished writing before switching projects.' });
+      const blocked = projectSwitchBlocked(get().project);
+      if (blocked) {
+        set({ error: blocked });
         return;
       }
       const { project, agents, workspaces } = await api.openProject(id);

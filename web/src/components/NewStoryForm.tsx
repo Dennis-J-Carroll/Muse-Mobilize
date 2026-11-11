@@ -13,6 +13,8 @@ export function NewStoryForm({ onDone }: { onDone?: () => void }) {
   const [name, setName] = useState('');
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
+  // A story created on the server but not yet opened: a retry opens it instead of creating another.
+  const created = useRef<{ id: string; idea: string } | null>(null);
   const id = useId();
   const headingId = `${id}-heading`;
   const countId = `${id}-count`;
@@ -23,8 +25,18 @@ export function NewStoryForm({ onDone }: { onDone?: () => void }) {
     pendingRef.current = true;
     setPending(true);
     try {
-      await useStore.getState().newProject(storyName, storyIdea || undefined);
-      if (!useStore.getState().error) onDone?.();
+      const store = useStore.getState();
+      if (created.current) {
+        await store.startNewProject(created.current.id, created.current.idea || undefined);
+      } else {
+        const storyId = await store.newProject(storyName, storyIdea || undefined);
+        if (!storyId) return;
+        created.current = { id: storyId, idea: storyIdea };
+      }
+      // Once the story exists the form's work is done: in the dialog an opening failure
+      // moves to the app's error toast; on the start screen a retry opens the same story.
+      if (onDone) onDone();
+      else if (useStore.getState().project?.id === created.current?.id) created.current = null;
     } finally {
       pendingRef.current = false;
       setPending(false);
