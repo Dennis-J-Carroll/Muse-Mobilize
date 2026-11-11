@@ -69,7 +69,7 @@ interface State {
   providers: ProviderStatus[];
 
   bootstrap: () => Promise<void>;
-  newProject: (name: string) => Promise<void>;
+  newProject: (name: string, idea?: string) => Promise<void>;
   openProject: (id: string) => Promise<void>;
   uploadStoryImage: (file: File) => Promise<StoryImage>;
 
@@ -251,10 +251,18 @@ export const useStore = create<State>((set, get) => ({
     }
   },
 
-  async newProject(name) {
-    const { project } = await api.createProject(name);
+  async newProject(name, idea) {
+    set({ error: null });
+    let project: ProjectManifest;
+    try {
+      ({ project } = await api.createProject(name, idea || undefined));
+    } catch (err: any) {
+      set({ error: err.message });
+      return;
+    }
     set({ projects: [project, ...get().projects] });
     await get().openProject(project.id);
+    if (idea && get().project?.id === project.id) get().openPane('premise', { title: 'Premise', region: 'right' });
   },
 
   async openProject(id) {

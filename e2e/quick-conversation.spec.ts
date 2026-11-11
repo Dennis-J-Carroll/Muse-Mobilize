@@ -119,8 +119,10 @@ test('new and parked conversations return to Tools; desk and project changes dis
   await launch.click();
   await expect(conversation).toBeVisible();
   await page.getByRole('button', { name: 'Project menu', exact: true }).click();
-  page.once('dialog', dialog => dialog.accept(`Next conversation project ${projectId}`));
   await page.getByRole('button', { name: 'New Project', exact: true }).click();
+  const newStory = page.getByRole('dialog', { name: 'New story' });
+  await newStory.getByLabel('Story name (optional)').fill(`Next conversation project ${projectId}`);
+  await newStory.getByRole('button', { name: 'Start writing' }).click();
   await expect(page.getByRole('heading', { name: `Next conversation project ${projectId}`, exact: true })).toBeVisible();
   await expect(conversation).toBeHidden();
 });

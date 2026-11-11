@@ -12,6 +12,7 @@ import { ConnectionsPanel } from './components/ConnectionsPanel';
 import { CardThreadHost } from './components/CardThread';
 import { RecoveryPanel } from './useRecoverableDraft';
 import { ProjectBackups } from './components/ProjectBackups';
+import { NewStoryForm } from './components/NewStoryForm';
 import { ProjectTools, type ProjectTool } from './components/ProjectTools';
 import { dismissFocusLayer } from './focusLayers';
 import { useWritingView } from './writingView';
@@ -30,7 +31,6 @@ export default function App() {
   }, [restoring]);
   const ready = useStore((s) => s.ready);
   const project = useStore((s) => s.project);
-  const projects = useStore((s) => s.projects);
   const error = useStore((s) => s.error);
   const notice = useStore((s) => s.notice);
   const settings = useStore((s) => s.settings);
@@ -110,16 +110,7 @@ export default function App() {
         <img className="boot-mark" src="/brand/muse-mobilize-mark.jpg" alt="" />
         <h1>Muse · Mobilize</h1>
         <p>A writers' room you can assemble around the page.</p>
-        {error && <p className="boot-error">{error}</p>}
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            const name = window.prompt('Name your story:', 'Untitled Story');
-            if (name) void useStore.getState().newProject(name);
-          }}
-        >
-          {projects.length ? 'New Project' : 'Create your first project'}
-        </button>
+        <NewStoryForm />
         <ProjectBackups />
       </div>
     );

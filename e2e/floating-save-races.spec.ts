@@ -52,8 +52,10 @@ test('late scene save cannot populate the next project after its editors reset',
     await requestStarted;
     await page.getByRole('button', { name: 'Project menu', exact: true }).click();
     const name = `Second project ${projectId}`;
-    page.once('dialog', (dialog) => dialog.accept(name));
     await page.getByRole('button', { name: 'New Project', exact: true }).click();
+    const newStory = page.getByRole('dialog', { name: 'New story' });
+    await newStory.getByLabel('Story name (optional)').fill(name);
+    await newStory.getByRole('button', { name: 'Start writing' }).click();
     await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
     await expect(page.locator('.floating-drawer')).toHaveCount(0);
     await openTool(page, 'Scenes');
