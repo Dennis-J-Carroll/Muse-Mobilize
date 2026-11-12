@@ -362,6 +362,9 @@ export interface AgentRun {
   ms: number;
   contextSummary: string[];
   sourceCitations?: import('./sources').SourceCitation[];
+  ticketSuggestions?: import('../../shared/tickets').TicketSuggestion[];
+  /** Client-only: which attached source/ticket this run was asked with. */
+  focusKey?: string;
   error?: string;
 }
 
@@ -391,7 +394,7 @@ export type PremiseVariantSource = 'manual' | 'muse';
 export interface PremiseVariant { id: string; text: string; source: PremiseVariantSource; createdAt: string }
 export interface PremiseStore { version: 1; working: string; slots: PremiseSlots; variants: PremiseVariant[] }
 
-export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline' | 'canon' | 'characters' | 'world' | 'plot' | 'scenes' | 'dialogue' | 'themes' | 'references' | 'goals' | 'progress' | 'sources' | 'premise' | 'constraints' | 'threads';
+export type PaneType = 'editor' | 'agent' | 'notes' | 'events' | 'review' | 'outline' | 'canon' | 'characters' | 'world' | 'plot' | 'scenes' | 'dialogue' | 'themes' | 'references' | 'goals' | 'progress' | 'sources' | 'premise' | 'constraints' | 'threads' | 'tickets';
 export type Region = 'main' | 'right' | 'bottom';
 
 export interface Pane {

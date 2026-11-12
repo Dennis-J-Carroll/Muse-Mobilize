@@ -22,6 +22,7 @@ import { ThreadsPane } from '../panes/ThreadsPane';
 import { ConstraintsPane } from '../panes/ConstraintsPane';
 import { ProgressPane } from '../panes/ProgressPane';
 import { SourcesPane } from '../panes/SourcesPane';
+import { TicketsPane } from '../panes/TicketsPane';
 import type { Pane } from '../types';
 import * as Icon from './icons';
 import { useWritingView } from '../writingView';
@@ -82,6 +83,8 @@ function PaneBody({ pane }: { pane: Pane }) {
       return <ProgressPane />;
     case 'sources':
       return <SourcesPane />;
+    case 'tickets':
+      return <TicketsPane />;
     default:
       return <div className="pane-body">Unknown pane type.</div>;
   }

@@ -26,6 +26,9 @@ interface DocState {
   history?: ValueHistory<string>;
 }
 
+/** Writer-attached source/ticket for one question, plus the recent exchanges asked with the same attachment. */
+export interface AskFocus { key: string; focus: { sourceId?: string; ticketId?: string }; history: { question: string; answer: string }[] }
+
 interface State {
   ready: boolean;
   error: string | null;
@@ -102,7 +105,7 @@ interface State {
   saveWorkspaceAs: (name: string) => Promise<void>;
 
   setSelection: (sel: Selection | null) => void;
-  ask: (agentId: string, question: string, useSelection: boolean, sharedExcerpt?: string) => Promise<boolean>;
+  ask: (agentId: string, question: string, useSelection: boolean, sharedExcerpt?: string, focus?: AskFocus) => Promise<boolean>;
   acceptPatch: (patch: Patch, override?: string) => Promise<void>;
   rejectPatch: (agentId: string, patch: Patch) => Promise<void>;
   cycleAgentState: (agentId: string) => Promise<void>;
@@ -194,6 +197,7 @@ const titleFor = (type: PaneType, s: State, bindingId?: string): string => {
   if (type === 'threads') return 'Notes Board';
   if (type === 'progress') return 'Manuscript Progress';
   if (type === 'sources') return 'Sources';
+  if (type === 'tickets') return 'Tickets';
   return s.docs[bindingId ?? '']?.title ?? s.project?.documents.find((d) => d.id === bindingId)?.title ?? 'Document';
 };
 
@@ -454,7 +458,7 @@ export const useStore = create<State>((set, get) => ({
       set({ panes: s.panes.map((p) => (p.id === existing.id ? { ...p, sessionOnly: false, sizeMode: opts.focus ? 'maximized' : 'normal' } : opts.focus && p.sizeMode === 'maximized' ? { ...p, sizeMode: 'normal' } : p)) });
       return;
     }
-    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' || type === 'world' || type === 'plot' || type === 'scenes' || type === 'dialogue' || type === 'themes' || type === 'references' || type === 'goals' || type === 'progress' || type === 'sources' || type === 'premise' || type === 'constraints' || type === 'threads' ? 'main' : 'bottom');
+    const region: Region = opts.region ?? (type === 'agent' || type === 'canon' ? 'right' : type === 'editor' || type === 'characters' || type === 'world' || type === 'plot' || type === 'scenes' || type === 'dialogue' || type === 'themes' || type === 'references' || type === 'goals' || type === 'progress' || type === 'sources' || type === 'premise' || type === 'constraints' || type === 'threads' || type === 'tickets' ? 'main' : 'bottom');
     const pane: Pane = {
       id: `pane-${++paneSeq}-${type}-${bindingId ?? ''}`,
       type,
@@ -658,7 +662,7 @@ export const useStore = create<State>((set, get) => ({
     set({ selection });
   },
 
-  async ask(agentId, question, useSelection, sharedExcerpt) {
+  async ask(agentId, question, useSelection, sharedExcerpt, focus) {
     const s = get();
     if (!s.project || s.busy[agentId]) return false;
     const session = projectSession;
@@ -679,9 +683,10 @@ export const useStore = create<State>((set, get) => ({
         selection: useSelection ? s.selection : null,
         question,
         sharedExcerpt,
+        ...(focus ? { focus: focus.focus, history: focus.history } : {}),
       });
       if (!current()) return false;
-      set({ runs: { ...get().runs, [agentId]: [...(get().runs[agentId] ?? []), run] } });
+      set({ runs: { ...get().runs, [agentId]: [...(get().runs[agentId] ?? []), focus ? { ...run, focusKey: focus.key } : run] } });
       return !run.error;
     } catch (err: any) {
       if (current()) set({ error: err.message });

@@ -7,6 +7,10 @@ import { AgentReply, CopyReply } from '../components/AgentReply';
 import { ReplyPlacement } from '../components/ReplyPlacement';
 import { openConversation } from '../conversationView';
 import { CARD_EXCERPT_MAX, useCardDiscussion } from '../cardDiscussion';
+import { askFocus, detachSource, detachTicket, RIPE_THREADS_QUESTION, TICKET_QUESTION, useConversationFocus } from '../conversationFocus';
+import { createTicket, suggestionDraft } from '../tickets';
+import type { TicketSuggestion } from '../../../shared/tickets';
+import type { SettingsView } from '../types';
 
 // A fresh [] from a selector makes useSyncExternalStore re-render forever.
 const NO_RUNS: AgentRun[] = [];
@@ -82,10 +86,56 @@ function RunView({ run }: { run: AgentRun }) {
       {run.patches.map((p) => (
         <PatchCard key={p.id} patch={p} agentId={run.agentId} />
       ))}
+      {run.ticketSuggestions?.map((suggestion, index) => <SuggestedTicket key={`${run.runId}-${index}`} suggestion={suggestion} />)}
       {!run.error && run.text && <><CopyReply text={run.text} /><ReplyPlacement text={run.text} /><ShareAdvice run={run} /></>}
       {run.contextReceipt && <details className="share-advice"><summary>Context receipt</summary><p>Policy revision: {run.contextReceipt.policyRevision}</p><p>{run.contextReceipt.records.map((r) => `${r.kind}: ${r.id}${r.trimmed ? ' (trimmed)' : ''}`).join(' · ') || 'No saved records sent'}</p>{run.contextReceipt.sharedExcerpt && <p>Writer shared an excerpt for this run.</p>}</details>}
     </div>
   );
+}
+
+/** Muse proposes; nothing is saved until the writer accepts (optionally after editing) or dismisses. */
+function SuggestedTicket({ suggestion }: { suggestion: TicketSuggestion }) {
+  const source = useConversationFocus((s) => s.source);
+  const [state, setState] = useState<'shown' | 'editing' | 'saving' | 'accepted' | 'dismissed'>('shown');
+  const [title, setTitle] = useState(suggestion.title);
+  const [wants, setWants] = useState(suggestion.wants);
+  if (state === 'dismissed') return null;
+  if (state === 'accepted') return <p className="ticket-suggestion-done" role="status">Ticket saved: {title}. Find it in Tickets.</p>;
+  const accept = async () => {
+    setState('saving');
+    const ticket = await createTicket({ ...suggestionDraft(suggestion, source), title: title.trim() || suggestion.title, wants });
+    setState(ticket ? 'accepted' : 'shown');
+  };
+  return (
+    <section className="ticket-suggestion" aria-label={`Suggested ticket: ${suggestion.title}`}>
+      <span className="ticket-suggestion-kicker">Suggested ticket · not saved</span>
+      {state === 'editing' ? (
+        <>
+          <label>Assignment<input value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} /></label>
+          <label>Current wants<textarea rows={2} value={wants} onChange={(e) => setWants(e.target.value)} /></label>
+        </>
+      ) : (
+        <>
+          <strong>{title}</strong>
+          {wants && <p>{wants}</p>}
+        </>
+      )}
+      {suggestion.threads.length > 0 && <ul>{suggestion.threads.map((thread) => <li key={thread}>{thread}</li>)}</ul>}
+      {suggestion.quotes.map((q) => <blockquote key={q.quote}>{q.quote}{q.section && <cite>{q.section}</cite>}</blockquote>)}
+      {suggestion.questions.length > 0 && <ul className="ticket-suggestion-questions">{suggestion.questions.map((question) => <li key={question}>{question}</li>)}</ul>}
+      <div className="ticket-suggestion-actions">
+        <button className="btn btn-primary" disabled={state === 'saving' || !title.trim()} onClick={() => void accept()}>{state === 'editing' ? 'Save ticket' : 'Accept'}</button>
+        {state !== 'editing' && <button className="btn" disabled={state === 'saving'} onClick={() => setState('editing')}>Edit</button>}
+        <button className="btn" disabled={state === 'saving'} onClick={() => setState('dismissed')}>Dismiss</button>
+      </div>
+    </section>
+  );
+}
+
+function providerLabel(provider: string | undefined, model: string | undefined, settings: SettingsView | null) {
+  const id = !provider || provider === 'default' ? settings?.defaultProvider ?? 'your default provider' : provider;
+  const fallback = settings ? (settings as unknown as Record<string, string | undefined>)[`${id}Model`] : undefined;
+  return `${id}${model || fallback ? ` · ${model || fallback}` : ''}`;
 }
 
 function ShareAdvice({ run }: { run: AgentRun }) {
@@ -107,13 +157,19 @@ export function AgentPane({ pane }: { pane: Pane }) {
   const pending = useCardDiscussion(s => s.current);
   const projectId = useStore(s => s.project?.id);
   const attachment = pending && pending.projectId === projectId && pending.agentId === agentId ? pending : null;
+  const focusState = useConversationFocus();
+  const settings = useStore((s) => s.settings);
+  const focus = focusState.projectId === projectId && focusState.agentId === agentId && (focusState.source || focusState.ticket)
+    ? { source: focusState.source, ticket: focusState.ticket } : null;
 
   if (!agent) return <div className="pane-body pane-loading">Agent not found.</div>;
 
   const send = async () => {
     if (busy || (attachment && !attachment.text.trim())) return;
-    const question = q.trim() || (attachment ? 'Help me develop this card. Distinguish what is on the card from your suggestions.' : 'Read this passage and tell me what you see.');
-    const sent = await useStore.getState().ask(agentId, question, !attachment && useSel && Boolean(selection), attachment?.text);
+    const question = q.trim() || (attachment ? 'Help me develop this card. Distinguish what is on the card from your suggestions.'
+      : focus?.ticket ? TICKET_QUESTION : focus?.source ? RIPE_THREADS_QUESTION : 'Read this passage and tell me what you see.');
+    const sent = await useStore.getState().ask(agentId, question, !attachment && !focus && useSel && Boolean(selection), attachment?.text,
+      focus ? askFocus(focus, useStore.getState().runs[agentId] ?? []) : undefined);
     if (!sent || useStore.getState().project?.id !== projectId) return;
     setQ(current => current === q ? '' : current);
     if (attachment && useCardDiscussion.getState().current?.id === attachment.id) useCardDiscussion.setState({ current: null });
@@ -153,13 +209,26 @@ export function AgentPane({ pane }: { pane: Pane }) {
       </div>
 
       <div className="agent-compose">
+        {focus && <section className="conversation-focus" aria-label="Attached to this conversation">
+          {focus.source && <div className="focus-chip">
+            <span><b>Source:</b> {focus.source.title}</span>
+            <small>Whole document sent to {providerLabel(agent.model?.provider, agent.model?.model, settings)} with each question</small>
+            <button type="button" className="linkish" disabled={busy} onClick={detachSource} aria-label={`Remove source ${focus.source.title}`}>Remove</button>
+          </div>}
+          {focus.ticket && <div className="focus-chip">
+            <span><b>Ticket:</b> {focus.ticket.title}</span>
+            <small>Ticket, its returned files and its recent Muse exchanges are sent</small>
+            <button type="button" className="linkish" disabled={busy} onClick={detachTicket} aria-label={`Remove ticket ${focus.ticket.title}`}>Remove</button>
+          </div>}
+          {!q.trim() && <p className="focus-hint">Press Ask with an empty box to {focus.ticket ? 'work on the ticket' : 'find ripe threads'}.</p>}
+        </section>}
         {attachment && <section className="card-discussion" aria-label="Card to discuss">
           <div><strong>{attachment.title}</strong><button type="button" className="linkish" disabled={busy} onClick={() => useCardDiscussion.setState({ current: null })}>Remove attachment</button></div>
           <p>Review this snapshot before sending. Shared for this question alongside Muse’s usual context. Linked records and images are excluded.</p>
           {attachment.trimmed && <p role="status">Long card: first 12,000 characters included. Edit to choose what matters.</p>}
           <label>Card excerpt to share<textarea rows={4} maxLength={CARD_EXCERPT_MAX} value={attachment.text} disabled={busy} onChange={event => useCardDiscussion.setState({ current: { ...attachment, text: event.target.value } })} /></label>
         </section>}
-        {!attachment &&
+        {!attachment && !focus &&
         <label className={`sel-toggle ${selection ? '' : 'is-off'}`}>
           <input type="checkbox" checked={useSel && Boolean(selection)} disabled={!selection} onChange={(e) => setUseSel(e.target.checked)} />
           attach selection{selection ? ` (${selection.text.split(/\s+/).filter(Boolean).length}w)` : ''}{agent.access ? ' · assignments apply' : ''}

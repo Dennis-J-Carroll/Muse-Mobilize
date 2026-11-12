@@ -16,6 +16,7 @@ const TOOLS: WorkbenchTool[] = [
   { type: 'progress', label: 'Progress', title: 'Manuscript Progress', icon: Icon.Bars },
   { type: 'canon', label: 'Canon', title: 'Canon', icon: Icon.Book },
   { type: 'sources', label: 'Sources', title: 'Sources', icon: Icon.Note },
+  { type: 'tickets', label: 'Tickets', title: 'Tickets', icon: Icon.Note },
   { type: 'review', label: 'Review', title: 'Review', icon: Icon.List },
   { type: 'events', label: 'Activity', title: 'Activity', icon: Icon.Clock },
 ];

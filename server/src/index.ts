@@ -72,11 +72,13 @@ async function editScope(req: express.Request): Promise<{ label: string; paths: 
   const stores: Record<string, string> = { tickets: 'tickets/tickets.json', canon: 'canon/canon.json', plot: 'plot/plot.json', scenes: 'scenes/scenes.json', references: 'references/references.json', goals: 'goals/goals.json', premise: 'premise/premise.json', constraints: 'constraints/constraints.json', connections: 'connections/connections.json', 'world-map': 'world/map.json', media: 'media/canvases/default.json' };
   // Asking for what-ifs stores nothing, so it is not an undoable edit.
   if (route === 'premise/what-ifs') return null;
+  // Ticket export streams a file (not JSON), so it cannot sit inside the undo wrapper; its Out status is a side note.
+  if (route === 'tickets/:ticketId/export') return null;
   const kind = route.split('/')[0];
   const verb = req.method === 'DELETE' ? 'Remove' : req.method === 'POST' ? 'Add' : 'Edit';
   // Only a media node delete can touch an asset file (deleteOrphanedImages/deleteOrphanedMedia);
   // a media edge delete never does, so it's excluded from the 'assets' undo scope.
-  if (stores[kind]) return { label: `${verb} ${kind === 'canon' ? 'story card' : kind === 'world-map' ? 'atlas background' : kind === 'media' ? 'canvas placement' : kind === 'tickets' ? (route.endsWith('/export') ? 'ticket (export)' : 'ticket') : kind}`, paths: [stores[kind], ...((kind === 'references' && req.method === 'DELETE') || kind === 'world-map' || (kind === 'media' && req.method === 'DELETE' && route.endsWith('/nodes/:nodeId')) ? ['assets'] : [])] };
+  if (stores[kind]) return { label: `${verb} ${kind === 'canon' ? 'story card' : kind === 'world-map' ? 'atlas background' : kind === 'media' ? 'canvas placement' : kind === 'tickets' ? 'ticket' : kind}`, paths: [stores[kind], ...((kind === 'references' && req.method === 'DELETE') || kind === 'world-map' || (kind === 'media' && req.method === 'DELETE' && route.endsWith('/nodes/:nodeId')) ? ['assets'] : [])] };
   if (route === 'documents/:docId' || route === 'patches/apply') {
     const doc = await readDocument(req.params.id, req.params.docId ?? req.body?.documentId);
     return { label: route === 'patches/apply' ? 'Accept suggested edit' : `Write ${doc.meta.title}`, paths: [doc.meta.path] };

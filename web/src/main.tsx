@@ -21,6 +21,7 @@ import './styles/workspace-layout.css';
 import './styles/connections.css';
 import './styles/threads.css';
 import './styles/sources.css';
+import './styles/tickets.css';
 import './styles/mobile.css';
 import './styles/drafting-controls.css';
 import './styles/project-tools.css';

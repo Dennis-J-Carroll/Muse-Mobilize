@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { api } from '../api';
 import { openConversation } from '../conversationView';
+import { askAboutSource } from '../conversationFocus';
 import type { StorySource, SourceClassification, SourceAuthority, SourceSearchHit } from '../sources';
 import * as Icon from '../components/icons';
 
@@ -264,6 +265,10 @@ export function SourcesPane() {
         <header className="sources-head">
           <button className="linkish" onClick={() => setPreview(null)}>← All sources</button>
           <h2>Sources</h2>
+          {source && source.extractionStatus !== 'failed' && (
+            <button className="btn ask-about-source" onClick={() => askAboutSource({ id: source.id, title: source.title })}
+              title="Attach this whole document to the Muse conversation">Ask Muse about this source</button>
+          )}
         </header>
         <SourcePreview sourceId={preview.sourceId} highlight={preview.highlight} />
         {source?.extractionStatus === 'failed' && null}

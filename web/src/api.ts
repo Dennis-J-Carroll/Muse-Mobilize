@@ -1,4 +1,5 @@
 import type { EditionRecipe, EditionStore, EditionCatalog } from '../../shared/story-edition';
+import type { Ticket, TicketDraft } from '../../shared/tickets';
 import { historySession, updateHistory, useEditHistory, type HistoryStatus } from './editHistory';
 import type {
   AgentDef, AgentRun, CanonEntity, CanonEntityType, CanonFact, CanonStatus, CanonStore, CharacterProfile,
@@ -184,6 +185,29 @@ export const api = {
   deleteReference: (id: string, referenceId: string) =>
     req<{ reference: StoryReference }>(`/api/projects/${id}/references/${referenceId}`, { method: 'DELETE' }),
 
+  tickets: (id: string) => req<{ tickets: Ticket[] }>(`/api/projects/${id}/tickets`),
+  createTicket: (id: string, draft: TicketDraft) => req<{ ticket: Ticket }>(`/api/projects/${id}/tickets`, { method: 'POST', body: JSON.stringify(draft) }),
+  updateTicket: (id: string, ticketId: string, draft: Partial<TicketDraft>) => req<{ ticket: Ticket }>(`/api/projects/${id}/tickets/${ticketId}`, { method: 'PUT', body: JSON.stringify(draft) }),
+  deleteTicket: (id: string, ticketId: string) => req<{ ticket: Ticket }>(`/api/projects/${id}/tickets/${ticketId}`, { method: 'DELETE' }),
+  attachTicketReturn: (id: string, ticketId: string, sourceId: string) => req<{ ticket: Ticket }>(`/api/projects/${id}/tickets/${ticketId}/returns`, { method: 'POST', body: JSON.stringify({ sourceId }) }),
+  detachTicketReturn: (id: string, ticketId: string, sourceId: string) => req<{ ticket: Ticket }>(`/api/projects/${id}/tickets/${ticketId}/returns/${sourceId}`, { method: 'DELETE' }),
+  exportTicket: async (id: string, ticketId: string, format: 'markdown' | 'txt' | 'docx') => {
+    const res = await fetch(`/api/projects/${id}/tickets/${ticketId}/export`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-muse-history-session': historySession() },
+      body: JSON.stringify({ format }),
+    });
+    if (!res.ok) {
+      let message = `Export failed (${res.status})`;
+      try { message = (await res.json()).error ?? message; } catch { /* keep default */ }
+      throw new Error(message);
+    }
+    const captured = res.headers.get('x-muse-history');
+    if (captured) updateHistory(id, JSON.parse(decodeURIComponent(captured)));
+    const name = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1];
+    return { blob: await res.blob(), fileName: name ? decodeURIComponent(name) : `ticket.${format === 'markdown' ? 'md' : format}` };
+  },
+
   sources: (id: string) => req<{ sources: StorySource[] }>(`/api/projects/${id}/sources`),
   importSource: async (id: string, file: File, meta: { classification?: SourceClassification; authority?: SourceAuthority }) =>
     req<{ source: StorySource; duplicate: boolean }>(`/api/projects/${id}/sources`, {
@@ -237,7 +261,7 @@ export const api = {
       body: JSON.stringify({ mode }),
     }),
 
-  ask: (id: string, body: { agentId: string; documentId?: string; selection?: Selection | null; question: string; sharedExcerpt?: string }) =>
+  ask: (id: string, body: { agentId: string; documentId?: string; selection?: Selection | null; question: string; sharedExcerpt?: string; focus?: { sourceId?: string; ticketId?: string }; history?: { question: string; answer: string }[] }) =>
     req<{ run: AgentRun }>(`/api/projects/${id}/ask`, { method: 'POST', body: JSON.stringify(body) }),
 
   applyPatch: (id: string, documentId: string, patch: Patch) =>

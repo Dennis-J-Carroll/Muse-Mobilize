@@ -46,6 +46,7 @@ const openConstraints = () => useStore.getState().openPane('constraints', { titl
 const openGoals = () => useStore.getState().openPane('goals', { title: 'Writing Goals', region: 'main', focus: true });
 const openProgress = () => useStore.getState().openPane('progress', { title: 'Manuscript Progress', region: 'main', focus: true });
 const openSources = () => useStore.getState().openPane('sources', { title: 'Sources', region: 'main', focus: true });
+const openTickets = () => useStore.getState().openPane('tickets', { title: 'Tickets', region: 'main', focus: true });
 
 const newDoc = (title: string, kind: 'manuscript' | 'notes' | 'canon' | 'outline'): Item => ({
   label: title,
@@ -143,6 +144,12 @@ const CARDS: Card[] = [
       { label: 'Open Sources workspace', run: openSources },
       canonItem(),
     ],
+  },
+  {
+    key: 'tickets', title: 'Tickets', blurb: 'Take a thread away and bring it back.', tone: 'sand',
+    icon: <Icon.Note />,
+    launch: openTickets,
+    items: () => [],
   },
   {
     key: 'references', title: 'References', blurb: 'Save useful links, quotes, and resources.', tone: 'sand',
