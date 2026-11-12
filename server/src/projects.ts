@@ -4,6 +4,7 @@ import yaml from 'js-yaml';
 import { safeJoin, slugify, ensureDir, exists } from './paths.js';
 import { readSettings } from './settings.js';
 import { emit } from './events.js';
+import { writePremise, PREMISE_WORKING_MAX } from './premise.js';
 import { SEED_CHAPTER, SEED_NOTES, SEED_OUTLINE, SEED_AGENTS, SEED_WORKSPACES } from './seed.js';
 import type { AgentDef, DocumentMeta, ProjectManifest } from './types.js';
 
@@ -42,7 +43,9 @@ export async function listProjects(): Promise<ProjectManifest[]> {
   return out.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
 }
 
-export async function createProject(name: string): Promise<ProjectManifest> {
+export async function createProject(name: string, idea = ''): Promise<ProjectManifest> {
+  const premise = idea.trim();
+  if (premise.length > PREMISE_WORKING_MAX) throw new Error(`Idea is longer than ${PREMISE_WORKING_MAX} characters.`);
   const root = await workspaceRoot();
   let id = slugify(name);
   let dir = safeJoin(root, `${id}.muse`);
@@ -65,7 +68,10 @@ export async function createProject(name: string): Promise<ProjectManifest> {
   }
   await fs.writeFile(safeJoin(dir, 'manuscript/chapter-01.md'), SEED_CHAPTER, 'utf8');
   await fs.writeFile(safeJoin(dir, 'outline/outline.md'), SEED_OUTLINE, 'utf8');
-  await fs.writeFile(safeJoin(dir, 'notes/scratchpad.md'), SEED_NOTES, 'utf8');
+  // The idea seeds the premise and the scratchpad, never the manuscript.
+  const notes = premise ? `## The idea\n\n${premise}\n\n${SEED_NOTES}` : SEED_NOTES;
+  await fs.writeFile(safeJoin(dir, 'notes/scratchpad.md'), notes, 'utf8');
+  if (premise) await writePremise(dir, { working: premise });
   await fs.writeFile(safeJoin(dir, 'project.json'), JSON.stringify(manifest, null, 2), 'utf8');
   for (const a of SEED_AGENTS) {
     await fs.writeFile(safeJoin(dir, `agents/${a.file}`), a.yaml, 'utf8');

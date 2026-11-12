@@ -107,8 +107,8 @@ export const api = {
   removeConnection: (id: string, attachmentId: string) => req<{ ok: true }>(`/api/projects/${id}/connections/attachments/${attachmentId}`, { method: 'DELETE' }),
   restoreBackup: (backup: string) => req<{ project: ProjectManifest }>('/api/projects/restore', { method: 'POST', body: backup }),
   listProjects: () => req<{ projects: ProjectManifest[] }>('/api/projects'),
-  createProject: (name: string) =>
-    req<{ project: ProjectManifest }>('/api/projects', { method: 'POST', body: JSON.stringify({ name }) }),
+  createProject: (name: string, idea?: string) =>
+    req<{ project: ProjectManifest }>('/api/projects', { method: 'POST', body: JSON.stringify(idea ? { name, idea } : { name }) }),
   openProject: (id: string) =>
     req<{ project: ProjectManifest; agents: AgentDef[]; workspaces: WorkspaceDef[] }>(`/api/projects/${id}`),
   uploadImage: async (id: string, file: File) =>

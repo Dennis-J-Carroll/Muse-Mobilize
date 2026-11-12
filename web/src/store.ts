@@ -3,6 +3,8 @@ import { create } from 'zustand';
 import type { ReactNode } from 'react';
 import { api } from './api';
 import { reconcileDeskPanes, type DeskPane } from './desks';
+import { placementBounds, sideBySideBounds, type CardPlacement } from './cardPlacement';
+import type { WorkspaceViewport } from './workspaceLayout';
 import { draftJournal, draftKey, documentDraftScope, type DraftEntry } from './draftRecovery';
 import { recordWriteBlocked } from './recordProposalGuard';
 import type {
@@ -69,7 +71,10 @@ interface State {
   providers: ProviderStatus[];
 
   bootstrap: () => Promise<void>;
-  newProject: (name: string) => Promise<void>;
+  /** Resolves to the new story's id once it exists on the server, even if opening it then failed; null if nothing was created. */
+  newProject: (name: string, idea?: string) => Promise<string | null>;
+  /** Open a story this session just created, with its premise when it began from an idea. */
+  startNewProject: (id: string, idea?: string) => Promise<void>;
   openProject: (id: string) => Promise<void>;
   uploadStoryImage: (file: File) => Promise<StoryImage>;
 
@@ -96,6 +101,8 @@ interface State {
   moveFloatingPanel: (id: string, x: number, y: number) => void;
   resizeFloatingPanel: (id: string, bounds: { x: number; y: number; width: number; height: number }) => void;
   focusFloatingPanel: (id: string) => void;
+  placeFloatingPanel: (id: string, placement: CardPlacement, viewport: WorkspaceViewport) => void;
+  arrangeFloatingPanels: (viewport: WorkspaceViewport) => void;
   setRightWidth: (w: number) => void;
   setBottomHeight: (h: number) => void;
   applyWorkspace: (id: string) => Promise<void>;
@@ -197,6 +204,13 @@ const titleFor = (type: PaneType, s: State, bindingId?: string): string => {
   return s.docs[bindingId ?? '']?.title ?? s.project?.documents.find((d) => d.id === bindingId)?.title ?? 'Document';
 };
 
+/** Why the open story cannot be left yet, or null when switching is safe. */
+function projectSwitchBlocked(project: ProjectManifest | null): string | null {
+  return project && draftJournal.hasProjectIssues(project.id)
+    ? 'Browser recovery is unavailable for some edits. Save or copy your unfinished writing before switching projects.'
+    : null;
+}
+
 export const useStore = create<State>((set, get) => ({
   ready: false,
   error: null,
@@ -251,17 +265,37 @@ export const useStore = create<State>((set, get) => ({
     }
   },
 
-  async newProject(name) {
-    const { project } = await api.createProject(name);
+  async newProject(name, idea) {
+    set({ error: null });
+    // Refuse before creating: a story that cannot then be opened invites a second, duplicate attempt.
+    const blocked = projectSwitchBlocked(get().project);
+    if (blocked) {
+      set({ error: blocked });
+      return null;
+    }
+    let project: ProjectManifest;
+    try {
+      ({ project } = await api.createProject(name, idea || undefined));
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
+    }
     set({ projects: [project, ...get().projects] });
-    await get().openProject(project.id);
+    await get().startNewProject(project.id, idea);
+    return project.id;
+  },
+
+  async startNewProject(id, idea) {
+    await get().openProject(id);
+    if (idea && get().project?.id === id) get().openPane('premise', { title: 'Premise', region: 'right' });
   },
 
   async openProject(id) {
     const request = ++projectOpenRequest;
     try {
-      if (get().project && draftJournal.hasProjectIssues(get().project!.id)) {
-        set({ error: 'Browser recovery is unavailable for some edits. Save or copy your unfinished writing before switching projects.' });
+      const blocked = projectSwitchBlocked(get().project);
+      if (blocked) {
+        set({ error: blocked });
         return;
       }
       const { project, agents, workspaces } = await api.openProject(id);
@@ -591,11 +625,11 @@ export const useStore = create<State>((set, get) => ({
   },
 
   moveFloatingPanel(id, x, y) {
-    set({ floatingPanels: get().floatingPanels.map((p) => (p.id === id ? { ...p, x, y } : p)) });
+    set({ floatingPanels: get().floatingPanels.map((p) => (p.id === id ? { ...p, x, y, placement: undefined } : p)) });
   },
 
   resizeFloatingPanel(id, bounds) {
-    set({ floatingPanels: get().floatingPanels.map(panel => panel.id === id ? { ...panel, ...bounds } : panel) });
+    set({ floatingPanels: get().floatingPanels.map(panel => panel.id === id ? { ...panel, ...bounds, placement: undefined } : panel) });
   },
 
   focusFloatingPanel(id) {
@@ -607,6 +641,31 @@ export const useStore = create<State>((set, get) => ({
       floatingPanels: [
         ...s.floatingPanels.filter((p) => p.id !== id),
         panel,
+      ],
+    });
+  },
+
+  placeFloatingPanel(id, placement, viewport) {
+    const s = get();
+    const panel = s.floatingPanels.find((p) => p.id === id);
+    if (!panel) return;
+    set({
+      floatingPanels: [
+        ...s.floatingPanels.filter((p) => p.id !== id),
+        { ...panel, ...placementBounds(placement, viewport), placement },
+      ],
+    });
+  },
+
+  arrangeFloatingPanels(viewport) {
+    const panels = get().floatingPanels;
+    const docked = panels.filter((p) => p.docked);
+    const undocked = panels.filter((p) => !p.docked);
+    const columns = sideBySideBounds(undocked.length, viewport);
+    set({
+      floatingPanels: [
+        ...docked,
+        ...undocked.map((p, i) => ({ ...p, ...columns[i], placement: 'side-by-side' as const })),
       ],
     });
   },

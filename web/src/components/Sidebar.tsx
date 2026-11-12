@@ -1,10 +1,12 @@
 import { beginCharacterConsultation, openFullCast } from '../characterConsultation';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../api';
 import { useStore } from '../store';
 import * as Icon from './icons';
 import { openProjectTool } from './ProjectTools';
 import { openConversation } from '../conversationView';
+import { NewStoryForm } from './NewStoryForm';
 
 /**
  * Domain cards mobilize a tool into the workspace. Rich domains can launch a
@@ -213,6 +215,8 @@ export function Sidebar({ collapsed, onToggleCollapsed, onOpenSettings }: {
 }) {
   const [open, setOpen] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
+  const [newStory, setNewStory] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
   const project = useStore((s) => s.project);
   const projects = useStore((s) => s.projects);
   const ref = useRef<HTMLDivElement>(null);
@@ -231,7 +235,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, onOpenSettings }: {
   return (
     <aside id="workspace-navigation" className={`sidebar ${collapsed ? 'is-collapsed' : ''}`} ref={ref}>
       <div className="brand-row">
-        <button className="brand-dot" onClick={() => setMenu((m) => !m)} title="Project menu">
+        <button ref={menuButton} className="brand-dot" onClick={() => setMenu((m) => !m)} title="Project menu">
           <Icon.Dots />
         </button>
         <div className="brand-text">
@@ -271,11 +275,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, onOpenSettings }: {
           </div>
           <button
             className="launcher-item"
-            onClick={() => {
-              const name = window.prompt('Name your story:');
-              if (name) void useStore.getState().newProject(name);
-              setMenu(false);
-            }}
+            onClick={() => { setNewStory(true); setMenu(false); }}
           >
             <span>New Project</span>
           </button>
@@ -309,6 +309,43 @@ export function Sidebar({ collapsed, onToggleCollapsed, onOpenSettings }: {
           </div>
         ))}
       </div>
+      {newStory && createPortal(
+        <NewStoryDialog
+          onClose={() => { setNewStory(false); menuButton.current?.focus(); }}
+          onDone={() => setNewStory(false)}
+        />,
+        document.body,
+      )}
     </aside>
+  );
+}
+
+/** The project menu's new-story form, modal over the workspace. */
+function NewStoryDialog({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  return (
+    <div
+      className="modal-backdrop"
+      onMouseDown={(event) => {
+        // The browser's default mousedown focus change would undo the focus return.
+        event.preventDefault();
+        onClose();
+      }}
+    >
+      <div
+        className="modal new-story-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="New story"
+        onMouseDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape') return;
+          event.preventDefault();
+          event.stopPropagation();
+          onClose();
+        }}
+      >
+        <NewStoryForm onDone={onDone} />
+      </div>
+    </div>
   );
 }

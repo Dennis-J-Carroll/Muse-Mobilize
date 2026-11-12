@@ -42,3 +42,34 @@
 @media (prefers-reduced-transparency: reduce) {
   .floating-drawer { backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
+/* Card placement: an icon row under the card's Arrange button. */
+.card-placement { position: relative; display: flex; }
+.card-placement-trigger { display: grid; place-items: center; }
+.card-placement-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 10; display: flex; gap: 6px; padding: 6px;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-md);
+  background: var(--glass-sheen), var(--glass-overlay); box-shadow: var(--shadow-float);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+}
+.card-placement-group { display: flex; gap: 2px; }
+.card-placement-group + .card-placement-group { padding-left: 6px; border-left: 1px solid var(--line-strong); }
+.card-placement-group button { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--ink-mid); }
+.card-placement-group button:hover, .card-placement-group button:focus { background: var(--card-mist); color: var(--ink); }
+.card-placement-group button[aria-checked="true"] { background: var(--glass-face); color: var(--accent); box-shadow: var(--shadow-well); }
+.card-placement-group button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* A narrow card (Side by side with several cards) cannot fit the icon row
+   right-aligned under the trigger: the drawer clips it. Anchor the menu to the
+   card's header edge instead and stack the two groups. */
+@container floating-editor (max-width: 340px) {
+  .floating-drawer-grip { position: relative; }
+  .card-placement { position: static; }
+  .card-placement-menu { right: 8px; flex-direction: column; max-width: calc(100% - 16px); }
+  .card-placement-group { flex-wrap: wrap; }
+  .card-placement-group + .card-placement-group { padding-left: 0; padding-top: 6px; border-left: 0; border-top: 1px solid var(--line-strong); }
+}
+@media (max-width: 700px) {
+  .card-placement { display: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .card-placement-menu { background: var(--paper); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
