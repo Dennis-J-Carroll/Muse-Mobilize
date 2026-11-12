@@ -45,6 +45,9 @@ import {
   searchSources, rebuildSourceIndexes,
 } from './sources.js';
 import { renderExport } from './export.js';
+import { attachTicketReturn, createTicket, deleteTicket, detachTicketReturn, readTicket, readTickets, setTicketStatus, updateTicket } from './tickets.js';
+import { validateFocus } from './focus.js';
+import { ticketFileName, ticketToMarkdown } from '../../shared/tickets.js';
 import { saveAgent, saveArrangement, readArrangements, loadArrangement, withAgentLock, parseManagedAgent } from './agent-config.js';
 import { projectResources, resourceInfo } from './project-resources.js';
 import { buildContext } from './context.js';
@@ -66,14 +69,14 @@ function historySession(req: express.Request): string | null {
 async function editScope(req: express.Request): Promise<{ label: string; paths: string[] } | null> {
   if (!req.params.id || !['POST', 'PUT', 'DELETE'].includes(req.method)) return null;
   const route = String(req.route?.path ?? '').replace('/api/projects/:id/', '');
-  const stores: Record<string, string> = { canon: 'canon/canon.json', plot: 'plot/plot.json', scenes: 'scenes/scenes.json', references: 'references/references.json', goals: 'goals/goals.json', premise: 'premise/premise.json', constraints: 'constraints/constraints.json', connections: 'connections/connections.json', 'world-map': 'world/map.json', media: 'media/canvases/default.json' };
+  const stores: Record<string, string> = { tickets: 'tickets/tickets.json', canon: 'canon/canon.json', plot: 'plot/plot.json', scenes: 'scenes/scenes.json', references: 'references/references.json', goals: 'goals/goals.json', premise: 'premise/premise.json', constraints: 'constraints/constraints.json', connections: 'connections/connections.json', 'world-map': 'world/map.json', media: 'media/canvases/default.json' };
   // Asking for what-ifs stores nothing, so it is not an undoable edit.
   if (route === 'premise/what-ifs') return null;
   const kind = route.split('/')[0];
   const verb = req.method === 'DELETE' ? 'Remove' : req.method === 'POST' ? 'Add' : 'Edit';
   // Only a media node delete can touch an asset file (deleteOrphanedImages/deleteOrphanedMedia);
   // a media edge delete never does, so it's excluded from the 'assets' undo scope.
-  if (stores[kind]) return { label: `${verb} ${kind === 'canon' ? 'story card' : kind === 'world-map' ? 'atlas background' : kind === 'media' ? 'canvas placement' : kind}`, paths: [stores[kind], ...((kind === 'references' && req.method === 'DELETE') || kind === 'world-map' || (kind === 'media' && req.method === 'DELETE' && route.endsWith('/nodes/:nodeId')) ? ['assets'] : [])] };
+  if (stores[kind]) return { label: `${verb} ${kind === 'canon' ? 'story card' : kind === 'world-map' ? 'atlas background' : kind === 'media' ? 'canvas placement' : kind === 'tickets' ? (route.endsWith('/export') ? 'ticket (export)' : 'ticket') : kind}`, paths: [stores[kind], ...((kind === 'references' && req.method === 'DELETE') || kind === 'world-map' || (kind === 'media' && req.method === 'DELETE' && route.endsWith('/nodes/:nodeId')) ? ['assets'] : [])] };
   if (route === 'documents/:docId' || route === 'patches/apply') {
     const doc = await readDocument(req.params.id, req.params.docId ?? req.body?.documentId);
     return { label: route === 'patches/apply' ? 'Accept suggested edit' : `Write ${doc.meta.title}`, paths: [doc.meta.path] };
@@ -702,6 +705,7 @@ app.put('/api/projects/:id/agents/:agentId/state', wrap(async (req, res) => {
 app.post('/api/projects/:id/ask', wrap(async (req, res) => {
   const { agentId, documentId, selection, question, attachments, sharedExcerpt } = req.body ?? {};
   if (!agentId) throw new Error('agentId is required');
+  const { focus, history } = validateFocus(req.body?.focus, req.body?.history);
   const run = await runAgent(req.params.id, {
     agentId,
     documentId,
@@ -709,8 +713,59 @@ app.post('/api/projects/:id/ask', wrap(async (req, res) => {
     question: String(question ?? '').trim() || 'Read this passage and tell me what you see.',
     attachments,
     sharedExcerpt,
+    focus,
+    history,
   });
   res.json({ run });
+}));
+
+/* ----------------------------------------------------------------- tickets */
+
+app.get('/api/projects/:id/tickets', wrap(async (req, res) => {
+  res.json({ tickets: await readTickets(await projectDir(req.params.id)) });
+}));
+
+app.post('/api/projects/:id/tickets', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const ticket = await createTicket(dir, req.body ?? {});
+  await emit(dir, 'ticket.created', { ticketId: ticket.id, title: ticket.title, origin: ticket.origin });
+  res.json({ ticket });
+}));
+
+app.put('/api/projects/:id/tickets/:ticketId', wrap(async (req, res) => {
+  res.json({ ticket: await updateTicket(await projectDir(req.params.id), req.params.ticketId, req.body ?? {}) });
+}));
+
+app.delete('/api/projects/:id/tickets/:ticketId', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const ticket = await deleteTicket(dir, req.params.ticketId);
+  await emit(dir, 'ticket.deleted', { ticketId: ticket.id, title: ticket.title });
+  res.json({ ticket });
+}));
+
+// Exporting is taking the ticket away, so it marks the ticket "out" (unless already returned or closed).
+app.post('/api/projects/:id/tickets/:ticketId/export', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const format = String(req.body?.format ?? 'markdown');
+  let ticket = await readTicket(dir, req.params.ticketId);
+  const rendered = renderExport(ticket.title, ticketToMarkdown(ticket), format);
+  if (ticket.status === 'open') ticket = await setTicketStatus(dir, ticket.id, 'out');
+  await emit(dir, 'ticket.exported', { ticketId: ticket.id, format });
+  res.set('content-type', rendered.mimeType);
+  res.set('content-disposition', `attachment; filename="${encodeURIComponent(ticketFileName(ticket.title, rendered.fileName.split('.').pop() ?? 'md'))}"`);
+  res.set('x-muse-ticket-status', ticket.status);
+  res.send(rendered.body);
+}));
+
+app.post('/api/projects/:id/tickets/:ticketId/returns', wrap(async (req, res) => {
+  const dir = await projectDir(req.params.id);
+  const ticket = await attachTicketReturn(dir, req.params.ticketId, String(req.body?.sourceId ?? ''));
+  await emit(dir, 'ticket.returned', { ticketId: ticket.id, sourceId: req.body?.sourceId });
+  res.json({ ticket });
+}));
+
+app.delete('/api/projects/:id/tickets/:ticketId/returns/:sourceId', wrap(async (req, res) => {
+  res.json({ ticket: await detachTicketReturn(await projectDir(req.params.id), req.params.ticketId, req.params.sourceId) });
 }));
 
 /* ----------------------------------------------------------------- patches */

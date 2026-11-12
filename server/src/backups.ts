@@ -37,10 +37,10 @@ interface BackupOptions { workspaceRoot?: string }
 const stores = new Set([
   'canon/canon.json', 'plot/plot.json', 'scenes/scenes.json', 'references/references.json',
   'goals/goals.json', 'world/map.json', 'connections/connections.json', 'sources/index.json',
-  'studio/arrangements.json', 'binder/recipe.json', 'editions/recipes.json', 'media/canvases/default.json', 'premise/premise.json', 'constraints/constraints.json', 'threads/threads.json',
+  'studio/arrangements.json', 'binder/recipe.json', 'editions/recipes.json', 'media/canvases/default.json', 'premise/premise.json', 'constraints/constraints.json', 'threads/threads.json', 'tickets/tickets.json',
 ]);
 const broadDirectories = new Set(['manuscript', 'outline', 'notes', 'canon', 'assets', 'agents', 'workspaces', 'sources', 'media']);
-const rootDirectories = new Set([...broadDirectories, 'plot', 'scenes', 'references', 'goals', 'world', 'connections', 'studio', 'binder', 'editions', 'premise', 'constraints', 'threads', '.muse']);
+const rootDirectories = new Set([...broadDirectories, 'plot', 'scenes', 'references', 'goals', 'world', 'connections', 'studio', 'binder', 'editions', 'premise', 'constraints', 'threads', 'tickets', '.muse']);
 function invalid(message: string): never { throw new BackupError(400, 'INVALID_BACKUP', message); }
 function tooLarge(kind: 'encoded' | 'saved' | 'files' | 'directories', actual: number, detail = ''): never {
   const limit = kind === 'encoded' ? MAX_BACKUP_BYTES : kind === 'saved' ? MAX_PROJECT_BYTES : MAX_BACKUP_FILES;

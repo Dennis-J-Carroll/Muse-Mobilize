@@ -466,6 +466,7 @@ export interface AgentRun {
   ms: number;
   contextSummary: string[];
   sourceCitations?: SourceCitation[];
+  ticketSuggestions?: import('../../shared/tickets.js').TicketSuggestion[];
   error?: string;
 }
 

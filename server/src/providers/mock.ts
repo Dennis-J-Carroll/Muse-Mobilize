@@ -79,6 +79,30 @@ export const mockProvider: ModelProvider = {
       const note = firstSentence(section(user, 'latest-note').replace(/@muse\b/gi, '').trim()).slice(0, 120);
       return { text: `Muse (mock) on "${label}": ${note} — worth pinning down before you build on it.`, model: 'mock-writer-1' };
     }
+    if (/<writer-attached-(source|ticket)\b/i.test(user)) {
+      // Source gate / tickets: name the first THIN section, quote it, ask, and suggest one ticket.
+      const map = section(user, 'depth-map');
+      const thin = /^\s*- (.+?) — \d+ words · THIN/m.exec(map)?.[1] ?? 'the attached material';
+      const ticket = section(user, 'writer-attached-ticket');
+      const returned = /<returned-file title="([^"]*)"/.exec(ticket)?.[1];
+      const earlier = /<conversation-so-far>|<earlier-on-this-ticket>/.test(user) ? '\n\nPicking up from what we said before.' : '';
+      const subject = returned ? `your returned file “${returned}”` : `“${thin}”`;
+      return {
+        model: 'mock-writer-1',
+        text: [
+          `Muse (mock) on ${subject}: it is one of the thinner threads here.${earlier}`,
+          ``,
+          `What does it cost the people closest to it?`,
+          ``,
+          `<ticket-suggestion>`,
+          `<title>Explore ${thin}</title>`,
+          `<wants>Find what this thread could carry in the story.</wants>`,
+          `<thread>${thin}</thread>`,
+          `<question>Who in the chapters would care most about ${thin}?</question>`,
+          `</ticket-suggestion>`,
+        ].join('\n'),
+      };
+    }
     const agentName = section(req.system, 'agent-name') || 'Agent';
     const isConsulted = /<consultation-request\b/i.test(user);
     const isFollowUp = /<consultation-response\b/i.test(user);

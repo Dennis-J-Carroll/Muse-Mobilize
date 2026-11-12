@@ -7,6 +7,8 @@ import { emit } from './events.js';
 import type { AgentDef, AgentRun, Consultation, Patch, Selection } from './types.js';
 import { assertAgentUnchanged } from './agent-config.js';
 import { parseAccess } from '../../shared/project-tools.js';
+import { buildFocus, renderHistory, FOCUS_PROTOCOL, FOCUS_OUTPUT_TOKENS, type FocusHistoryItem, type FocusInput } from './focus.js';
+import { appendTicketExchange } from './tickets.js';
 
 /**
  * Agent runtime (§4, §14). Agents talk to each other through explicit,
@@ -122,7 +124,7 @@ async function consultOne(
 
 export async function runAgent(
   projectId: string,
-  input: { agentId: string; documentId?: string; selection?: Selection | null; question: string; attachments?: string[]; sharedExcerpt?: string },
+  input: { agentId: string; documentId?: string; selection?: Selection | null; question: string; attachments?: string[]; sharedExcerpt?: string; focus?: FocusInput; history?: FocusHistoryItem[] },
 ): Promise<AgentRun> {
   const startedAt = new Date().toISOString();
   const t0 = Date.now();
@@ -133,6 +135,9 @@ export async function runAgent(
   if (input.sharedExcerpt !== undefined && (typeof input.sharedExcerpt !== 'string' || input.sharedExcerpt.length > 12000)) throw new Error('Shared excerpt must be at most 12000 characters.');
   if (input.attachments !== undefined && (!Array.isArray(input.attachments) || input.attachments.length > 100 || input.attachments.some((id) => typeof id !== 'string'))) throw new Error('Invalid document attachments.');
   const provider = await resolveProvider(agent.model?.provider ?? 'default');
+  // Writer-attached material is assembled before anything is logged, so a
+  // too-large source fails with a clear message instead of a provider error.
+  const focus = input.focus ? await buildFocus(projectId, input.focus, provider.id) : null;
 
   await emit(dir, 'agent.request.started', { agentId: agent.id, question: input.question }, agent.id);
 
@@ -151,7 +156,11 @@ export async function runAgent(
   const rosterBlock = roster ? `\n<agents-you-may-consult>\n${roster}\n</agents-you-may-consult>\n` : '';
   const handoff = input.sharedExcerpt?.trim() ? `\n<writer-shared-excerpt>\n${input.sharedExcerpt}\n</writer-shared-excerpt>\n` : '';
   if (handoff) { bundle.summary.push('Writer explicitly shared an excerpt for this run'); if (bundle.receipt) bundle.receipt.sharedExcerpt = true; }
-  const firstUser = `${renderContext(bundle)}${rosterBlock}${handoff}\n<question>\n${input.question}\n</question>`;
+  if (focus) bundle.summary.push(...focus.summary);
+  const focusBlock = focus ? `${focus.block}${renderHistory(input.history)}` : '';
+  const firstUser = `${renderContext(bundle)}${rosterBlock}${handoff}${focusBlock}\n<question>\n${input.question}\n</question>`;
+  const focusProtocol = focus ? `\n${FOCUS_PROTOCOL}` : '';
+  const maxTokens = focus ? Math.max(agent.budget?.max_tokens ?? 2000, FOCUS_OUTPUT_TOKENS) : agent.budget?.max_tokens ?? 2000;
 
   const run: AgentRun = {
     runId: randomUUID(),
@@ -174,9 +183,9 @@ export async function runAgent(
     await assertAgentUnchanged(projectId, agent);
     const messages: { role: 'user' | 'assistant'; content: string }[] = [{ role: 'user', content: firstUser }];
     let result = await provider.complete({
-      system: systemFor(agent, access ? `${ASSIGNED_PROTOCOL}\n${access.proposeEdits ? ASSIGNED_PATCH_PROTOCOL : 'Offer advice only. Do not propose patches.'}` : PRIMARY_PROTOCOL),
+      system: systemFor(agent, (access ? `${ASSIGNED_PROTOCOL}\n${access.proposeEdits ? ASSIGNED_PATCH_PROTOCOL : 'Offer advice only. Do not propose patches.'}` : PRIMARY_PROTOCOL) + focusProtocol),
       messages,
-      maxTokens: agent.budget?.max_tokens ?? 2000,
+      maxTokens,
       model: agent.model?.model,
     });
     run.model = result.model;
@@ -218,9 +227,9 @@ export async function runAgent(
 
       await assertAgentUnchanged(projectId, agent);
       result = await provider.complete({
-        system: systemFor(agent, PRIMARY_PROTOCOL),
+        system: systemFor(agent, PRIMARY_PROTOCOL + focusProtocol),
         messages,
-        maxTokens: agent.budget?.max_tokens ?? 2000,
+        maxTokens,
         model: agent.model?.model,
       });
       parsed = parseAgentOutput(result.text);
@@ -231,6 +240,8 @@ export async function runAgent(
     // them, and the writer should review one set, not three.
     await assertAgentUnchanged(projectId, agent);
     run.text = parsed.prose;
+    // Suggestions come only from the final primary answer, and only when the writer attached material.
+    if (focus && parsed.ticketSuggestions.length) run.ticketSuggestions = parsed.ticketSuggestions;
     const documentSent = !access || bundle.receipt?.records.some((r) => r.kind === 'document' && r.id === input.documentId);
     const suppliedDocumentText = bundle.sections.filter((section) => section.resource?.kind === 'document' && section.resource.id === input.documentId).map((section) => section.body);
     run.patches = access && (!access.proposeEdits || !documentSent) ? [] : dedupe(toPatches(parsed.patches.filter((p) => p.beforeText.length > 0 && (access ? suppliedDocumentText.some((text) => text.includes(p.beforeText)) : renderContext(bundle).includes(p.beforeText))), input));
@@ -260,6 +271,8 @@ export async function runAgent(
       }, agent.id);
     }
     await emit(dir, 'agent.request.completed', { agentId: agent.id, consultations: run.consultations.length, patches: run.patches.length }, agent.id);
+    // The ticket remembers its thread: the next visit sees this exchange.
+    if (input.focus?.ticketId && run.text.trim()) await appendTicketExchange(dir, input.focus.ticketId, { question: input.question, answer: run.text }).catch(() => undefined);
   } catch (err: any) {
     run.error = String(err?.message ?? err);
     await emit(dir, 'agent.request.failed', { agentId: agent.id, error: run.error }, agent.id);

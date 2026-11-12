@@ -18,6 +18,8 @@
  * the agent's actual answer.
  */
 
+import { TICKET_LIMITS, type TicketSuggestion } from '../../shared/tickets.js';
+
 export interface RawConsult {
   agent: string;
   question: string;
@@ -33,7 +35,30 @@ export interface ParsedAgentOutput {
   prose: string;
   consults: RawConsult[];
   patches: RawPatch[];
+  ticketSuggestions: TicketSuggestion[];
   warnings: string[];
+}
+
+const TICKET_RE = /<ticket-suggestion\s*>([\s\S]*?)<\/ticket-suggestion>/gi;
+const decode = (s: string) => s.replace(/&quot;/g, '"').replace(/&amp;/g, '&').trim();
+function all(block: string, tag: string): string[] {
+  return [...block.matchAll(new RegExp(`<${tag}\\s*>([\\s\\S]*?)<\\/${tag}>`, 'gi'))].map((m) => m[1].trim()).filter(Boolean);
+}
+
+/** A suggestion is only a proposal: it is shown to the writer and never stored until accepted. */
+export function parseTicketSuggestion(block: string): TicketSuggestion | null {
+  const title = inner(block, 'title')?.trim().slice(0, TICKET_LIMITS.title);
+  if (!title) return null;
+  const quotes = [...block.matchAll(/<quote(?:\s+section\s*=\s*"([^"]*)")?\s*>([\s\S]*?)<\/quote>/gi)]
+    .map((m) => ({ section: m[1] ? decode(m[1]).slice(0, TICKET_LIMITS.item) : undefined, quote: m[2].trim().slice(0, TICKET_LIMITS.quote) }))
+    .filter((q) => q.quote).slice(0, 5);
+  return {
+    title,
+    wants: (inner(block, 'wants') ?? '').trim().slice(0, TICKET_LIMITS.wants),
+    threads: all(block, 'thread').slice(0, 5).map((t) => t.slice(0, TICKET_LIMITS.item)),
+    questions: all(block, 'question').slice(0, 5).map((q) => q.slice(0, TICKET_LIMITS.item)),
+    quotes,
+  };
 }
 
 const CONSULT_RE = /<consult\s+agent\s*=\s*["']?([a-zA-Z0-9_\-]+)["']?\s*>([\s\S]*?)<\/consult>/gi;
@@ -53,7 +78,15 @@ export function parseAgentOutput(raw: string): ParsedAgentOutput {
   const warnings: string[] = [];
   const consults: RawConsult[] = [];
   const patches: RawPatch[] = [];
+  const ticketSuggestions: TicketSuggestion[] = [];
   let prose = raw ?? '';
+
+  prose = prose.replace(TICKET_RE, (whole, body: string) => {
+    const suggestion = ticketSuggestions.length < 3 ? parseTicketSuggestion(body) : null;
+    if (!suggestion) { if (ticketSuggestions.length < 3) warnings.push('Ticket suggestion without a <title> — left as prose.'); return ticketSuggestions.length < 3 ? whole : ''; }
+    ticketSuggestions.push(suggestion);
+    return '';
+  });
 
   prose = prose.replace(CONSULT_RE, (_all, agent: string, question: string) => {
     const q = question.trim();
@@ -87,8 +120,9 @@ export function parseAgentOutput(raw: string): ParsedAgentOutput {
   const count = (re: RegExp) => (raw.match(re) || []).length;
   if (count(/<consult\b/gi) > count(/<\/consult>/gi)) warnings.push('Unclosed <consult> block detected.');
   if (count(/<patch\b/gi) > count(/<\/patch>/gi)) warnings.push('Unclosed <patch> block detected.');
+  if (count(/<ticket-suggestion\b/gi) > count(/<\/ticket-suggestion>/gi)) warnings.push('Unclosed <ticket-suggestion> block detected.');
 
-  return { prose: prose.replace(/\n{3,}/g, '\n\n').trim(), consults, patches, warnings };
+  return { prose: prose.replace(/\n{3,}/g, '\n\n').trim(), consults, patches, ticketSuggestions, warnings };
 }
 
 export interface Anchor {
