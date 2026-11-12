@@ -25,7 +25,7 @@ export const test = base.extend<{ projectId: string }>({
     const { project } = await response.json();
     await page.goto('/');
     await page.getByRole('button', { name: 'Project menu' }).click();
-    await page.getByRole('button', { name, exact: true }).dispatchEvent('click');
+    await page.getByRole('group', { name: 'Available projects' }).getByRole('button', { name, exact: true }).click();
     await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
     await use(project.id);
     await Promise.allSettled(observedJobs);

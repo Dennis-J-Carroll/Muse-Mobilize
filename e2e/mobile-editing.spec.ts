@@ -82,9 +82,8 @@ test('saved undo restores created cards, survives reload, and refuses newer edit
   await page.getByRole('button', { name: 'Undo saved change', exact: true }).click();
   await expect.poll(async () => (await read()).length).toBe(0);
   await page.reload();
-  if (await page.getByRole('button', { name: 'Show workspace controls', exact: true }).isVisible()) {
-    await page.getByRole('button', { name: 'Show workspace controls', exact: true }).click();
-  }
+  // Collapsed phone controls are session state: a reload starts with them shown.
+  await expect(page.getByRole('button', { name: 'Hide workspace controls', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Redo saved change', exact: true }).click();
   await expect.poll(async () => (await read()).length).toBe(1);
   const entity = (await read())[0];

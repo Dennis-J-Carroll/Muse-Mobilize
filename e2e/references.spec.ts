@@ -159,15 +159,16 @@ test('reference save is single-flight and keeps draft available after failure', 
   try {
     await expect(page.locator('.reference-drawer button[type="submit"], .reference-drawer .btn-primary')).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toBeDisabled();
-    await page.keyboard.press('Escape');
+    // Focus can leave the drawer when its fieldset disables mid-save, so press Escape on the
+    // drawer itself: it must send the draft aside, not lose it.
+    await page.getByRole('dialog', { name: 'Pin reference' }).press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Pin reference' })).toBeHidden();
     await expect(page.getByLabel('Title', { exact: true })).toHaveValue('One deliberate pin');
   } finally {
     release();
   }
   await expect(page.getByRole('alert')).toContainText('QA save unavailable');
-  if (!await page.getByLabel('Why it matters').isVisible()) {
-    await page.getByRole('button', { name: 'Recall Pin reference' }).click();
-  }
+  await page.getByRole('button', { name: 'Recall Pin reference' }).click();
   await expect(page.getByLabel('Why it matters')).toHaveValue('Keep this draft through retry.');
   await page.unroute(`**/api/projects/${projectId}/references`);
   await page.getByRole('button', { name: 'Pin to board', exact: true }).dblclick();

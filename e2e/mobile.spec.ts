@@ -18,7 +18,9 @@ for (const viewport of [
         ? page.getByRole('button', { name, exact: true })
         : page.locator('.cards').getByRole('button', { name: new RegExp(`^${name}\\b`) });
       await button.tap();
-      if (name === 'Characters' && await page.getByRole('dialog', { name: 'Character reference' }).isVisible()) {
+      if (name === 'Characters') {
+        // From Drafting, Characters opens as a reference beside the draft; the audit wants the full Cast.
+        await expect(page.getByRole('dialog', { name: 'Character reference' })).toBeVisible();
         await page.getByRole('button', { name: 'Open full Cast' }).tap();
       }
       await expect(page.locator('main.workspace')).toBeVisible();
