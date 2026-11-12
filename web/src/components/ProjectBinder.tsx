@@ -88,10 +88,11 @@ export function ProjectBinder({ projectId, projectName, resources, onDirty, onPe
         {previewUrl && <iframe key={previewUrl} ref={frame} title="Binder presentation" sandbox="allow-same-origin allow-modals" src={previewUrl} onLoad={() => setPreviewReady(true)} />}
         <details><summary>Portable project package</summary><p>ZIP includes readable binder, recipe, original Sources and assets inside the saved-project backup, and export receipt. Extract backup.muse-backup.zip and restore it through Backups. Both exports use the same captured saved project.</p><label className="check-row"><input type="checkbox" checked={privateArchive} onChange={(e) => setPrivateArchive(e.target.checked)} />Include private saved-project data, even material omitted from this binder</label><button disabled={busy || !privateArchive} onClick={() => void run(async () => {
           await verify();
+          if (packageJob.current) await archiveRequest(`/api/archive-jobs/${packageJob.current}`, undefined, 'DELETE');
+          packageJob.current = null;
           const job = await archiveRequest(`/api/projects/${projectId}/binder/package-jobs`, { recipe, snapshotHash: preview.receipt.snapshotHash });
           packageJob.current = job.id;
           const ready = await waitArchive(job, () => alive.current && useStore.getState().project?.id === projectId, status => { if (alive.current) setMessage(`Preparing project package: ${status.state}${status.total ? ` · ${Math.round(status.bytes / status.total * 100)}%` : ''}`); });
-          packageJob.current = null;
           const link = document.createElement('a'); link.href = ready.downloadUrl!; link.download = `${projectId}-project-package.zip`;
           document.body.append(link); link.click(); link.remove();
           setMessage('Package verified. Download requested. Extract backup.muse-backup.zip to restore.');

@@ -8,6 +8,8 @@ test('phone atlas pinches in and out, pans with remaining finger, and ignores ca
   await page.getByRole('button', { name: /^World Building/ }).click();
   const viewport = page.locator('.world-viewport'); const space = page.locator('.world-space');
   await expect(page.getByRole('button', { name: 'Place: Touch landmark', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Close inspector', exact: true }).click();
+  await viewport.evaluate((element) => element.scrollIntoView({ block: 'start' }));
   let rect = (await viewport.boundingBox())!;
   const cdp = await page.context().newCDPSession(page);
   const point = (id: number, x: number, y: number) => ({ id, x: rect.x + x, y: rect.y + y, radiusX: 6, radiusY: 6, force: 1 });
@@ -30,7 +32,6 @@ test('phone atlas pinches in and out, pans with remaining finger, and ignores ca
 
   // Restore camera, then start a gesture on a landmark itself.
   await page.getByRole('button', { name: 'Fit landmarks' }).click();
-  await page.getByRole('button', { name: 'Close inspector' }).click();
   await viewport.scrollIntoViewIfNeeded();
   rect = (await viewport.boundingBox())!;
   const marker = (await page.getByRole('button', { name: 'Place: Touch landmark', exact: true }).boundingBox())!;
@@ -74,11 +75,16 @@ test('saved undo restores created cards, survives reload, and refuses newer edit
   await form.getByRole('button', { name: 'Redo form edit', exact: true }).click();
   await expect(form.getByPlaceholder('Character name')).toHaveValue('Undo character');
   await form.getByRole('button', { name: 'Add to cast', exact: true }).click();
+  await page.getByRole('button', { name: 'Return to writing', exact: true }).click();
+  await page.getByRole('button', { name: 'Show workspace controls', exact: true }).click();
   const read = async () => (await (await request.get(`/api/projects/${projectId}/canon`)).json()).canon.entities;
   await expect.poll(async () => (await read()).length).toBe(1);
   await page.getByRole('button', { name: 'Undo saved change', exact: true }).click();
   await expect.poll(async () => (await read()).length).toBe(0);
   await page.reload();
+  if (await page.getByRole('button', { name: 'Show workspace controls', exact: true }).isVisible()) {
+    await page.getByRole('button', { name: 'Show workspace controls', exact: true }).click();
+  }
   await page.getByRole('button', { name: 'Redo saved change', exact: true }).click();
   await expect.poll(async () => (await read()).length).toBe(1);
   const entity = (await read())[0];

@@ -87,9 +87,11 @@ test('floating editor borders preserve form, opposite edge, and docked dimension
   expect(after.width).toBeCloseTo(before.width + 80, 0);
   expect(after.x + after.width).toBeCloseTo(before.x + before.width, 0);
   await form.getByRole('button', { name: 'Resize Add scene', exact: true }).press('Shift+ArrowDown');
+  await form.evaluate(async (element) => { await Promise.all(element.getAnimations().map((animation) => animation.finished)); });
   const resized = await form.boundingBox();
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Recall Add scene', exact: true }).click();
+  await form.evaluate(async (element) => { await Promise.all(element.getAnimations().map((animation) => animation.finished)); });
   await form.locator('.resize-w').hover();
   expect(await form.boundingBox()).toEqual(resized);
   await expect(form.getByLabel('Scene title')).toHaveValue('Border keeper');

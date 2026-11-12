@@ -69,13 +69,27 @@
 .page-popover .page-width-reset { justify-self: start; border: 0; background: transparent; padding: 0; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
 
 @container writing-space (max-width: 650px) {
-  .workspace-toolbar { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
-  .workspace-tool-group, .workspace-project-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-left: 0; }
-  .workspace-project-group { border-top: 1px solid var(--line); padding-top: 8px; }
-  .workspace-project-group .undo-controls { grid-column: 1 / -1; }
-  .workspace-tool-group > :is(button, .document-picker, .tile-picker), .workspace-project-group > button, .workspace-tool-group .document-picker > button { width: 100%; min-width: 0; }
-  .workspace-tool-group .tile-picker select { flex: 1; min-width: 0; max-width: none; width: 100%; }
-  .workspace-project-group .undo-controls button { flex: 1; }
+  .workspace-toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas: "muse muse" "tiles documents" "history history" "desks connections" "backups workbench";
+    align-items: stretch;
+    gap: 6px;
+  }
+  .workspace-tool-group, .workspace-project-group { display: contents; }
+  .workspace-toolbar .quick-muse-trigger { grid-area: muse; }
+  .workspace-toolbar .tile-picker { grid-area: tiles; }
+  .workspace-toolbar .document-picker { grid-area: documents; }
+  .workspace-toolbar .undo-controls { grid-area: history; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .workspace-toolbar .history-scope { display: none; }
+  .workspace-toolbar .saved-desks-trigger { grid-area: desks; }
+  .workspace-toolbar .connections-trigger { grid-area: connections; }
+  .workspace-toolbar .project-backups-trigger { grid-area: backups; }
+  .workspace-toolbar .workbench-toggle { grid-area: workbench; margin-left: 0; }
+  .workspace-toolbar :is(.tile-picker, .document-picker, .saved-desks-trigger, .connections-trigger, .project-backups-trigger, .workbench-toggle, .quick-muse-trigger),
+  .workspace-toolbar .undo-controls > button, .workspace-toolbar .document-picker > button { width: 100%; min-width: 0; }
+  .workspace-toolbar .tile-picker select { flex: 1; min-width: 0; max-width: none; width: 100%; }
+  .workspace-toolbar .undo-message { grid-column: 1 / -1; }
 }
 @media (max-width: 700px) {
   .app.is-drafting .workspace-head { padding: 10px 12px; }

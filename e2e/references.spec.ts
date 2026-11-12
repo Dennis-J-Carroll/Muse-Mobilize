@@ -165,6 +165,9 @@ test('reference save is single-flight and keeps draft available after failure', 
     release();
   }
   await expect(page.getByRole('alert')).toContainText('QA save unavailable');
+  if (!await page.getByLabel('Why it matters').isVisible()) {
+    await page.getByRole('button', { name: 'Recall Pin reference' }).click();
+  }
   await expect(page.getByLabel('Why it matters')).toHaveValue('Keep this draft through retry.');
   await page.unroute(`**/api/projects/${projectId}/references`);
   await page.getByRole('button', { name: 'Pin to board', exact: true }).dblclick();

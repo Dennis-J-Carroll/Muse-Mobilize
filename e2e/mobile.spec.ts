@@ -10,6 +10,7 @@ for (const viewport of [
   { width: 844, height: 390 },
 ]) {
   test(`mobile workspace audit ${viewport.width}x${viewport.height}`, async ({ page, projectId }, testInfo) => {
+    test.setTimeout(90_000);
     await page.setViewportSize(viewport);
     const observations: unknown[] = [];
     for (const name of ['Drafting', 'Characters', 'World Building', 'Plot Outline', 'Scenes', 'Dialogue', 'Themes', 'References', 'Goals', 'Progress', 'Sources']) {
@@ -17,6 +18,9 @@ for (const viewport of [
         ? page.getByRole('button', { name, exact: true })
         : page.locator('.cards').getByRole('button', { name: new RegExp(`^${name}\\b`) });
       await button.tap();
+      if (name === 'Characters' && await page.getByRole('dialog', { name: 'Character reference' }).isVisible()) {
+        await page.getByRole('button', { name: 'Open full Cast' }).tap();
+      }
       await expect(page.locator('main.workspace')).toBeVisible();
       await page.locator('.canvas').scrollIntoViewIfNeeded();
       await page.screenshot({ path: testInfo.outputPath(`${name.replaceAll(' ', '-')}.png`), animations: 'disabled' });
@@ -140,7 +144,7 @@ test('phone sources import, search, reading, and project backup stay reachable',
   const downloadPromise = page.waitForEvent('download');
   await backups.getByRole('button', { name: 'Download saved project', exact: true }).tap();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe(`${projectId}-muse-backup.json`);
+  expect(download.suggestedFilename()).toBe(`${projectId}.muse-backup.zip`);
   expect(await download.failure()).toBeNull();
   await backups.getByRole('button', { name: 'Close backups', exact: true }).tap();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);

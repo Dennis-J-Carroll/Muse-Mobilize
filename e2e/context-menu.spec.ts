@@ -151,7 +151,9 @@ test('menus stay singular, clamp at viewport edges, and dismiss outside or on re
   expect(projectId).toBeTruthy();
   await page.setViewportSize({ width: 1440, height: 1000 });
   const header = page.locator('.pane-editor .pane-head').first();
+  await header.scrollIntoViewIfNeeded();
   await header.evaluate(element => element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 1438, clientY: 998, button: 2 })));
+  await expect(page.getByRole('menu')).toBeVisible();
   await expectWithinViewport(page);
   expect((await page.getByRole('menu').boundingBox())!.x).toBeGreaterThan(1100);
   await page.screenshot({ path: testInfo.outputPath('pane-menu-desktop.png'), animations: 'disabled' });
@@ -160,7 +162,9 @@ test('menus stay singular, clamp at viewport edges, and dismiss outside or on re
   await expect(page.getByRole('menu', { name: 'Muse actions', exact: true })).toBeVisible();
   await page.setViewportSize({ width: 320, height: 800 });
   await expect(page.getByRole('menu')).toHaveCount(0);
+  await header.scrollIntoViewIfNeeded();
   await header.evaluate(element => element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 319, clientY: 798, button: 2 })));
+  await expect(page.getByRole('menu')).toBeVisible();
   await expectWithinViewport(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
   await page.screenshot({ path: testInfo.outputPath('pane-menu-phone.png'), animations: 'disabled' });

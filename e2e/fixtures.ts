@@ -4,6 +4,16 @@ import { test as base, expect, type Page } from '@playwright/test';
 export { expect };
 export const test = base.extend<{ projectId: string }>({
   projectId: async ({ request, page }, use) => {
+    const archiveJobs = new Set<string>();
+    const observedJobs: Promise<void>[] = [];
+    page.on('response', (response) => {
+      const path = new URL(response.url()).pathname;
+      if (response.request().method() !== 'POST' || !response.ok() ||
+        !(path.endsWith('-jobs') || path === '/api/backup-imports')) return;
+      observedJobs.push(response.json().then((job) => {
+        if (typeof job.id === 'string') archiveJobs.add(job.id);
+      }).catch(() => {}));
+    });
     const { settings } = await (await request.get('/api/settings')).json();
     expect(settings.workspaceRoot).toMatch(/muse-browser-[^/]+\/projects$/);
     expect(settings.defaultProvider).toBe('mock');
@@ -15,9 +25,11 @@ export const test = base.extend<{ projectId: string }>({
     const { project } = await response.json();
     await page.goto('/');
     await page.getByRole('button', { name: 'Project menu' }).click();
-    await page.getByRole('button', { name, exact: true }).click();
+    await page.getByRole('button', { name, exact: true }).dispatchEvent('click');
     await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
     await use(project.id);
+    await Promise.allSettled(observedJobs);
+    await Promise.allSettled([...archiveJobs].map((id) => request.delete(`/api/archive-jobs/${id}`)));
     expect(errors, 'Unexpected browser runtime errors').toEqual([]);
   },
 });

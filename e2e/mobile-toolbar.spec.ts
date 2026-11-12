@@ -33,8 +33,11 @@ test('phone workspace controls form paired rows and empty guidance follows card 
   await page.locator('main.workspace').evaluate((workspace) => workspace.scrollIntoView({ block: 'start' }));
   await page.screenshot({ path: testInfo.outputPath('mobile-toolbar-fixed.png'), animations: 'disabled' });
 
-  const paneClose = page.locator('.pane-tools').getByTitle('Close', { exact: true });
-  while (await paneClose.count()) await paneClose.first().click();
+  const paneMore = page.getByRole('button', { name: /^More actions for/ });
+  while (await paneMore.count()) {
+    await paneMore.first().click();
+    await page.getByRole('menuitem', { name: 'Close view', exact: true }).click();
+  }
   const empty = page.locator('.workspace-empty-message');
   await expect(empty).toContainText('Use the cards above to bring your ideas to life.');
   await page.locator('main.workspace').evaluate((workspace) => workspace.scrollIntoView({ block: 'start' }));

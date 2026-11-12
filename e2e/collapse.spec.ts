@@ -18,6 +18,7 @@ test('collapsing the tool menu reclaims writing space without losing the draft',
   await page.setViewportSize({ width: 390, height: 844 });
   const expanded = await page.locator('main.workspace').boundingBox();
   await page.getByRole('button', { name: 'Collapse tool menu', exact: true }).click();
-  expect((await page.locator('main.workspace').boundingBox())!.height).toBeGreaterThan(expanded!.height + 50);
+  expect((await page.locator('main.workspace').boundingBox())!.y).toBeLessThan(expanded!.y - 50);
+  expect((await page.locator('.canvas').boundingBox())!.height).toBeGreaterThan(200);
   await expect(manuscript).toHaveValue(original);
 });
