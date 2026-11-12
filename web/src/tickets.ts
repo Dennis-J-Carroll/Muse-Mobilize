@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { api } from './api';
 import { useStore } from './store';
-import { useEditHistory } from './editHistory';
 import type { Ticket, TicketDraft, TicketSuggestion } from '../../shared/tickets';
 
 /** Ticket list for the open project, shared by the Tickets pane and Muse replies. */
@@ -121,9 +120,4 @@ export async function detachReturn(ticket: Ticket, sourceId: string) {
 
 useStore.subscribe((state, previous) => {
   if (state.project?.id !== previous.project?.id) useTickets.setState({ projectId: null, tickets: [], loading: false });
-});
-
-// Saved-change Undo/Redo can rewrite tickets.json; reload once restoration finishes.
-useEditHistory.subscribe((state, previous) => {
-  if (previous.restoring && !state.restoring && useTickets.getState().projectId === useStore.getState().project?.id) void loadTickets();
 });

@@ -75,6 +75,14 @@ test('source gate: Muse reads the whole source, suggests a ticket the writer acc
   await expect(conversation.locator('.run-text').getByText(/Muse \(mock\) on your returned file “lorne-notebook”/)).toBeVisible();
   expect(asks[2].focus).toEqual({ ticketId: saved[0].id });
   await expect.poll(async () => (await (await request.get(`/api/projects/${projectId}/tickets`)).json()).tickets[0].log.length).toBe(1);
+
+  // Ticket writes stay out of saved-change history, so Undo still works after them (here: the returned file's import).
+  await page.keyboard.press('Escape');
+  await expect(conversation).toBeHidden();
+  await page.getByRole('button', { name: 'Undo saved change', exact: true }).click();
+  await expect.poll(async () => (await (await request.get(`/api/projects/${projectId}/sources`)).json()).sources.map((x: { title: string }) => x.title)).not.toContain('lorne-notebook');
+  await expect(page.getByText(/changed elsewhere/)).toHaveCount(0);
+  expect((await (await request.get(`/api/projects/${projectId}/tickets`)).json()).tickets[0].log).toHaveLength(1);
 });
 
 test('tickets: writer creates, edits, filters and deletes; returned files stay in Sources', async ({ page, request, projectId }) => {

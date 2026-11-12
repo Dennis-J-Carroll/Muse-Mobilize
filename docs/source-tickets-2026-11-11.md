@@ -117,3 +117,11 @@ run is stateless, so a thread cannot be carried across visits.
   moves it to "returned"; "closed" is manual.
 - Source focus stays attached across questions until removed; a ticket
   focus likewise.
+- Tickets are not part of saved-change Undo/Redo: Muse runs append to a
+  ticket's log and export marks it Out outside the undo recorder, which
+  would otherwise make Undo refuse with "changed elsewhere". Ticket edits
+  are made in the ticket editor itself.
+- The focus protocol tells Muse not to consult other agents about the
+  attached material, because they cannot see it.
+- The Share button needs the Web Share API, which browsers only offer on
+  HTTPS or localhost; over plain LAN http only Export appears.
