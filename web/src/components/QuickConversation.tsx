@@ -11,7 +11,7 @@ export function QuickConversation({ pane, contentRef, onPlace }: { pane?: Pane; 
   const request = useConversationView(state => state.current?.request);
   useEffect(() => {
     if (!pane) return;
-    const frame = requestAnimationFrame(() => contentRef.current?.querySelector<HTMLTextAreaElement>('.agent-compose textarea')?.focus({ preventScroll: true }));
+    const frame = requestAnimationFrame(() => contentRef.current?.querySelector<HTMLTextAreaElement>('.compose-row textarea')?.focus({ preventScroll: true }));
     return () => cancelAnimationFrame(frame);
   }, [pane?.id, request, contentRef]);
 

@@ -102,7 +102,7 @@ interface State {
   saveWorkspaceAs: (name: string) => Promise<void>;
 
   setSelection: (sel: Selection | null) => void;
-  ask: (agentId: string, question: string, useSelection: boolean, sharedExcerpt?: string) => Promise<void>;
+  ask: (agentId: string, question: string, useSelection: boolean, sharedExcerpt?: string) => Promise<boolean>;
   acceptPatch: (patch: Patch, override?: string) => Promise<void>;
   rejectPatch: (agentId: string, patch: Patch) => Promise<void>;
   cycleAgentState: (agentId: string) => Promise<void>;
@@ -660,7 +660,7 @@ export const useStore = create<State>((set, get) => ({
 
   async ask(agentId, question, useSelection, sharedExcerpt) {
     const s = get();
-    if (!s.project || s.busy[agentId]) return;
+    if (!s.project || s.busy[agentId]) return false;
     const session = projectSession;
     const current = () => get().project?.id === s.project?.id && projectSession === session;
     const editorPane = s.panes.find((p) => p.type === 'editor' || p.type === 'notes');
@@ -669,7 +669,7 @@ export const useStore = create<State>((set, get) => ({
     try {
       if (s.agents.find((a) => a.id === agentId)?.access && useSelection && s.selection) {
         await get().flushDoc(s.selection.documentId);
-        if (!current()) return;
+        if (!current()) return false;
         const doc = get().docs[s.selection.documentId];
         if (doc?.dirty || doc?.recovery) throw new Error('Save the selected document and resolve recovered drafts before asking.');
       }
@@ -680,10 +680,12 @@ export const useStore = create<State>((set, get) => ({
         question,
         sharedExcerpt,
       });
-      if (!current()) return;
+      if (!current()) return false;
       set({ runs: { ...get().runs, [agentId]: [...(get().runs[agentId] ?? []), run] } });
+      return !run.error;
     } catch (err: any) {
       if (current()) set({ error: err.message });
+      return false;
     } finally {
       if (current()) { set({ busy: { ...get().busy, [agentId]: false } }); await get().refreshEvents(); }
     }

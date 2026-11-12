@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { openFloatingEditor } from '../components/floatingEditors';
+import { DiscussCardButton } from '../components/DiscussCardButton';
+import type { CardSnapshot } from '../cardDiscussion';
 import { DraftRecoveryNotice, useRecoverableDraft } from '../useRecoverableDraft';
 import type { Scene, SceneTheme, ThemeOccurrence } from '../types';
 
@@ -24,6 +26,10 @@ interface ThemeDraft {
   question: string;
   description: string;
 }
+const themeSnapshot = (theme: ThemeDraft, draft = false): CardSnapshot => ({
+  kind: 'Theme', title: theme.name, draft,
+  fields: [['Recurring motif', theme.motif], ['Dramatic question', theme.question], ['Working meaning', theme.description]],
+});
 
 const draftFrom = (theme?: SceneTheme): ThemeDraft => ({
   name: theme?.name ?? '',
@@ -101,6 +107,7 @@ function ThemeDrawer({ theme, onClose }: { theme?: SceneTheme; onClose: () => vo
           </section>
         </div>
         <footer>
+          <DiscussCardButton snapshot={() => themeSnapshot(draft, true)} />
           <span>{saving ? 'Saving theme…' : createdId ? 'Theme created; finishing details.' : ''}</span>
           <button type="button" className="btn" disabled={saving} onClick={() => { recovery.discard(); onClose(); }}>Cancel</button>
           <button className="btn btn-primary" disabled={!draft.name.trim() || saving}>{saving ? 'Saving…' : theme || createdId ? 'Save theme' : 'Add to map'}</button>
@@ -175,7 +182,7 @@ export function ThemesPane() {
             <caption>Theme occurrences across scenes in story order</caption>
             <thead><tr><th scope="col" className="theme-corner"><span>Theme</span><small>motif / question</small></th>{scenes.map((scene, index) => <th scope="col" className="theme-scene-head" key={scene.id}><small>{String(index + 1).padStart(2, '0')} · {scene.section || 'Unsectioned'}</small><span>{scene.title}</span></th>)}</tr></thead>
             <tbody>{themes.map((theme) => <tr key={theme.id}>
-              <th scope="row" className="theme-identity"><button type="button" aria-label={`Edit theme ${theme.name}`} onClick={() => openDrawer(theme)}><strong>{theme.name}</strong>{theme.motif && <span>{theme.motif}</span>}{theme.question && <small>{theme.question}</small>}{!theme.motif && !theme.question && <small>Add motif or question</small>}</button></th>
+              <th scope="row" className="theme-identity"><button type="button" aria-label={`Edit theme ${theme.name}`} onClick={() => openDrawer(theme)}><strong>{theme.name}</strong>{theme.motif && <span>{theme.motif}</span>}{theme.question && <small>{theme.question}</small>}{!theme.motif && !theme.question && <small>Add motif or question</small>}</button><DiscussCardButton snapshot={() => themeSnapshot(draftFrom(theme))} /></th>
               {scenes.map((scene) => {
                 const current = occurrenceFor(scene, theme.id);
                 const next = nextOccurrence(current);

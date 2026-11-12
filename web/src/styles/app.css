@@ -1181,6 +1181,9 @@ input, textarea, select { font-family: var(--font-ui); }
   width: min(900px, 100%); height: min(720px, calc(100vh - 48px)); max-height: none;
   padding: 0; overflow: hidden; display: flex; flex-direction: column;
 }
+.settings-modal.trial-settings-modal {
+  width: min(560px, 100%); height: auto; max-height: 86dvh; overflow-y: auto;
+}
 .settings-head {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;
   padding: 22px 26px 18px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.68);

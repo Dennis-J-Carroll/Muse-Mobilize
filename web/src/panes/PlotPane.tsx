@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { ImageGalleryEditor, StoryImageStrip } from '../components/ImageGalleryEditor';
 import { openFloatingEditor } from '../components/floatingEditors';
+import { openConversation } from '../conversationView';
+import { DiscussCardButton } from '../components/DiscussCardButton';
+import type { CardSnapshot } from '../cardDiscussion';
 import { DraftRecoveryNotice, useRecoverableDraft } from '../useRecoverableDraft';
 import type {
   CanonEntity, Pane, PlotEdgeRelation, PlotNode, PlotNodeKind, PlotWorldRef, PlotWorldRole, StoryImage,
@@ -23,6 +26,12 @@ const ROLE_LABEL: Record<PlotWorldRole, string> = {
 };
 
 const emptyDetails = (): PlotNode['details'] => ({ goal: '', conflict: '', stakes: '', outcome: '', notes: '' });
+const plotSnapshot = (node: Pick<PlotNode, 'title' | 'kind' | 'section' | 'summary' | 'details'>, draft = false): CardSnapshot => ({
+  kind: 'Plot', title: node.title, draft,
+  fields: [['Kind', node.kind], ['Section', node.section], ['Summary', node.summary],
+    ['Goal', node.details.goal], ['Conflict', node.details.conflict], ['Stakes', node.details.stakes],
+    ['Outcome', node.details.outcome], ['Notes', node.details.notes]],
+});
 
 function edgePath(from: Point, to: Point): string {
   const direction = to.x >= from.x ? 1 : -1;
@@ -127,7 +136,7 @@ function PlotDrawer({
             </div>
           </section>
         </div>
-        <footer><button type="button" className="btn" onClick={() => { recovery.discard(); close(); }} disabled={uploadingImages}>Cancel</button><button className="btn btn-primary" disabled={!title.trim() || uploadingImages}>{uploadingImages ? 'Adding images…' : node ? 'Save folio' : 'Add to through-line'}</button></footer>
+        <footer><DiscussCardButton snapshot={() => plotSnapshot(recovery.draft, true)} /><button type="button" className="btn" onClick={() => { recovery.discard(); close(); }} disabled={uploadingImages}>Cancel</button><button className="btn btn-primary" disabled={!title.trim() || uploadingImages}>{uploadingImages ? 'Adding images…' : node ? 'Save folio' : 'Add to through-line'}</button></footer>
       </form>
   );
 }
@@ -250,8 +259,7 @@ export function PlotPane({ pane }: { pane: Pane }) {
   };
 
   const openArchitect = () => {
-    useStore.getState().setPaneSize(pane.id, 'normal');
-    useStore.getState().openPane('agent', { bindingId: 'architect', region: 'right' });
+    openConversation('architect');
   };
 
   const toggleExpanded = (nodeId: string) => setExpanded((current) => {
@@ -331,7 +339,7 @@ export function PlotPane({ pane }: { pane: Pane }) {
           <section className="plot-connections"><h3>Story threads <span>{selectedEdges.length}</span></h3>{selectedEdges.length ? selectedEdges.map((edge) => { const outward = edge.from === selected.id; const other = nodes.find((node) => node.id === (outward ? edge.to : edge.from)); const editing = edgeEdit?.id === edge.id; return <div className={`plot-connection-row ${editing ? 'is-editing' : ''}`} key={edge.id}><button className="plot-connection-jump" onClick={() => { if (other) { setSelectedId(other.id); centerNode(other.id); } }}><i className={`relation-${edge.relation}`} /><span>{outward ? 'to' : 'from'} · {edge.relation}</span><strong>{other?.title ?? 'Missing beat'}</strong><em>{edge.label || 'No path text'}</em></button><button className="plot-connection-edit" aria-label={`Edit thread to ${other?.title ?? 'missing beat'}`} onClick={() => setEdgeEdit({ id: edge.id, relation: edge.relation, label: edge.label })}>{editing ? 'Editing' : 'Edit text'}</button>{editing && <form className="plot-edge-edit" onSubmit={saveEdge}><select aria-label="Thread type" value={edgeEdit.relation} onChange={(event) => setEdgeEdit({ ...edgeEdit, relation: event.target.value as PlotEdgeRelation })}>{EDGE_RELATIONS.map((relation) => <option key={relation} value={relation}>{relation}</option>)}</select><input aria-label="Thread text" autoFocus value={edgeEdit.label} onChange={(event) => setEdgeEdit({ ...edgeEdit, label: event.target.value })} placeholder="e.g. quiet path" /><div><button type="button" className="linkish" onClick={() => setEdgeEdit(null)}>Cancel</button><button className="btn btn-primary">Save thread</button></div></form>}</div>; }) : <p>No connected beats yet.</p>}</section>
           {nodes.length > 1 && <form className="plot-connect" onSubmit={connect}><h3>Draw story thread</h3><select aria-label="Connection type" value={edgeRelation} onChange={(event) => setEdgeRelation(event.target.value as PlotEdgeRelation)}>{EDGE_RELATIONS.map((relation) => <option key={relation} value={relation}>{relation}</option>)}</select><select aria-label="Connection target" value={edgeTarget} onChange={(event) => setEdgeTarget(event.target.value)}><option value="">Choose next beat</option>{nodes.filter((node) => node.id !== selected.id).map((node) => <option key={node.id} value={node.id}>{node.title}</option>)}</select><input aria-label="Connection label" value={edgeLabel} onChange={(event) => setEdgeLabel(event.target.value)} placeholder="optional path label" /><button className="btn" disabled={!edgeTarget}>Connect</button></form>}
         </div>
-        <footer>{selected.documentId && documents.some((document) => document.id === selected.documentId) && <button className="btn" onClick={() => openDocument(selected.documentId!)}>Open bound page</button>}<button className="btn" onClick={() => openDrawer(selected.position, selected)}>Edit folio</button>{agents.some((agent) => agent.id === 'architect') && <button className="linkish" onClick={openArchitect}>ask Architect</button>}</footer>
+        <footer><DiscussCardButton snapshot={() => plotSnapshot(selected)} />{selected.documentId && documents.some((document) => document.id === selected.documentId) && <button className="btn" onClick={() => openDocument(selected.documentId!)}>Open bound page</button>}<button className="btn" onClick={() => openDrawer(selected.position, selected)}>Edit folio</button>{agents.some((agent) => agent.id === 'architect') && <button className="linkish" onClick={openArchitect}>ask Architect</button>}</footer>
       </aside>}
 
     </div>

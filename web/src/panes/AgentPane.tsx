@@ -6,6 +6,7 @@ import { openProjectTool } from '../components/ProjectTools';
 import { AgentReply, CopyReply } from '../components/AgentReply';
 import { ReplyPlacement } from '../components/ReplyPlacement';
 import { openConversation } from '../conversationView';
+import { CARD_EXCERPT_MAX, useCardDiscussion } from '../cardDiscussion';
 
 // A fresh [] from a selector makes useSyncExternalStore re-render forever.
 const NO_RUNS: AgentRun[] = [];
@@ -103,13 +104,19 @@ export function AgentPane({ pane }: { pane: Pane }) {
   const selection = useStore((s) => s.selection);
   const [q, setQ] = useState('');
   const [useSel, setUseSel] = useState(true);
+  const pending = useCardDiscussion(s => s.current);
+  const projectId = useStore(s => s.project?.id);
+  const attachment = pending && pending.projectId === projectId && pending.agentId === agentId ? pending : null;
 
   if (!agent) return <div className="pane-body pane-loading">Agent not found.</div>;
 
-  const send = () => {
-    const question = q.trim() || 'Read this passage and tell me what you see.';
-    setQ('');
-    void useStore.getState().ask(agentId, question, useSel && Boolean(selection));
+  const send = async () => {
+    if (busy || (attachment && !attachment.text.trim())) return;
+    const question = q.trim() || (attachment ? 'Help me develop this card. Distinguish what is on the card from your suggestions.' : 'Read this passage and tell me what you see.');
+    const sent = await useStore.getState().ask(agentId, question, !attachment && useSel && Boolean(selection), attachment?.text);
+    if (!sent || useStore.getState().project?.id !== projectId) return;
+    setQ(current => current === q ? '' : current);
+    if (attachment && useCardDiscussion.getState().current?.id === attachment.id) useCardDiscussion.setState({ current: null });
   };
 
   return (
@@ -146,10 +153,17 @@ export function AgentPane({ pane }: { pane: Pane }) {
       </div>
 
       <div className="agent-compose">
+        {attachment && <section className="card-discussion" aria-label="Card to discuss">
+          <div><strong>{attachment.title}</strong><button type="button" className="linkish" disabled={busy} onClick={() => useCardDiscussion.setState({ current: null })}>Remove attachment</button></div>
+          <p>Review this snapshot before sending. Shared for this question alongside Muse’s usual context. Linked records and images are excluded.</p>
+          {attachment.trimmed && <p role="status">Long card: first 12,000 characters included. Edit to choose what matters.</p>}
+          <label>Card excerpt to share<textarea rows={4} maxLength={CARD_EXCERPT_MAX} value={attachment.text} disabled={busy} onChange={event => useCardDiscussion.setState({ current: { ...attachment, text: event.target.value } })} /></label>
+        </section>}
+        {!attachment &&
         <label className={`sel-toggle ${selection ? '' : 'is-off'}`}>
           <input type="checkbox" checked={useSel && Boolean(selection)} disabled={!selection} onChange={(e) => setUseSel(e.target.checked)} />
           attach selection{selection ? ` (${selection.text.split(/\s+/).filter(Boolean).length}w)` : ''}{agent.access ? ' · assignments apply' : ''}
-        </label>
+        </label>}
         <div className="compose-row">
           <textarea
             rows={2}
@@ -158,10 +172,10 @@ export function AgentPane({ pane }: { pane: Pane }) {
             placeholder={`Ask ${agent.name}…`}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send();
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void send(); }
             }}
           />
-          <button className="btn btn-primary" disabled={busy} onClick={send}>
+          <button className="btn btn-primary" disabled={busy || Boolean(attachment && !attachment.text.trim())} onClick={() => void send()}>
             {busy ? '…' : 'Ask'}
           </button>
         </div>

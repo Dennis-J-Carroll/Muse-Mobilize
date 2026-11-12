@@ -50,8 +50,11 @@ import { projectResources, resourceInfo } from './project-resources.js';
 import { buildContext } from './context.js';
 import { readBinder, saveBinder, previewBinder, verifyBinderSnapshot, packageBinder } from './binder.js';
 import { applyRecordProposal, previewRecordProposal, RecordProposalError } from './record-proposals.js';
+import { trialGuard, trialEnabled } from './trial.js';
 
 const app = express();
+app.use(trialGuard);
+if (trialEnabled()) await readSettings(); // Fail closed before listening if isolation is missing.
 const archiveJobs = new ArchiveJobs(path.join(CONFIG_DIR, 'archive-jobs'));
 registerArchiveRoutes(app, archiveJobs, { projectDir, workspaceRoot });
 
@@ -124,7 +127,7 @@ app.post('/api/projects/:id/assets/media', express.json({ limit: '34mb' }), wrap
 }));
 app.use(express.json({ limit: '8mb' }));
 
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.get('/api/health', (_req, res) => res.json({ ok: true, ...(process.env.MUSE_INSTANCE_ID ? { instance: process.env.MUSE_INSTANCE_ID } : {}) }));
 
 /* ---------------------------------------------------------------- settings */
 
@@ -862,6 +865,12 @@ app.get('/api/projects/:id/workspaces', wrap(async (req, res) => res.json({ work
 app.post('/api/projects/:id/workspaces', wrap(async (req, res) => res.json({ workspace: await saveWorkspace(req.params.id, req.body ?? {}) })));
 
 const PORT = Number(process.env.MUSE_PORT ?? 5178);
-app.listen(PORT, () => {
+if (process.env.MUSE_WEB_DIR) {
+  const webRoot = path.resolve(process.env.MUSE_WEB_DIR);
+  app.use('/api', (_req, res) => { res.status(404).json({ error: 'Unknown API route' }); });
+  app.use(express.static(webRoot, { dotfiles: 'deny' }));
+  app.get('*', (_req, res) => res.sendFile(path.join(webRoot, 'index.html')));
+}
+app.listen(PORT, process.env.MUSE_HOST ?? '::', () => {
   console.log(`[muse] project runtime listening on http://localhost:${PORT}`);
 });

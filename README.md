@@ -208,6 +208,15 @@ conversation: unsent questions, replies, and reply controls stay intact. Use
 **Desks → Save desk** to retain the arrangement. Opening chat does not automatically
 share the card you are viewing or broaden the agent's assigned context.
 
+**Discuss this card** on Theme, Character, Scene, and Plot cards opens Muse with
+an editable text snapshot. From an open editor it includes the visible draft,
+even before saving. Review **Card excerpt to share**, edit or remove it, then ask
+your question. Linked records and images are excluded; the excerpt accompanies
+Muse's usual context for that question only. Long cards are visibly trimmed to
+12,000 characters. Failed sends keep the question and excerpt for retry.
+Manuscript selection, Sources search, and Plot's **ask Architect** also open
+foreground conversations without collapsing the work beneath them.
+
 Responses render headings, emphasis, lists, quotes, and code. **Copy response**
 copies the original text. To put useful advice into your project, open **Send to
 project**, choose a destination, edit the excerpt, and select **Preview change**.
@@ -281,6 +290,11 @@ testing, and the separation between project archives and future novel/comic outp
 8. Keep typing. Nothing blocks.
 
 ## Using a real model
+
+To let a trusted person try Muse remotely, use the
+[isolated, email-protected trial](docs/sharing-trial.md). It has separate projects
+and credentials, locked host settings, and bounded AI use. Keep the everyday
+development server private.
 
 Open **Settings** (cloud icon top-right). Fast lane puts common hosted engines first:
 

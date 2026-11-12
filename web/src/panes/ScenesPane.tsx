@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { openFloatingEditor } from '../components/floatingEditors';
+import { DiscussCardButton } from '../components/DiscussCardButton';
+import type { CardSnapshot } from '../cardDiscussion';
 import { DraftRecoveryNotice, useRecoverableDraft } from '../useRecoverableDraft';
 import type { CanonEntity, Pane, PlotNode, Scene, SceneAssetKind, SceneAssetRef, SceneBeat, SceneStatus, SceneTheme } from '../types';
 
@@ -10,6 +12,11 @@ const ASSET_LABEL: Record<SceneAssetKind, string> = { character: 'Character', th
 const ASSET_MARK: Record<SceneAssetKind, string> = { character: '◉', theme: '◇', location: '⌖', plot: '↝' };
 
 type Resource = SceneAssetRef & { label: string; detail: string };
+const sceneSnapshot = (scene: Pick<Scene, 'title' | 'section' | 'status' | 'summary' | 'purpose' | 'beats'>, draft = false): CardSnapshot => ({
+  kind: 'Scene', title: scene.title, draft,
+  fields: [['Section', scene.section], ['Status', scene.status], ['What happens', scene.summary],
+    ['Why this scene exists', scene.purpose], ['Beats', scene.beats.map(beat => `${beat.title}: ${beat.summary}`)]],
+});
 
 function sceneResources(characters: CanonEntity[], locations: CanonEntity[], themes: SceneTheme[], nodes: PlotNode[]): Resource[] {
   return [
@@ -78,7 +85,7 @@ function SceneDrawer({ scene, onClose }: { scene?: Scene; onClose: () => void })
           <button type="button" className="btn" onClick={() => setBeats((current) => [...current, { id: `draft-${Date.now()}`, title: '', summary: '', order: current.length }])}>+ Add beat</button>
         </section>
       </div>
-      <footer><button type="button" className="btn" onClick={() => { recovery.discard(); onClose(); }}>Cancel</button><button className="btn btn-primary" disabled={!title.trim()}>{scene ? 'Save scene' : 'Add to board'}</button></footer>
+      <footer><DiscussCardButton snapshot={() => sceneSnapshot(recovery.draft, true)} /><button type="button" className="btn" onClick={() => { recovery.discard(); onClose(); }}>Cancel</button><button className="btn btn-primary" disabled={!title.trim()}>{scene ? 'Save scene' : 'Add to board'}</button></footer>
     </form>;
 }
 
@@ -152,7 +159,7 @@ export function ScenesPane({ pane }: { pane: Pane }) {
       {sections.map((section) => <section className="scene-section" key={section}><header><span>{section}</span><i /></header>{scenes.filter((scene) => (scene.section || 'Unsectioned') === section).map((scene) => <article key={scene.id} className={`scene-lane ${selectedId === scene.id ? 'is-selected' : ''} ${dragOverId === scene.id ? 'is-drop-target' : ''}`} onClick={() => setSelectedId(scene.id)} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; setDragOverId(scene.id); }} onDragLeave={() => setDragOverId('')} onDrop={(event) => drop(event, scene)}>
         <div className="scene-lane-head"><small>{String(scene.order + 1).padStart(2, '0')} · {scene.status}</small><h3>{scene.title}</h3><p>{scene.purpose || scene.summary || 'Purpose not set.'}</p><div className="scene-asset-chips">{scene.assets.map((asset) => { const resource = resourceMap.get(`${asset.kind}:${asset.refId}`); return <button key={`${asset.kind}:${asset.refId}`} title={`Remove ${resource?.label ?? asset.refId}`} onClick={(event) => { event.stopPropagation(); void useStore.getState().updateScene(scene.id, { assets: scene.assets.filter((item) => item !== asset) }); }}><i>{ASSET_MARK[asset.kind]}</i>{resource?.label ?? 'Missing reference'}<span>×</span></button>; })}<em>Drop story material here</em></div></div>
         <div className="scene-beat-lane">{scene.beats.map((beat, index) => <div className="scene-beat-card" key={beat.id}><small>{String(index + 1).padStart(2, '0')}</small><strong>{beat.title}</strong><p>{beat.summary || 'No change note.'}</p></div>)}{!scene.beats.length && <div className="scene-no-beats">No beats yet</div>}<button className="scene-add-beat" onClick={(event) => { event.stopPropagation(); openDrawer(scene); }}>+ beat</button></div>
-        <div className="scene-lane-actions"><button onClick={(event) => { event.stopPropagation(); openDialogue(scene); }}><b>{scene.dialogue.length}</b> dialogue</button><button onClick={(event) => { event.stopPropagation(); openDrawer(scene); }}>Edit</button></div>
+        <div className="scene-lane-actions"><DiscussCardButton snapshot={() => sceneSnapshot(scene)} /><button onClick={(event) => { event.stopPropagation(); openDialogue(scene); }}><b>{scene.dialogue.length}</b> dialogue</button><button onClick={(event) => { event.stopPropagation(); openDrawer(scene); }}>Edit</button></div>
       </article>)}</section>)}
     </main>
   </div>;

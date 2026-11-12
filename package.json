@@ -15,6 +15,8 @@
     "dev:web": "npm -w web run dev",
     "test": "npm -w server run test",
     "build": "npm -w web run build",
+    "share:setup": "npm run build && node scripts/share-trial.mjs --setup",
+    "share:start": "npm run build && node scripts/share-trial.mjs",
     "test:browser": "playwright test",
     "test:mobilize": "node skills/mobilize/tests/mobilize.test.mjs"
   },

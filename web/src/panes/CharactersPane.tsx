@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { ImageGalleryEditor, StoryImageStrip } from '../components/ImageGalleryEditor';
 import { openFloatingEditor } from '../components/floatingEditors';
+import { DiscussCardButton } from '../components/DiscussCardButton';
+import type { CardSnapshot } from '../cardDiscussion';
 import { DraftRecoveryNotice, useRecoverableDraft } from '../useRecoverableDraft';
 import type {
   CanonEntity,
@@ -50,6 +52,14 @@ interface CharacterDraft {
 }
 
 type CharacterTextField = Exclude<keyof CharacterDraft, 'images'>;
+const characterSnapshot = (draft: CharacterDraft, unsaved = false): CardSnapshot => ({
+  kind: 'Character', title: draft.name, draft: unsaved,
+  fields: [['Aliases', draft.aliases], ['Categories', draft.categories], ['Story function', draft.summary],
+    ['Role', draft.role], ['Pronouns', draft.pronouns], ['Age', draft.age], ['Goals', draft.goals], ['Fears', draft.fears],
+    ['Physical description', draft.physical], ['Distinguishing features', draft.features], ['Clothing', draft.clothing],
+    ['Vision', draft.visionSummary], ['Vision tags', draft.visionTags], ['Audio', draft.audioSummary],
+    ['Audio tags', draft.audioTags], ['Proximity', draft.proximitySummary], ['Proximity tags', draft.proximityTags]],
+});
 
 const blankDraft = (): CharacterDraft => ({
   name: '', aliases: '', categories: 'active cast', summary: '', role: '', pronouns: '', age: '',
@@ -234,7 +244,7 @@ function Drawer({ entity, draft, setDraft, onClose, onCancel, onSave, recovery }
             <ImageGalleryEditor images={draft.images} onChange={(images) => setDraft((current) => ({ ...current, images }))} noun="character" onBusyChange={setUploadingImages} />
           </section>
         </div>
-        <footer><button type="button" className="btn" onClick={onCancel} disabled={saving || uploadingImages}>Cancel</button><button className="btn btn-primary" disabled={!draft.name.trim() || saving || uploadingImages}>{uploadingImages ? 'Adding images…' : saving ? 'Saving…' : entity ? 'Save changes' : 'Add to cast'}</button></footer>
+        <footer><DiscussCardButton snapshot={() => characterSnapshot(draft, true)} /><button type="button" className="btn" onClick={onCancel} disabled={saving || uploadingImages}>Cancel</button><button className="btn btn-primary" disabled={!draft.name.trim() || saving || uploadingImages}>{uploadingImages ? 'Adding images…' : saving ? 'Saving…' : entity ? 'Save changes' : 'Add to cast'}</button></footer>
       </form>
   );
 }
@@ -329,6 +339,7 @@ export function CharactersPane({ pane }: { pane: Pane }) {
               <div><dt>Canon facts</dt><dd>{relatedFacts.length}</dd></div>
             </dl>
             <div className="identity-actions">
+              <DiscussCardButton snapshot={() => characterSnapshot(draftFrom(selected))} />
               <button className="btn btn-primary" onClick={() => openDrawer(selected)}>Edit dossier</button>
               {characterAgent && <button className="btn" onClick={() => { leaveConsultationForWorkspace(); useStore.getState().setPaneSize(pane.id, 'normal'); useStore.getState().openPane('agent', { bindingId: characterAgent.id, region: 'right' }); }}>Speak with {selected.name}</button>}
               <button className="linkish" onClick={() => { leaveConsultationForWorkspace(); useStore.getState().setPaneSize(pane.id, 'normal'); useStore.getState().openPane('canon', { title: 'Canon', region: 'right' }); }}>open canon trail</button>

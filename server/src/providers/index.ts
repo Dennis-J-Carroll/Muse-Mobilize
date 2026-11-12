@@ -7,6 +7,7 @@ import { xaiProvider } from './xai.js';
 import { localModelShelf } from './local-models.js';
 import { readSettings } from '../settings.js';
 import type { ModelProvider } from '../types.js';
+import { trialEnabled, trialProvider, trialSetup, TRIAL_PROVIDERS } from '../trial.js';
 
 /**
  * Models are engines; agents are roles (§5). Nothing above this module knows
@@ -52,6 +53,12 @@ const providerMeta: Record<string, ProviderMeta> = {
 
 /** `default` in an agent file means "whatever the writer chose in Settings". */
 export async function resolveProvider(requested: string): Promise<ModelProvider> {
+  if (trialEnabled()) {
+    const settings = await readSettings();
+    const selected = settings.defaultProvider ?? 'mock';
+    if (requested && requested !== 'default' && requested !== selected) throw new Error(`Trial uses the host's ${selected} connection. Select Default for this agent.`);
+    return trialProvider(providers[selected], settings);
+  }
   if (requested && requested !== 'default' && providers[requested]) return providers[requested];
   const s = await readSettings();
   return providers[s.defaultProvider ?? 'mock'] ?? mockProvider;
@@ -61,6 +68,7 @@ export async function providerStatus() {
   const out = [];
   const configured = await readSettings();
   for (const p of Object.values(providers)) {
+    if (trialEnabled() && (!TRIAL_PROVIDERS.includes(p.id) || (!trialSetup() && p.id !== configured.defaultProvider))) continue;
     let available = false;
     let models: string[] = [];
     try {
@@ -88,6 +96,8 @@ export async function providerStatus() {
 }
 
 export async function testProvider(providerId: string) {
+  if (trialEnabled() && !trialSetup()) throw new Error('Trial connections are managed by the host.');
+  if (trialEnabled() && !TRIAL_PROVIDERS.includes(providerId)) throw new Error('Local services are unavailable in the trial.');
   const provider = providers[providerId];
   if (!provider) throw new Error(`Unknown model provider: ${providerId}`);
   if (!(await provider.available())) throw new Error(`${provider.label} is not configured. Add credentials in Settings first.`);

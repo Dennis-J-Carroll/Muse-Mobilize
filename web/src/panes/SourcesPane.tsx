@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { api } from '../api';
+import { openConversation } from '../conversationView';
 import type { StorySource, SourceClassification, SourceAuthority, SourceSearchHit } from '../sources';
 import * as Icon from '../components/icons';
 
@@ -314,7 +315,7 @@ export function SourcesPane() {
                 <button className="btn" onClick={() => {
                   const muse = useStore.getState().agents.find((agent) => agent.role === 'muse') ?? useStore.getState().agents[0];
                   if (!muse) return;
-                  useStore.getState().openPane('agent', { bindingId: muse.id });
+                  openConversation(muse.id);
                   void useStore.getState().ask(muse.id, `In my Sources I found this passage from “${hit.title}”: “${hit.snippet}” — what does it tell me about: ${hitsFor}?`, false);
                 }}>Ask Muse about this</button>
               </div>

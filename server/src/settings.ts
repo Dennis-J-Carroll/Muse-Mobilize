@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import { CONFIG_DIR, SETTINGS_FILE, DEFAULT_WORKSPACE_ROOT, ensureDir, exists } from './paths.js';
 import type { Settings } from './types.js';
+import { trialEnabled, trialSettings, trialSetup, TRIAL_PROVIDERS } from './trial.js';
 
 const DEFAULTS: Settings = {
   workspaceRoot: DEFAULT_WORKSPACE_ROOT,
@@ -16,7 +17,7 @@ const DEFAULTS: Settings = {
 let cache: Settings | null = null;
 
 export async function readSettings(): Promise<Settings> {
-  if (cache) return cache;
+  if (cache) return trialSettings(cache);
   if (await exists(SETTINGS_FILE)) {
     try {
       const raw = JSON.parse(await fs.readFile(SETTINGS_FILE, 'utf8'));
@@ -27,10 +28,15 @@ export async function readSettings(): Promise<Settings> {
   } else {
     cache = { ...DEFAULTS };
   }
-  return cache!;
+  return trialSettings(cache!);
 }
 
 export async function writeSettings(patch: Partial<Settings>): Promise<Settings> {
+  if (trialEnabled()) {
+    if (!trialSetup()) throw new Error('Trial settings are managed by the host.');
+    if (patch.workspaceRoot !== undefined || patch.ollamaBaseUrl !== undefined || patch.ollamaModel !== undefined) throw new Error('Trial storage and local services are fixed by the host.');
+    if (patch.defaultProvider && !TRIAL_PROVIDERS.includes(patch.defaultProvider)) throw new Error('Choose a hosted provider or offline demo for the trial.');
+  }
   const current = await readSettings();
   const next = { ...current, ...patch };
   await ensureDir(CONFIG_DIR);
@@ -43,6 +49,7 @@ export async function writeSettings(patch: Partial<Settings>): Promise<Settings>
 /** Never send secrets back to the browser — only whether they are set. */
 export function redact(s: Settings) {
   return {
+    ...(trialEnabled() ? { trial: true, trialSetup: trialSetup() } : {}),
     workspaceRoot: s.workspaceRoot,
     anthropicModel: s.anthropicModel,
     anthropicKeySet: Boolean(s.anthropicApiKey),

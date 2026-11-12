@@ -109,6 +109,19 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     }
   };
 
+  if (settings?.trial && !settings.trialSetup) return <div className="modal-backdrop" onMouseDown={onClose}>
+    <div className="modal settings-modal trial-settings-modal" role="dialog" aria-modal="true" aria-labelledby="trial-settings-title" onMouseDown={event => event.stopPropagation()}>
+      <header className="settings-head">
+        <div>
+          <h2 id="trial-settings-title">Trial connection</h2>
+          <p>Your host manages the AI connection and trial folder. You can write, arrange cards, and save projects here.</p>
+          <p>Current engine: {providers.find(provider => provider.id === settings.defaultProvider)?.label ?? settings.defaultProvider}.</p>
+        </div>
+        <button type="button" className="icon-btn settings-close" aria-label="Close settings" onClick={onClose}>×</button>
+      </header>
+    </div>
+  </div>;
+
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
       <div className="modal settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" onMouseDown={(event) => event.stopPropagation()}>
@@ -116,7 +129,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <div>
             <span className="eyebrow">Engine room</span>
             <h2 id="settings-title">Connect models to your writers’ room</h2>
-            <p>Agents keep their roles when engine changes.</p>
+            <p>{settings?.trialSetup ? 'Local trial setup. Add a separate trial key; your everyday settings stay separate.' : 'Agents keep their roles when engine changes.'}</p>
           </div>
           <button type="button" className="icon-btn settings-close" aria-label="Close settings" onClick={onClose}>×</button>
         </header>
@@ -302,7 +315,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 <section className="workspace-setting">
                   <label className="field">
                     <span>Projects folder</span>
-                    <input value={value('workspaceRoot')} onChange={(event) => update('workspaceRoot', event.target.value)} />
+                    <input disabled={settings?.trial} value={value('workspaceRoot')} onChange={(event) => update('workspaceRoot', event.target.value)} />
                   </label>
                   <p>Projects remain plain Markdown, YAML, and JSON.</p>
                 </section>

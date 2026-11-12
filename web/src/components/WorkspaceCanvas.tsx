@@ -340,7 +340,7 @@ export function WorkspaceCanvas() {
     }
     closeConversation(false);
     requestAnimationFrame(() => {
-      document.getElementById(`workspace-${id}`)?.querySelector<HTMLTextAreaElement>('.agent-compose textarea')?.focus({ preventScroll: true });
+      document.getElementById(`workspace-${id}`)?.querySelector<HTMLTextAreaElement>('.compose-row textarea')?.focus({ preventScroll: true });
     });
   };
 

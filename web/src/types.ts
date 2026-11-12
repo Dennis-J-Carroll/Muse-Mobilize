@@ -478,6 +478,8 @@ export type ProviderCheckResult =
   | { ok: false; provider: string; error: string };
 
 export interface SettingsView {
+  trial?: boolean;
+  trialSetup?: boolean;
   workspaceRoot: string;
   anthropicModel?: string;
   anthropicKeySet: boolean;

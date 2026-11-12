@@ -19,6 +19,7 @@ import { caretTop, typewriterScrollTop } from '../typewriter';
 import { PinnedConstraints } from '../components/PinnedConstraints';
 import { rollAll } from '../constraints';
 import { DocumentStatus } from '../components/DocumentStatus';
+import { openConversation } from '../conversationView';
 
 /** Registry so a patch card can point at the exact range inside the draft. */
 export const editorRefs = new Map<string, HTMLTextAreaElement>();
@@ -143,7 +144,7 @@ export function EditorPane({ pane }: { pane: Pane }) {
   const anyBusy = Object.values(busy).some(Boolean);
 
   const askAbout = (agentId: string) => {
-    useStore.getState().openPane('agent', { bindingId: agentId });
+    openConversation(agentId);
     void useStore.getState().ask(agentId, 'Read this selection and tell me what you see.', true);
   };
 
