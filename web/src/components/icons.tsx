@@ -43,3 +43,12 @@ export const TileGrid = ({ size = 16 }) => wrap(<><rect x="3.5" y="3.5" width="7
 export const Cloud = ({ size = 18 }) => wrap(<path d="M7 18h9.5a3.5 3.5 0 0 0 .4-7A5.5 5.5 0 0 0 6.3 9.6 4.2 4.2 0 0 0 7 18Z" />, size);
 export const Spark = ({ size = 16 }) => wrap(<path d="M12 3.5l1.8 4.7 4.7 1.8-4.7 1.8L12 16.5l-1.8-4.7L5.5 10l4.7-1.8L12 3.5Z" />, size);
 export const Arrow = ({ size = 16 }) => wrap(<><path d="M4 12h15" /><path d="M14 7l5 5-5 5" /></>, size);
+/* Card placement: a desk outline with the covered region shaded. */
+const desk = (shade: React.ReactNode, size: number) => wrap(<><rect x="3.5" y="5" width="17" height="14" rx="2" />{shade}</>, size);
+const shade = { fill: 'currentColor', fillOpacity: 0.45, stroke: 'none' };
+export const PlaceLeft = ({ size = 18 }) => desk(<rect x="5" y="6.5" width="6.25" height="11" rx="1" {...shade} />, size);
+export const PlaceRight = ({ size = 18 }) => desk(<rect x="12.75" y="6.5" width="6.25" height="11" rx="1" {...shade} />, size);
+export const PlaceTop = ({ size = 18 }) => desk(<rect x="5" y="6.5" width="14" height="4.75" rx="1" {...shade} />, size);
+export const PlaceBottom = ({ size = 18 }) => desk(<rect x="5" y="12.75" width="14" height="4.75" rx="1" {...shade} />, size);
+export const PlaceFill = ({ size = 18 }) => desk(<rect x="5" y="6.5" width="14" height="11" rx="1" {...shade} />, size);
+export const PlaceSideBySide = ({ size = 18 }) => desk(<><rect x="5" y="6.5" width="4" height="11" rx="1" {...shade} /><rect x="10" y="6.5" width="4" height="11" rx="1" {...shade} /><rect x="15" y="6.5" width="4" height="11" rx="1" {...shade} /></>, size);

@@ -1,3 +1,4 @@
+import type { CardPlacement } from './cardPlacement';
 export type AgentState = 'live' | 'idle' | 'frozen';
 
 export interface DocumentMeta {
@@ -420,6 +421,8 @@ export interface FloatingPanel {
   height: number;
   docked: boolean;
   slot: number | null;
+  /** The snap the card was last put in; cleared when it is dragged or resized by hand. */
+  placement?: CardPlacement | 'side-by-side';
 }
 
 export interface WorkspaceDef {

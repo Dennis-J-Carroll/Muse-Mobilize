@@ -325,7 +325,12 @@ app.get('/api/projects', wrap(async (_req, res) => res.json({ projects: await li
 
 app.post('/api/projects', wrap(async (req, res) => {
   const name = String(req.body?.name ?? '').trim() || 'Untitled Story';
-  res.json({ project: await createProject(name) });
+  const idea = String(req.body?.idea ?? '').trim();
+  if (idea.length > PREMISE_WORKING_MAX) {
+    res.status(400).json({ error: 'Idea is longer than 1200 characters.' });
+    return;
+  }
+  res.json({ project: await createProject(name, idea) });
 }));
 
 app.post('/api/projects/:id/assets/images', wrap(async (req, res) => {
