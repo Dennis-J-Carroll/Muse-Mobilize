@@ -61,8 +61,10 @@ test('saved character and scene cards exclude linked material; removal and proje
   await expect(excerpt).not.toHaveValue(/Linked secret character|Private linked summary/);
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Project menu' }).click();
-  page.once('dialog', dialog => dialog.accept(`Discussion switch ${projectId}`));
   await page.getByRole('button', { name: 'New Project', exact: true }).click();
+  const newStory = page.getByRole('dialog', { name: 'New story' });
+  await newStory.getByLabel('Story name (optional)').fill(`Discussion switch ${projectId}`);
+  await newStory.getByRole('button', { name: 'Start writing' }).click();
   await expect(page.getByRole('heading', { name: `Discussion switch ${projectId}`, exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Open Muse conversation', exact: true }).click();
   await expect(excerpt).toHaveCount(0);
